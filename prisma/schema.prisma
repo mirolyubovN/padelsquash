@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  customer
+  coach
+  admin
+}
+
+enum Sport {
+  padel
+  squash
+}
+
+enum BookingStatus {
+  pending_payment
+  confirmed
+  cancelled
+  completed
+  no_show
+}
+
+enum BookingResourceType {
+  court
+  instructor
+}
+
+enum ScheduleResourceType {
+  venue
+  court
+  instructor
+}
+
+enum ScheduleExceptionType {
+  closed
+  maintenance
+}
+
+enum PriceComponentType {
+  court
+  instructor
+}
+
+enum PricingPeriod {
+  morning
+  day
+  evening_weekend
+}
+
+enum PaymentProvider {
+  placeholder
+  kaspi
+  freedom
+  manual
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+  failed
+  refunded
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String
+  passwordHash String
+  role         UserRole @default(customer)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  bookings Booking[] @relation("CustomerBookings")
+}
+
+model Court {
+  id        String   @id @default(cuid())
+  name      String
+  sport     Sport
+  active    Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Instructor {
+  id                  String   @id @default(cuid())
+  name                String
+  sport               Sport
+  bio                 String?
+  priceMorning        Decimal  @db.Decimal(10, 2)
+  priceDay            Decimal  @db.Decimal(10, 2)
+  priceEveningWeekend Decimal  @db.Decimal(10, 2)
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Service {
+  id                 String   @id @default(cuid())
+  code               String   @unique
+  name               String
+  sport              Sport
+  requiresCourt      Boolean  @default(true)
+  requiresInstructor Boolean  @default(false)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  bookings Booking[]
+}
+
+model OpeningHour {
+  id        String   @id @default(cuid())
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  active    Boolean  @default(true)
+
+  @@unique([dayOfWeek])
+  @@index([active])
+}
+
+model ResourceSchedule {
+  id           String   @id @default(cuid())
+  resourceType ScheduleResourceType
+  resourceId   String
+  dayOfWeek    Int
+  startTime    String
+  endTime      String
+  active       Boolean  @default(true)
+
+  @@index([resourceType, resourceId])
+  @@index([dayOfWeek, active])
+}
+
+model ScheduleException {
+  id           String                @id @default(cuid())
+  resourceType ScheduleResourceType
+  resourceId   String?
+  date         DateTime
+  startTime    String
+  endTime      String
+  type         ScheduleExceptionType
+  note         String?
+
+  @@index([resourceType, resourceId, date])
+  @@index([date])
+}
+
+model Booking {
+  id                   String        @id @default(cuid())
+  customerId           String
+  serviceId            String
+  startAt              DateTime
+  endAt                DateTime
+  status               BookingStatus
+  currency             String        @default("KZT")
+  priceTotal           Decimal       @db.Decimal(10, 2)
+  pricingBreakdownJson Json
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  customer  User              @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Restrict)
+  service   Service           @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  resources BookingResource[]
+  payment   Payment?
+
+  @@index([startAt, endAt, status])
+  @@index([customerId, createdAt])
+  @@index([serviceId, startAt])
+}
+
+model BookingResource {
+  id           String              @id @default(cuid())
+  bookingId     String
+  resourceType  BookingResourceType
+  resourceId    String
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([resourceType, resourceId])
+  @@index([bookingId])
+}
+
+model ComponentPrice {
+  id            String            @id @default(cuid())
+  sport         Sport
+  componentType PriceComponentType
+  period        PricingPeriod
+  currency      String            @default("KZT")
+  amount        Decimal           @db.Decimal(10, 2)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([sport, componentType, period, currency])
+  @@index([sport, period])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  bookingId         String        @unique
+  provider          PaymentProvider
+  status            PaymentStatus
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("KZT")
+  providerPaymentId String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([provider, status])
+}

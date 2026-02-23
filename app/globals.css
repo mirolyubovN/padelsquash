@@ -1,26 +1,1186 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f1ea;
+  --foreground: #172327;
+  --surface: #fffdf8;
+  --surface-strong: #10252e;
+  --accent: #d35e2c;
+  --accent-soft: #efc39a;
+  --line: #d8cfbf;
+  --muted: #607178;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-plex-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-manrope), sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.site-frame {
+  @apply min-h-screen;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(239, 195, 154, 0.35), transparent 46%),
+    radial-gradient(circle at 88% 10%, rgba(211, 94, 44, 0.12), transparent 40%),
+    var(--background);
+}
+
+.site-shell {
+  @apply mx-auto w-full max-w-6xl px-4;
+}
+
+.site-main {
+  @apply py-8;
+}
+
+.site-main__inner {
+  @apply flex flex-col gap-10;
+}
+
+.site-header {
+  @apply sticky top-0 z-40 border-b backdrop-blur;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(244, 241, 234, 0.9);
+}
+
+.site-header__inner {
+  @apply flex items-center gap-4 py-4;
+}
+
+.site-header__brand {
+  @apply mr-auto flex items-center gap-3;
+}
+
+.site-header__brand-mark {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold;
+  background-color: var(--surface-strong);
+  color: #f6efe5;
+}
+
+.site-header__brand-text {
+  @apply text-sm font-semibold tracking-tight;
+}
+
+.site-header__nav {
+  @apply hidden md:block;
+}
+
+.site-header__nav-list {
+  @apply flex items-center gap-2;
+}
+
+.site-header__nav-item {
+  @apply list-none;
+}
+
+.site-header__nav-link {
+  @apply rounded-full px-3 py-2 text-sm transition-colors;
+  color: var(--muted);
+}
+
+.site-header__nav-link:hover {
+  @apply text-foreground;
+  background-color: rgba(16, 37, 46, 0.06);
+}
+
+.site-header__cta {
+  @apply rounded-full px-4 py-2 text-sm font-semibold transition-colors;
+  background-color: var(--accent);
+  color: #fff7ef;
+}
+
+.site-header__cta:hover {
+  background-color: #b84f24;
+}
+
+.site-footer {
+  @apply mt-12 border-t py-10;
+  border-color: rgba(23, 35, 39, 0.1);
+}
+
+.site-footer__inner {
+  @apply grid gap-6 md:grid-cols-3;
+}
+
+.site-footer__title {
+  @apply text-lg font-semibold;
+}
+
+.site-footer__heading {
+  @apply text-sm font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.site-footer__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.site-footer__list {
+  @apply mt-2 flex flex-col gap-2;
+}
+
+.site-footer__list-item {
+  @apply list-none;
+}
+
+.site-footer__link {
+  @apply text-sm transition-colors;
+  color: var(--foreground);
+}
+
+.site-footer__link:hover {
+  color: var(--accent);
+}
+
+.site-footer__admin-links {
+  @apply mt-3 flex flex-col gap-2;
+}
+
+.page-hero {
+  @apply flex flex-col gap-3 rounded-3xl border p-6 md:p-8;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.page-hero__eyebrow {
+  @apply text-xs font-semibold uppercase tracking-[0.18em];
+  color: var(--accent);
+}
+
+.page-hero__title {
+  @apply text-3xl font-semibold leading-tight md:text-5xl;
+}
+
+.page-hero__description {
+  @apply max-w-3xl text-base leading-7 md:text-lg;
+  color: var(--muted);
+}
+
+.home-page {
+  @apply flex flex-col gap-8;
+}
+
+.home-page__hero-panel {
+  @apply grid gap-4 lg:grid-cols-[1.3fr_0.7fr];
+}
+
+.home-page__hero-copy {
+  @apply rounded-3xl border p-6 md:p-8;
+  border-color: rgba(23, 35, 39, 0.08);
+  background:
+    linear-gradient(145deg, rgba(255, 253, 248, 0.94), rgba(244, 233, 215, 0.8));
+}
+
+.home-page__lead {
+  @apply text-lg leading-8 md:text-xl;
+}
+
+.home-page__actions {
+  @apply mt-6 flex flex-col gap-3 sm:flex-row;
+}
+
+.home-page__primary-button {
+  @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold;
+  background-color: var(--surface-strong);
+  color: #f6efe5;
+}
+
+.home-page__secondary-button {
+  @apply inline-flex items-center justify-center rounded-full border px-5 py-3 text-sm font-semibold;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.home-page__stats {
+  @apply mt-8 grid gap-3 sm:grid-cols-3;
+}
+
+.home-page__stat {
+  @apply flex list-none flex-col rounded-2xl border p-4;
+  border-color: rgba(16, 37, 46, 0.09);
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+.home-page__stat-value {
+  @apply text-xl font-semibold;
+}
+
+.home-page__stat-label {
+  @apply text-sm;
+  color: var(--muted);
+}
+
+.home-page__hero-card {
+  @apply rounded-3xl p-6 text-sm md:p-8;
+  background-color: var(--surface-strong);
+  color: #e9e1d5;
+}
+
+.home-page__hero-card-title {
+  @apply text-base font-semibold;
+}
+
+.home-page__hero-card-list {
+  @apply mt-4 flex flex-col gap-3;
+}
+
+.home-page__hero-card-item {
+  @apply list-none rounded-xl border px-3 py-2;
+  border-color: rgba(255, 255, 255, 0.09);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.feature-grid {
+  @apply flex flex-col gap-4;
+}
+
+.feature-grid__title {
+  @apply text-2xl font-semibold;
+}
+
+.feature-grid__list {
+  @apply grid gap-4 md:grid-cols-3;
+}
+
+.feature-grid__item {
+  @apply rounded-2xl border p-5;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.85);
+}
+
+.feature-grid__item-title {
+  @apply text-base font-semibold;
+}
+
+.feature-grid__item-text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.booking-preview {
+  @apply grid gap-5 rounded-3xl border p-6 md:grid-cols-[0.95fr_1.05fr] md:p-8;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.booking-preview__eyebrow {
+  @apply text-xs font-semibold uppercase tracking-[0.18em];
+  color: var(--accent);
+}
+
+.booking-preview__title {
+  @apply mt-2 text-2xl font-semibold;
+}
+
+.booking-preview__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.booking-preview__panel {
+  @apply rounded-2xl border p-4;
+  border-color: rgba(16, 37, 46, 0.1);
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.booking-preview__group {
+  @apply flex flex-col gap-2;
+}
+
+.booking-preview__row {
+  @apply mt-3 grid gap-3 sm:grid-cols-2;
+}
+
+.booking-preview__label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.booking-preview__field {
+  @apply w-full rounded-xl border px-3 py-2.5 text-sm;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.95);
+}
+
+.booking-preview__slots {
+  @apply mt-4;
+}
+
+.booking-preview__slots-title {
+  @apply text-sm font-semibold;
+}
+
+.booking-preview__slots-list {
+  @apply mt-2 flex flex-wrap gap-2;
+}
+
+.booking-preview__slot {
+  @apply list-none rounded-full px-3 py-1.5 text-xs font-semibold;
+}
+
+.booking-preview__slot--available {
+  background-color: rgba(19, 113, 79, 0.12);
+  color: #115a42;
+}
+
+.booking-preview__slot--busy {
+  background-color: rgba(211, 94, 44, 0.14);
+  color: #8e3919;
+}
+
+.booking-preview__actions {
+  @apply mt-4 flex flex-col gap-3 sm:flex-row;
+}
+
+.booking-preview__button {
+  @apply rounded-xl px-4 py-2.5 text-sm font-semibold;
+  background-color: var(--surface-strong);
+  color: #f6efe5;
+}
+
+.booking-preview__link {
+  @apply inline-flex items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-semibold;
+  border-color: rgba(16, 37, 46, 0.12);
+}
+
+.listing-page,
+.pricing-page,
+.contact-page,
+.booking-page,
+.account-page {
+  @apply flex flex-col gap-6;
+}
+
+.card-grid {
+  @apply grid gap-4 md:grid-cols-2 xl:grid-cols-3;
+}
+
+.card-grid__item {
+  @apply rounded-2xl border p-5;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.card-grid__badge {
+  @apply inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide;
+  background-color: rgba(211, 94, 44, 0.1);
+  color: var(--accent);
+}
+
+.card-grid__title {
+  @apply mt-3 text-lg font-semibold;
+}
+
+.card-grid__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.card-grid__meta {
+  @apply mt-2 text-sm;
+  color: var(--muted);
+}
+
+.tag-list {
+  @apply mt-4 flex flex-wrap gap-2;
+}
+
+.tag-list__item {
+  @apply list-none rounded-full border px-3 py-1 text-xs;
+  border-color: rgba(16, 37, 46, 0.1);
+  color: var(--muted);
+}
+
+.pricing-table {
+  @apply rounded-2xl border p-5;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.88);
+}
+
+.pricing-table__title {
+  @apply text-xl font-semibold;
+}
+
+.pricing-table__scroll {
+  @apply mt-4 overflow-x-auto;
+}
+
+.pricing-table__table {
+  @apply min-w-full border-separate text-left text-sm;
+  border-spacing: 0;
+}
+
+.pricing-table__table th,
+.pricing-table__table td {
+  @apply border-b px-3 py-3 align-top;
+  border-color: rgba(16, 37, 46, 0.08);
+}
+
+.pricing-table__table th {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.rule-list {
+  @apply rounded-2xl border p-5;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.88);
+}
+
+.rule-list__title {
+  @apply text-xl font-semibold;
+}
+
+.rule-list__items {
+  @apply mt-4 flex flex-col gap-2;
+}
+
+.rule-list__item {
+  @apply ml-5 text-sm leading-6;
+}
+
+.rule-list__notes {
+  @apply mt-4 flex flex-col gap-2;
+}
+
+.rule-list__note {
+  @apply list-none rounded-xl border px-4 py-3 text-sm;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+.contact-cards {
+  @apply grid gap-4 md:grid-cols-3;
+}
+
+.contact-card {
+  @apply flex flex-col rounded-2xl border p-5;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.contact-card__title {
+  @apply text-lg font-semibold;
+}
+
+.contact-card__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.contact-card__button {
+  @apply mt-auto inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold;
+  background-color: var(--accent);
+  color: #fff8f2;
+}
+
+.booking-flow {
+  @apply rounded-2xl border p-5;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.booking-flow__title {
+  @apply text-xl font-semibold;
+}
+
+.booking-flow__panel {
+  @apply mt-4 flex flex-col gap-4;
+}
+
+.booking-flow__grid {
+  @apply grid gap-4 md:grid-cols-3;
+}
+
+.booking-flow__group {
+  @apply flex flex-col gap-2;
+}
+
+.booking-flow__label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.booking-flow__field {
+  @apply rounded-xl border px-3 py-2.5 text-sm;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.95);
+}
+
+.booking-flow__status {
+  @apply rounded-xl border p-4;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.booking-flow__status-title {
+  @apply text-sm font-semibold;
+}
+
+.booking-flow__status-list {
+  @apply mt-2 flex flex-wrap gap-2;
+}
+
+.booking-flow__status-item {
+  @apply list-none rounded-full border px-3 py-1 text-xs;
+  border-color: rgba(16, 37, 46, 0.1);
+}
+
+.booking-flow__notice {
+  @apply rounded-xl border px-4 py-3 text-sm leading-6;
+  border-color: rgba(211, 94, 44, 0.12);
+  background-color: rgba(211, 94, 44, 0.06);
+}
+
+.booking-live__actions {
+  @apply flex flex-col gap-3 sm:flex-row sm:items-center;
+}
+
+.booking-live__step {
+  @apply rounded-xl border p-4;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 255, 255, 0.45);
+}
+
+.booking-live__step-title {
+  @apply text-sm font-semibold;
+}
+
+.booking-live__choice-list {
+  @apply mt-3 flex flex-wrap gap-2;
+}
+
+.booking-live__choice-button {
+  @apply rounded-full border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.88);
+}
+
+.booking-live__choice-button--active {
+  border-color: rgba(211, 94, 44, 0.25);
+  background-color: rgba(211, 94, 44, 0.08);
+  color: var(--accent);
+}
+
+.booking-live__date-head {
+  @apply flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between;
+}
+
+.booking-live__date-group {
+  @apply lg:min-w-56;
+}
+
+.booking-live__button {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.booking-live__button--primary {
+  background-color: var(--surface-strong);
+  color: #f6efe5;
+}
+
+.booking-live__button--accent {
+  background-color: var(--accent);
+  color: #fff8f2;
+}
+
+.booking-live__helper {
+  @apply text-sm leading-6;
+  color: var(--muted);
+}
+
+.booking-live__message {
+  @apply rounded-xl border px-4 py-3 text-sm;
+}
+
+.booking-live__message--error {
+  border-color: rgba(211, 94, 44, 0.15);
+  background-color: rgba(211, 94, 44, 0.06);
+  color: #8e3919;
+}
+
+.booking-live__message--success {
+  border-color: rgba(19, 113, 79, 0.14);
+  background-color: rgba(19, 113, 79, 0.06);
+  color: #115a42;
+}
+
+.booking-live__message--warning {
+  border-color: rgba(211, 94, 44, 0.15);
+  background-color: rgba(211, 94, 44, 0.06);
+  color: #8e3919;
+}
+
+.booking-live__availability {
+  @apply mt-3 rounded-xl border p-4;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 255, 255, 0.45);
+}
+
+.booking-live__availability-head {
+  @apply flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between;
+}
+
+.booking-live__availability-title {
+  @apply text-sm font-semibold;
+}
+
+.booking-live__availability-sub {
+  @apply mt-1 text-xs;
+  color: var(--muted);
+}
+
+.booking-live__empty {
+  @apply mt-3 rounded-lg border px-3 py-3 text-sm;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 253, 248, 0.7);
+  color: var(--muted);
+}
+
+.booking-live__slots {
+  @apply mt-4 grid gap-2 sm:grid-cols-2;
+}
+
+.booking-live__court-groups {
+  @apply mt-4 grid gap-3;
+}
+
+.booking-live__court-group {
+  @apply rounded-xl border p-3;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 253, 248, 0.65);
+}
+
+.booking-live__court-header {
+  @apply mb-3 flex items-center justify-between gap-3;
+}
+
+.booking-live__court-title {
+  @apply text-sm font-semibold;
+}
+
+.booking-live__court-id {
+  @apply mt-1 text-[11px];
+  color: var(--muted);
+}
+
+.booking-live__court-count {
+  @apply text-xs;
+  color: var(--muted);
+}
+
+.booking-live__slots-inline {
+  @apply flex flex-wrap gap-2;
+}
+
+.booking-live__trainer-list {
+  @apply mt-3 grid gap-2;
+}
+
+.booking-live__trainer-button {
+  @apply flex w-full flex-col items-start rounded-xl border px-3 py-3 text-left transition-colors;
+  border-color: rgba(16, 37, 46, 0.1);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.booking-live__trainer-button:hover {
+  border-color: rgba(211, 94, 44, 0.2);
+}
+
+.booking-live__trainer-button--selected {
+  border-color: rgba(211, 94, 44, 0.35);
+  background-color: rgba(211, 94, 44, 0.08);
+}
+
+.booking-live__trainer-name {
+  @apply text-sm font-semibold;
+}
+
+.booking-live__trainer-price {
+  @apply mt-1 text-xs leading-5;
+  color: var(--muted);
+}
+
+.booking-live__slot-button {
+  @apply flex min-w-40 flex-col items-start rounded-xl border px-3 py-2.5 text-left transition-colors;
+  border-color: rgba(16, 37, 46, 0.1);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.booking-live__slot-button:hover {
+  border-color: rgba(211, 94, 44, 0.2);
+}
+
+.booking-live__slot-button--selected {
+  border-color: rgba(211, 94, 44, 0.35);
+  background-color: rgba(211, 94, 44, 0.08);
+}
+
+.booking-live__slot-time {
+  @apply text-sm font-semibold;
+}
+
+.booking-live__slot-meta {
+  @apply mt-1 text-xs;
+  color: var(--muted);
+}
+
+.booking-live__customer {
+  @apply rounded-xl border p-4;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 255, 255, 0.45);
+}
+
+.booking-live__section-title {
+  @apply mb-3 text-sm font-semibold;
+}
+
+.booking-live__summary {
+  @apply rounded-xl border p-4;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 253, 248, 0.75);
+}
+
+.booking-live__summary-line {
+  @apply text-sm font-medium;
+}
+
+.booking-live__summary-sub {
+  @apply mt-1 text-xs leading-5;
+  color: var(--muted);
+}
+
+.booking-live__price-breakdown {
+  @apply mt-3 grid gap-2;
+}
+
+.booking-live__price-row {
+  @apply flex items-center justify-between rounded-lg border px-3 py-2 text-sm;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+.booking-live__price-row--total {
+  font-weight: 600;
+  border-color: rgba(211, 94, 44, 0.12);
+  background-color: rgba(211, 94, 44, 0.06);
+}
+
+.booking-live__result-title {
+  @apply text-sm font-semibold;
+}
+
+.booking-live__result-line {
+  @apply mt-2 text-sm leading-6;
+}
+
+.booking-live__links {
+  @apply mt-3 flex flex-wrap gap-2;
+}
+
+.booking-live__link {
+  @apply rounded-lg border px-3 py-2 text-xs font-semibold;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 255, 255, 0.55);
+  color: inherit;
+}
+
+.account-page__cards {
+  @apply grid gap-4 md:grid-cols-2;
+}
+
+.account-shell {
+  @apply flex flex-col gap-4;
+}
+
+.account-shell__toolbar {
+  @apply flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.92);
+}
+
+.account-shell__identity {
+  @apply flex items-center gap-2;
+}
+
+.account-shell__badge {
+  @apply inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide;
+  background-color: rgba(19, 113, 79, 0.1);
+  color: #115a42;
+}
+
+.account-shell__email {
+  @apply text-sm;
+  color: var(--muted);
+}
+
+.account-shell__logout {
+  @apply inline-flex rounded-xl border px-4 py-2 text-sm font-semibold;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.95);
+}
+
+.account-card {
+  @apply rounded-2xl border p-5;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.account-card__title {
+  @apply text-lg font-semibold;
+}
+
+.account-card__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.account-card__link {
+  @apply mt-4 inline-flex rounded-xl border px-4 py-2 text-sm font-semibold;
+  border-color: rgba(16, 37, 46, 0.12);
+}
+
+.account-profile__list {
+  @apply mt-3 grid gap-3;
+}
+
+.account-profile__item {
+  @apply grid gap-1 rounded-xl border p-3;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+.account-profile__label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.account-profile__value {
+  @apply text-sm;
+}
+
+.account-stats {
+  @apply mt-3 grid gap-3;
+}
+
+.account-stats__item {
+  @apply flex items-center justify-between rounded-xl border px-3 py-2.5;
+  border-color: rgba(16, 37, 46, 0.08);
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+.account-stats__label {
+  @apply text-sm;
+  color: var(--muted);
+}
+
+.account-stats__value {
+  @apply text-sm font-semibold;
+}
+
+.account-history {
+  @apply flex flex-col gap-4;
+}
+
+.account-history__message {
+  @apply rounded-xl border px-4 py-3 text-sm;
+}
+
+.account-history__message--error {
+  border-color: rgba(211, 94, 44, 0.15);
+  background-color: rgba(211, 94, 44, 0.06);
+  color: #8e3919;
+}
+
+.account-history__message--success {
+  border-color: rgba(19, 113, 79, 0.14);
+  background-color: rgba(19, 113, 79, 0.06);
+  color: #115a42;
+}
+
+.account-history__cancel-meta {
+  @apply text-xs leading-5;
+  color: var(--muted);
+}
+
+.account-history__empty {
+  @apply rounded-2xl border p-5 text-sm;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.9);
+  color: var(--muted);
+}
+
+.admin-page {
+  @apply flex flex-col gap-5;
+}
+
+.admin-page__header {
+  @apply flex flex-col gap-4 rounded-2xl border p-5 lg:flex-row lg:items-start lg:justify-between;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.92);
+}
+
+.admin-page__eyebrow {
+  @apply text-xs font-semibold uppercase tracking-[0.18em];
+  color: var(--accent);
+}
+
+.admin-page__title {
+  @apply mt-2 text-2xl font-semibold;
+}
+
+.admin-page__description {
+  @apply mt-2 max-w-3xl text-sm leading-6;
+  color: var(--muted);
+}
+
+.admin-page__actions {
+  @apply flex flex-wrap gap-2;
+}
+
+.admin-page__action-link {
+  @apply inline-flex rounded-xl px-4 py-2 text-sm font-semibold;
+  background-color: var(--surface-strong);
+  color: #f6efe5;
+}
+
+.admin-page__content {
+  @apply flex flex-col gap-4;
+}
+
+.admin-link-grid {
+  @apply grid gap-3 md:grid-cols-2 xl:grid-cols-4;
+}
+
+.admin-link-grid__item {
+  @apply rounded-xl border p-4 text-sm font-semibold transition-colors;
+  border-color: rgba(16, 37, 46, 0.1);
+  background-color: rgba(255, 253, 248, 0.92);
+}
+
+.admin-link-grid__item:hover {
+  border-color: rgba(211, 94, 44, 0.2);
+  color: var(--accent);
+}
+
+.admin-table {
+  @apply overflow-x-auto rounded-2xl border;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.9);
+}
+
+.admin-table__table {
+  @apply min-w-full border-separate text-left text-sm;
+  border-spacing: 0;
+}
+
+.admin-table__cell {
+  @apply border-b px-4 py-3 align-top;
+  border-color: rgba(16, 37, 46, 0.06);
+}
+
+.admin-table__cell--head {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.admin-inline-links {
+  @apply flex flex-wrap gap-2;
+}
+
+.admin-inline-links__item {
+  @apply rounded-xl border px-4 py-2 text-sm;
+  border-color: rgba(16, 37, 46, 0.1);
+  background-color: rgba(255, 253, 248, 0.8);
+}
+
+.admin-inline-edit {
+  @apply min-w-28;
+}
+
+.admin-form {
+  @apply flex flex-col gap-4;
+}
+
+.admin-form__label {
+  @apply mb-2 block text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.admin-form__field {
+  @apply w-full rounded-lg border px-3 py-2 text-sm;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.98);
+}
+
+.admin-form__checkbox {
+  @apply inline-flex items-center gap-2 text-sm;
+}
+
+.admin-form__actions {
+  @apply flex flex-wrap gap-2;
+}
+
+.admin-form__submit {
+  @apply inline-flex rounded-xl px-4 py-2 text-sm font-semibold;
+  background-color: var(--surface-strong);
+  color: #f6efe5;
+}
+
+.admin-shell {
+  @apply flex flex-col gap-4;
+}
+
+.admin-shell__toolbar {
+  @apply flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.92);
+}
+
+.admin-shell__identity {
+  @apply flex items-center gap-2;
+}
+
+.admin-shell__badge {
+  @apply inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide;
+  background-color: rgba(211, 94, 44, 0.1);
+  color: var(--accent);
+}
+
+.admin-shell__email {
+  @apply text-sm;
+  color: var(--muted);
+}
+
+.admin-shell__logout {
+  @apply inline-flex rounded-xl border px-4 py-2 text-sm font-semibold;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.95);
+}
+
+.login-page {
+  @apply flex flex-col gap-6;
+}
+
+.auth-panel {
+  @apply flex justify-center;
+}
+
+.auth-panel__box {
+  @apply w-full max-w-xl rounded-2xl border p-5 md:p-6;
+  border-color: rgba(23, 35, 39, 0.08);
+  background-color: rgba(255, 253, 248, 0.92);
+}
+
+.auth-panel__title {
+  @apply text-xl font-semibold;
+}
+
+.auth-panel__hint {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.auth-panel__error {
+  @apply mt-3 rounded-xl border px-4 py-3 text-sm;
+  border-color: rgba(211, 94, 44, 0.15);
+  background-color: rgba(211, 94, 44, 0.06);
+  color: #8e3919;
+}
+
+.auth-panel__links {
+  @apply mt-4 flex flex-wrap gap-2;
+}
+
+.auth-panel__link {
+  @apply rounded-xl border px-4 py-2 text-sm;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.75);
+}
+
+.auth-form {
+  @apply mt-4 flex flex-col gap-4;
+}
+
+.auth-form__group {
+  @apply flex flex-col gap-2;
+}
+
+.auth-form__label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.auth-form__field {
+  @apply w-full rounded-xl border px-3 py-2.5 text-sm;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.98);
+}
+
+.auth-form__submit {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold;
+  background-color: var(--surface-strong);
+  color: #f6efe5;
+}
+
+.admin-bookings__cell-title {
+  @apply text-sm font-medium;
+}
+
+.admin-bookings__cell-sub {
+  @apply mt-1 text-xs;
+  color: var(--muted);
+}
+
+.admin-bookings__chip {
+  @apply inline-flex rounded-full border px-2.5 py-1 text-xs;
+  border-color: rgba(16, 37, 46, 0.1);
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.admin-bookings__chip--muted {
+  color: var(--muted);
+}
+
+.admin-bookings__actions {
+  @apply flex flex-wrap gap-2;
+}
+
+.admin-bookings__action-button {
+  @apply rounded-lg border px-3 py-1.5 text-xs;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 253, 248, 0.92);
+}
+
+.admin-bookings__action-button--primary {
+  border-color: rgba(211, 94, 44, 0.2);
+  background-color: rgba(211, 94, 44, 0.08);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .site-header__cta {
+    @apply hidden;
+  }
 }
