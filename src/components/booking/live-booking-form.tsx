@@ -394,7 +394,7 @@ export function LiveBookingForm({
       return;
     }
     if (!selectedSlot) {
-      setSubmitError("Выберите таймслот.");
+      setSubmitError("Выберите время.");
       return;
     }
     if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
@@ -507,7 +507,7 @@ export function LiveBookingForm({
 
         <div className="booking-live__step">
           <div className="booking-live__date-head">
-            <p className="booking-live__step-title">3. Выберите дату и таймслот (по кортам)</p>
+            <p className="booking-live__step-title">3. Выберите дату и время (по кортам)</p>
             <div className="booking-flow__group booking-live__date-group">
               <label className="booking-flow__label" htmlFor="booking-date-live">
                 Дата
@@ -527,7 +527,7 @@ export function LiveBookingForm({
           {noServiceForChoice ? (
             <div className="booking-live__empty">Сначала выберите доступную услугу.</div>
           ) : availabilityLoading ? (
-            <div className="booking-live__empty">Загружаем таймслоты...</div>
+            <div className="booking-live__empty">Загружаем доступное время...</div>
           ) : availabilityError ? (
             <div className="booking-live__message booking-live__message--error" role="alert">
               {availabilityError}
@@ -548,16 +548,12 @@ export function LiveBookingForm({
                   <p className="booking-live__availability-title">
                     {availability.date}: {availability.service.name}
                   </p>
-                  <p className="booking-live__availability-sub">
-                    Источник: {availability.meta.source}, таймзона: {availability.meta.timezone}
-                  </p>
                 </div>
-                <span className="admin-bookings__chip">{expandedTimeslots.length} таймслотов</span>
               </div>
 
               {timeslotsByCourt.length === 0 ? (
                 <div className="booking-live__empty">
-                  Нет доступных таймслотов на выбранную дату.
+                  Нет доступного времени на выбранную дату.
                   {serviceKind === "training" ? " Проверьте графики тренеров в админке." : ""}
                 </div>
               ) : (
@@ -606,7 +602,7 @@ export function LiveBookingForm({
           <div className="booking-live__step">
             <p className="booking-live__step-title">4. Выберите тренера</p>
             {availableTrainerOptions.length === 0 ? (
-              <div className="booking-live__empty">На этот таймслот нет доступных тренеров.</div>
+              <div className="booking-live__empty">На это время нет доступных тренеров.</div>
             ) : (
               <div className="booking-live__trainer-list">
                 {availableTrainerOptions.map((trainer) => {
