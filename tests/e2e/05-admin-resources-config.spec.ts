@@ -45,13 +45,16 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
   await expect(page.locator("tr").filter({ has: page.getByText(courtName) })).toHaveCount(0);
 
   await page.goto("/admin/instructors");
-  await page.getByLabel("Имя").fill(instructorName);
-  await page.getByLabel("Спорт").selectOption("squash");
-  await page.getByLabel("Описание (опционально)").fill("E2E trainer");
-  await page.getByLabel("Утро (₸)").fill("7001");
-  await page.getByLabel("День (₸)").fill("8002");
-  await page.getByLabel("Вечер/выходные (₸)").fill("9003");
-  await page.getByRole("button", { name: "Добавить тренера" }).click();
+  const createInstructorForm = page
+    .locator("form")
+    .filter({ has: page.getByRole("button", { name: "Добавить тренера" }) })
+    .first();
+  await createInstructorForm.getByLabel("Имя").fill(instructorName);
+  await createInstructorForm.getByRole("checkbox", { name: "Падел" }).uncheck();
+  await createInstructorForm.getByRole("checkbox", { name: "Сквош" }).check();
+  await createInstructorForm.getByLabel("Описание (для страницы тренеров)").fill("E2E trainer");
+  await createInstructorForm.getByLabel("Ставка за час (₸)").fill("9003");
+  await createInstructorForm.getByRole("button", { name: "Добавить тренера" }).click();
   let instructorRow = page.locator("tr").filter({ has: page.getByText(instructorName) }).first();
   await expect(instructorRow).toBeVisible();
   await instructorRow.getByRole("button", { name: "Выключить" }).click();

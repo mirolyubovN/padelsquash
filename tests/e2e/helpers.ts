@@ -145,7 +145,9 @@ export async function bookFirstAvailableTrainingSlot(page: Page, options: {
   });
 
   await pickFirstCourtSlot(page);
-  await expect(page.locator(".booking-live__trainer-button")).toHaveCount(2);
+  const trainerButtons = page.locator(".booking-live__trainer-button");
+  await expect(trainerButtons.first()).toBeVisible();
+  expect(await trainerButtons.count()).toBeGreaterThan(0);
 
   if (options.trainerName) {
     await page.locator(".booking-live__trainer-button", { hasText: options.trainerName }).click();

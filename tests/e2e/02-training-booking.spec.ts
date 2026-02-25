@@ -30,7 +30,9 @@ test("customer can book a training session with trainer selection and trainer-sp
   await pickFirstCourtSlot(page);
 
   const trainerButtons = page.locator(".booking-live__trainer-button");
-  await expect(trainerButtons).toHaveCount(2);
+  await expect(trainerButtons.first()).toBeVisible();
+  const trainerCount = await trainerButtons.count();
+  expect(trainerCount).toBeGreaterThanOrEqual(2);
 
   const firstTrainerText = (await trainerButtons.nth(0).innerText()).trim();
   const secondTrainerText = (await trainerButtons.nth(1).innerText()).trim();

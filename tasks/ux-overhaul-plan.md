@@ -39,11 +39,11 @@ User-requested replacement for the current homepage direction (supersedes recent
 
 ### Instructor Model Correction (2026-02-24)
 
-- [ ] Trainers have one price per hour (no time-tier trainer prices)
-- [ ] Trainers can be linked to multiple sports
-- [ ] Admin trainers page supports editing description, sports, and price
-- [ ] Admin trainer management shows trainer session history
-- [ ] Coaches page uses DB trainer description + multi-sport labels + single trainer price
+- [x] Trainers have one price per hour (no time-tier trainer prices)
+- [x] Trainers can be linked to multiple sports
+- [x] Admin trainers page supports editing description, sports, and price
+- [x] Admin trainer management shows trainer session history
+- [x] Coaches page uses DB trainer description + multi-sport labels + single trainer price
 
 ---
 
