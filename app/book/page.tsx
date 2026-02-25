@@ -23,15 +23,38 @@ interface BookServiceOption {
 interface BookInstructorOption {
   id: string;
   name: string;
-  sport: "padel" | "squash";
-  prices: {
-    morning: number;
-    day: number;
-    evening_weekend: number;
-  };
+  sports: Array<"padel" | "squash">;
+  pricePerHour: number;
 }
 
 type CourtPriceMatrix = Record<"padel" | "squash", Record<"morning" | "day" | "evening_weekend", number>>;
+
+async function getInitialCustomerProfile(userId?: string): Promise<{
+  name?: string;
+  email?: string;
+  phone?: string;
+}> {
+  if (!userId) {
+    return {};
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, phone: true },
+    });
+
+    if (!user) return {};
+
+    return {
+      name: user.name || undefined,
+      email: user.email || undefined,
+      phone: user.phone || undefined,
+    };
+  } catch {
+    return {};
+  }
+}
 
 async function getBookServices(): Promise<BookServiceOption[]> {
   try {
@@ -101,14 +124,12 @@ async function getBookInstructors(): Promise<BookInstructorOption[]> {
   try {
     const rows = await prisma.instructor.findMany({
       where: { active: true },
-      orderBy: [{ sport: "asc" }, { name: "asc" }],
+      orderBy: [{ name: "asc" }],
       select: {
         id: true,
         name: true,
-        sport: true,
-        priceMorning: true,
-        priceDay: true,
-        priceEveningWeekend: true,
+        sports: true,
+        pricePerHour: true,
       },
     });
 
@@ -117,19 +138,13 @@ async function getBookInstructors(): Promise<BookInstructorOption[]> {
         (row: {
           id: string;
           name: string;
-          sport: "padel" | "squash";
-          priceMorning: unknown;
-          priceDay: unknown;
-          priceEveningWeekend: unknown;
+          sports: Array<"padel" | "squash">;
+          pricePerHour: unknown;
         }) => ({
           id: row.id,
           name: row.name,
-          sport: row.sport,
-          prices: {
-            morning: Number(row.priceMorning),
-            day: Number(row.priceDay),
-            evening_weekend: Number(row.priceEveningWeekend),
-          },
+          sports: row.sports,
+          pricePerHour: Number(row.pricePerHour),
         }),
       );
     }
@@ -141,14 +156,14 @@ async function getBookInstructors(): Promise<BookInstructorOption[]> {
     {
       id: "coach-1",
       name: "Тренер Падел (demo)",
-      sport: "padel",
-      prices: { morning: 9000, day: 10000, evening_weekend: 11500 },
+      sports: ["padel"],
+      pricePerHour: 9000,
     },
     {
       id: "coach-2",
       name: "Тренер Сквош (demo)",
-      sport: "squash",
-      prices: { morning: 7000, day: 8000, evening_weekend: 9500 },
+      sports: ["squash"],
+      pricePerHour: 7000,
     },
   ];
 }
@@ -170,8 +185,12 @@ async function getCourtPriceMatrix(): Promise<CourtPriceMatrix> {
         period: "morning" | "day" | "evening_weekend";
         amount: unknown;
       }>) {
-        base[row.sport][row.period] = Number(row.amount);
+        if (row.period !== "day") {
+          base[row.sport][row.period] = Number(row.amount);
+        }
       }
+      base.padel.day = base.padel.morning;
+      base.squash.day = base.squash.morning;
       return base;
     }
   } catch {
@@ -180,19 +199,24 @@ async function getCourtPriceMatrix(): Promise<CourtPriceMatrix> {
 
   for (const item of demoComponentPrices) {
     if (item.componentType === "court" && item.currency === "KZT") {
-      base[item.sport][item.tier] = item.amount;
+      if (item.tier !== "day") {
+        base[item.sport][item.tier] = item.amount;
+      }
     }
   }
+  base.padel.day = base.padel.morning;
+  base.squash.day = base.squash.morning;
   return base;
 }
 
 export default async function BookPage() {
-  const [session, services, courtNames, instructors, courtPrices] = await Promise.all([
-    auth(),
+  const session = await auth();
+  const [services, courtNames, instructors, courtPrices, initialCustomer] = await Promise.all([
     getBookServices(),
     getBookCourtNames(),
     getBookInstructors(),
     getCourtPriceMatrix(),
+    getInitialCustomerProfile(session?.user?.id),
   ]);
 
   return (
@@ -209,11 +233,7 @@ export default async function BookPage() {
         instructors={instructors}
         courtPrices={courtPrices}
         isAuthenticated={Boolean(session?.user?.id)}
-        initialCustomer={{
-          name: session?.user?.name ?? undefined,
-          email: session?.user?.email ?? undefined,
-          phone: undefined,
-        }}
+        initialCustomer={initialCustomer}
       />
 
       <section className="booking-flow" aria-labelledby="booking-notes-title">

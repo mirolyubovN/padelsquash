@@ -9,10 +9,19 @@ import {
   EXCEPTION_TYPE_LABELS,
   getInstructorSchedulePageData,
   getScheduleWeekdayLabel,
+  SPORT_LABELS,
   setInstructorScheduleActive,
 } from "@/src/lib/admin/resources";
 
 export const dynamic = "force-dynamic";
+
+const BOOKING_STATUS_LABELS = {
+  pending_payment: "Ожидает оплаты",
+  confirmed: "Подтверждено",
+  cancelled: "Отменено",
+  completed: "Завершено",
+  no_show: "Неявка",
+} as const;
 
 export default async function AdminInstructorSchedulePage({
   params,
@@ -80,8 +89,29 @@ export default async function AdminInstructorSchedulePage({
   return (
     <AdminPageShell
       title={`График тренера: ${data.instructor.name}`}
-      description="Недельные интервалы доступности тренера и разовые исключения. Все изменения сохраняются в БД."
+      description="Недельные интервалы доступности, разовые исключения и последние сессии тренера."
     >
+      <div className="admin-table">
+        <table className="admin-table__table">
+          <tbody>
+            <tr className="admin-table__row">
+              <td className="admin-table__cell">
+                <strong>Виды спорта:</strong>{" "}
+                {data.instructor.sports.length > 0
+                  ? data.instructor.sports.map((sport) => SPORT_LABELS[sport]).join(", ")
+                  : "—"}
+              </td>
+              <td className="admin-table__cell">
+                <strong>Ставка:</strong> {Number(data.instructor.pricePerHour).toLocaleString("ru-KZ")} ₸ / час
+              </td>
+              <td className="admin-table__cell">
+                <strong>Описание:</strong> {data.instructor.bio ?? "—"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <form action={addScheduleAction} className="admin-form">
         <div className="admin-table">
           <table className="admin-table__table">
@@ -297,6 +327,46 @@ export default async function AdminInstructorSchedulePage({
                       </button>
                     </form>
                   </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="admin-table">
+        <table className="admin-table__table">
+          <thead>
+            <tr className="admin-table__row">
+              <th className="admin-table__cell admin-table__cell--head">Дата</th>
+              <th className="admin-table__cell admin-table__cell--head">Время</th>
+              <th className="admin-table__cell admin-table__cell--head">Услуга</th>
+              <th className="admin-table__cell admin-table__cell--head">Клиент</th>
+              <th className="admin-table__cell admin-table__cell--head">Корт</th>
+              <th className="admin-table__cell admin-table__cell--head">Статус</th>
+              <th className="admin-table__cell admin-table__cell--head">Сумма</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.sessions.length === 0 ? (
+              <tr className="admin-table__row">
+                <td className="admin-table__cell" colSpan={7}>
+                  Сессий по этому тренеру пока нет.
+                </td>
+              </tr>
+            ) : (
+              data.sessions.map((session) => (
+                <tr key={session.id} className="admin-table__row">
+                  <td className="admin-table__cell">{session.date}</td>
+                  <td className="admin-table__cell">{session.time}</td>
+                  <td className="admin-table__cell">{session.serviceName}</td>
+                  <td className="admin-table__cell">
+                    <div className="admin-bookings__cell-title">{session.customerName}</div>
+                    <div className="admin-bookings__cell-sub">{session.customerEmail}</div>
+                  </td>
+                  <td className="admin-table__cell">{session.courtLabel ?? "—"}</td>
+                  <td className="admin-table__cell">{BOOKING_STATUS_LABELS[session.status]}</td>
+                  <td className="admin-table__cell">{session.priceTotal.toLocaleString("ru-KZ")} ₸</td>
                 </tr>
               ))
             )}

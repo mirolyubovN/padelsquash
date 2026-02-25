@@ -12,7 +12,7 @@ The app is now a working local MVP with:
 - admin CRUD for courts/instructors/services/schedules/exceptions/bookings
 - trainer-specific pricing and trainer selection in booking flow
 - hour-based one-hour slots only
-- court rentals require authenticated account
+- all bookings require authenticated account
 
 ## Important Before You Start (Local)
 
@@ -60,8 +60,10 @@ npm run dev
 - Trainer selection + trainer-specific pricing + price preview
 - Nearest available date auto-shift (14 days)
 - Court rentals require login
+- Training bookings now also require login (API auth policy aligned to `/book` UI)
 - Inline trainer price editing in admin
 - Silent demo fallback disabled by default
+- Admin delete actions for courts/instructors/services with history-safe blocking and inline result banners
 
 ## High-Priority Next Tasks (Recommended Order)
 
@@ -213,3 +215,17 @@ Important notes:
 - Public-site copy is now centralized in `src/lib/content/site-content.ts`.
 - `src/lib/demo/hardcoded-data.ts` is now reserved for demo fallback operational data (availability/pricing/services) and no longer mixes marketing copy with fallback logic.
 - Public pages no longer show technical/internal/testing language (e.g. MVP/admin/test instructions) in customer-facing sections.
+
+## Update: Booking Auth Alignment + Admin Delete UX
+
+- `POST /api/bookings` now requires an authenticated account for all booking types (court + training), matching the `/book` account-first flow.
+- Admin resources now support safe deletion with booking-history protection:
+  - courts, instructors, services
+- Admin delete attempts now show inline feedback banners instead of raw server-action failures:
+  - success (`deleted`)
+  - blocked by booking history
+  - generic failure
+
+## Standalone Next Session Prompt
+
+- Copy/paste prompt also available in `docs/next-session-prompt.md`

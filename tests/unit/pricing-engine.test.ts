@@ -20,6 +20,15 @@ const trainingService: ServiceRecord = {
   active: true,
 };
 
+const courtService: ServiceRecord = {
+  id: "padel-court",
+  name: "Аренда корта",
+  sport: "padel",
+  requiresCourt: true,
+  requiresInstructor: false,
+  active: true,
+};
+
 describe("pricing engine", () => {
   it("resolves weekday pricing tiers", () => {
     expect(resolvePricingTier("2026-03-02", "09:00")).toBe("morning"); // Monday
@@ -46,5 +55,20 @@ describe("pricing engine", () => {
     expect(result.courtPrice).toBe(12000);
     expect(result.instructorPrice).toBe(12500);
     expect(result.total).toBe(24500);
+  });
+
+  it("uses morning court price for weekday daytime court bookings", () => {
+    const result = evaluatePricing({
+      service: courtService,
+      bookingDate: "2026-03-02",
+      bookingStartTime: "13:00",
+      durationMin: 60,
+      componentPrices,
+      currency: "KZT",
+    });
+
+    expect(result.tier).toBe("day");
+    expect(result.courtPrice).toBe(12000);
+    expect(result.total).toBe(12000);
   });
 });

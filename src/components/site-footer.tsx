@@ -1,7 +1,12 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import { getPublicPortalLink } from "@/src/lib/auth/public-nav";
 import { navItems, siteConfig } from "@/src/lib/content/site-data";
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const session = await auth();
+  const portalLink = getPublicPortalLink(session);
+
   return (
     <footer className="site-footer">
       <div className="site-shell site-footer__inner">
@@ -13,6 +18,16 @@ export function SiteFooter() {
           <p className="site-footer__text">
             Часовой пояс центра: {siteConfig.timezone}. Цены отображаются в тенге.
           </p>
+          <div className="site-footer__socials">
+            {siteConfig.socialLinks.map((link) => (
+              <Link key={link.label} href={link.href} className="site-footer__social-link" target="_blank" rel="noreferrer">
+                <span className="site-footer__social-icon" aria-hidden="true">
+                  {link.label.slice(0, 2).toUpperCase()}
+                </span>
+                <span>{link.label}</span>
+              </Link>
+            ))}
+          </div>
         </div>
 
         <div className="site-footer__links">
@@ -33,14 +48,23 @@ export function SiteFooter() {
           <p className="site-footer__text">{siteConfig.address}</p>
           <p className="site-footer__text">{siteConfig.phone}</p>
           <p className="site-footer__text">{siteConfig.email}</p>
-          <div className="site-footer__admin-links">
-            <Link href="/account" className="site-footer__link">
-              Личный кабинет
-            </Link>
-            <Link href="/admin" className="site-footer__link">
-              Админ-панель
+          <div className="site-footer__portal-links">
+            <Link href={portalLink.href} className="site-footer__link">
+              {portalLink.label}
             </Link>
           </div>
+        </div>
+      </div>
+      <div className="site-shell site-footer__bottom">
+        <p className="site-footer__copyright">
+          © 2026 {siteConfig.name}. Демо-версия публичного сайта.
+        </p>
+        <div className="site-footer__legal-links">
+          {siteConfig.legalLinks.map((link) => (
+            <Link key={link.label} href={link.href} className="site-footer__link">
+              {link.label}
+            </Link>
+          ))}
         </div>
       </div>
     </footer>

@@ -1,20 +1,34 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   createInstructorFromForm,
+  deleteInstructor,
   getAdminInstructors,
   setInstructorActive,
   SPORT_LABELS,
-  updateInstructorPricingFromForm,
+  updateInstructorFromForm,
 } from "@/src/lib/admin/resources";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminInstructorsPage() {
+export default async function AdminInstructorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>;
+}) {
   await assertAdmin();
+  const params = await searchParams;
   const instructors = await getAdminInstructors();
+  const errorMessage =
+    params.error === "delete_blocked"
+      ? "Тренера нельзя удалить: он уже используется в истории бронирований."
+      : params.error === "delete_failed"
+        ? "Не удалось удалить тренера."
+        : null;
+  const successMessage = params.success === "deleted" ? "Тренер удален." : null;
 
   async function createAction(formData: FormData) {
     "use server";
@@ -23,6 +37,7 @@ export default async function AdminInstructorsPage() {
     revalidatePath("/admin/instructors");
     revalidatePath("/admin/exceptions");
     revalidatePath("/book");
+    revalidatePath("/coaches");
   }
 
   async function toggleActiveAction(formData: FormData) {
@@ -40,21 +55,58 @@ export default async function AdminInstructorsPage() {
     revalidatePath("/admin/instructors");
     revalidatePath("/admin/exceptions");
     revalidatePath("/book");
+    revalidatePath("/coaches");
   }
 
   async function updatePricingAction(formData: FormData) {
     "use server";
     await assertAdmin();
-    await updateInstructorPricingFromForm(formData);
+    await updateInstructorFromForm(formData);
     revalidatePath("/admin/instructors");
     revalidatePath("/book");
+    revalidatePath("/coaches");
+  }
+
+  async function deleteAction(formData: FormData) {
+    "use server";
+    await assertAdmin();
+
+    const instructorId = String(formData.get("instructorId") ?? "");
+    if (!instructorId) {
+      throw new Error("instructorId обязателен");
+    }
+
+    try {
+      await deleteInstructor(instructorId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("истории бронирований")) {
+        redirect("/admin/instructors?error=delete_blocked");
+      }
+      redirect("/admin/instructors?error=delete_failed");
+    }
+
+    revalidatePath("/admin/instructors");
+    revalidatePath("/admin/exceptions");
+    revalidatePath("/book");
+    revalidatePath("/coaches");
+    redirect("/admin/instructors?success=deleted");
   }
 
   return (
     <AdminPageShell
       title="Тренеры"
-      description="Тренеры с привязкой к спорту, индивидуальными ценами по периодам и настройкой графика."
+      description="Тренеры с несколькими видами спорта, описанием, индивидуальной ставкой за час и настройкой графика."
     >
+      {errorMessage ? (
+        <p className="account-history__message account-history__message--error" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+      {successMessage ? (
+        <p className="account-history__message account-history__message--success">{successMessage}</p>
+      ) : null}
+
       <form action={createAction} className="admin-form">
         <div className="admin-table">
           <table className="admin-table__table">
@@ -73,22 +125,21 @@ export default async function AdminInstructorsPage() {
                   />
                 </td>
                 <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="instructor-sport">
-                    Спорт
-                  </label>
-                  <select
-                    id="instructor-sport"
-                    name="sport"
-                    className="admin-form__field"
-                    defaultValue="padel"
-                  >
-                    <option value="padel">Падел</option>
-                    <option value="squash">Сквош</option>
-                  </select>
+                  <label className="admin-form__label">Виды спорта</label>
+                  <div className="admin-inline-checkboxes">
+                    <label className="admin-form__checkbox">
+                      <input name="sports" type="checkbox" value="padel" defaultChecked />
+                      <span>Падел</span>
+                    </label>
+                    <label className="admin-form__checkbox">
+                      <input name="sports" type="checkbox" value="squash" />
+                      <span>Сквош</span>
+                    </label>
+                  </div>
                 </td>
                 <td className="admin-table__cell">
                   <label className="admin-form__label" htmlFor="instructor-bio">
-                    Описание (опционально)
+                    Описание (для страницы тренеров)
                   </label>
                   <input
                     id="instructor-bio"
@@ -98,47 +149,17 @@ export default async function AdminInstructorsPage() {
                   />
                 </td>
                 <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="instructor-price-morning">
-                    Утро (₸)
+                  <label className="admin-form__label" htmlFor="instructor-price-hour">
+                    Ставка за час (₸)
                   </label>
                   <input
-                    id="instructor-price-morning"
-                    name="priceMorning"
-                    type="number"
-                    min="0"
-                    step="1"
-                    className="admin-form__field"
-                    defaultValue={9000}
-                    required
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="instructor-price-day">
-                    День (₸)
-                  </label>
-                  <input
-                    id="instructor-price-day"
-                    name="priceDay"
+                    id="instructor-price-hour"
+                    name="pricePerHour"
                     type="number"
                     min="0"
                     step="1"
                     className="admin-form__field"
                     defaultValue={10000}
-                    required
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="instructor-price-evening">
-                    Вечер/выходные (₸)
-                  </label>
-                  <input
-                    id="instructor-price-evening"
-                    name="priceEveningWeekend"
-                    type="number"
-                    min="0"
-                    step="1"
-                    className="admin-form__field"
-                    defaultValue={11000}
                     required
                   />
                 </td>
@@ -160,18 +181,17 @@ export default async function AdminInstructorsPage() {
           <thead>
             <tr className="admin-table__row">
               <th className="admin-table__cell admin-table__cell--head">Имя</th>
-              <th className="admin-table__cell admin-table__cell--head">Спорт</th>
-              <th className="admin-table__cell admin-table__cell--head">Описание</th>
-              <th className="admin-table__cell admin-table__cell--head">Цены (₸)</th>
+              <th className="admin-table__cell admin-table__cell--head">Виды спорта</th>
+              <th className="admin-table__cell admin-table__cell--head">Описание и ставка (₸)</th>
               <th className="admin-table__cell admin-table__cell--head">Активен</th>
-              <th className="admin-table__cell admin-table__cell--head">График / исключения</th>
+              <th className="admin-table__cell admin-table__cell--head">График / история / исключения</th>
               <th className="admin-table__cell admin-table__cell--head">Действия</th>
             </tr>
           </thead>
           <tbody>
             {instructors.length === 0 ? (
               <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={7}>
+                <td className="admin-table__cell" colSpan={6}>
                   Тренеров пока нет.
                 </td>
               </tr>
@@ -182,58 +202,66 @@ export default async function AdminInstructorsPage() {
                     <div className="admin-bookings__cell-title">{instructor.name}</div>
                     <div className="admin-bookings__cell-sub">{instructor.id}</div>
                   </td>
-                  <td className="admin-table__cell">{SPORT_LABELS[instructor.sport]}</td>
-                  <td className="admin-table__cell">{instructor.bio ?? "—"}</td>
+                  <td className="admin-table__cell">
+                    {instructor.sports.length > 0
+                      ? instructor.sports.map((sport) => SPORT_LABELS[sport]).join(", ")
+                      : "—"}
+                  </td>
                   <td className="admin-table__cell">
                     <form action={updatePricingAction} className="admin-bookings__actions">
                       <input type="hidden" name="instructorId" value={instructor.id} />
                       <div className="admin-inline-edit">
-                        <label className="admin-form__label" htmlFor={`pm-${instructor.id}`}>
-                          Утро
+                        <label className="admin-form__label">Виды спорта</label>
+                        <div className="admin-inline-checkboxes">
+                          <label className="admin-form__checkbox">
+                            <input
+                              name="sports"
+                              type="checkbox"
+                              value="padel"
+                              defaultChecked={instructor.sports.includes("padel")}
+                            />
+                            <span>Падел</span>
+                          </label>
+                          <label className="admin-form__checkbox">
+                            <input
+                              name="sports"
+                              type="checkbox"
+                              value="squash"
+                              defaultChecked={instructor.sports.includes("squash")}
+                            />
+                            <span>Сквош</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div className="admin-inline-edit">
+                        <label className="admin-form__label" htmlFor={`bio-${instructor.id}`}>
+                          Описание
                         </label>
                         <input
-                          id={`pm-${instructor.id}`}
-                          name="priceMorning"
-                          type="number"
-                          min="0"
-                          step="1"
+                          id={`bio-${instructor.id}`}
+                          name="bio"
                           className="admin-form__field"
-                          defaultValue={instructor.priceMorning}
-                          required
+                          defaultValue={instructor.bio ?? ""}
+                          placeholder="Направление, опыт, формат занятий"
                         />
                       </div>
                       <div className="admin-inline-edit">
-                        <label className="admin-form__label" htmlFor={`pd-${instructor.id}`}>
-                          День
+                        <label className="admin-form__label" htmlFor={`pph-${instructor.id}`}>
+                          Ставка за час
                         </label>
                         <input
-                          id={`pd-${instructor.id}`}
-                          name="priceDay"
+                          id={`pph-${instructor.id}`}
+                          name="pricePerHour"
                           type="number"
                           min="0"
                           step="1"
                           className="admin-form__field"
-                          defaultValue={instructor.priceDay}
-                          required
-                        />
-                      </div>
-                      <div className="admin-inline-edit">
-                        <label className="admin-form__label" htmlFor={`pe-${instructor.id}`}>
-                          Вечер
-                        </label>
-                        <input
-                          id={`pe-${instructor.id}`}
-                          name="priceEveningWeekend"
-                          type="number"
-                          min="0"
-                          step="1"
-                          className="admin-form__field"
-                          defaultValue={instructor.priceEveningWeekend}
+                          defaultValue={instructor.pricePerHour}
                           required
                         />
                       </div>
                       <button type="submit" className="admin-bookings__action-button">
-                        Сохранить цены
+                        Сохранить
                       </button>
                     </form>
                   </td>
@@ -249,13 +277,21 @@ export default async function AdminInstructorsPage() {
                     </Link>
                   </td>
                   <td className="admin-table__cell">
-                    <form action={toggleActiveAction} className="admin-bookings__actions">
-                      <input type="hidden" name="instructorId" value={instructor.id} />
-                      <input type="hidden" name="nextActive" value={String(!instructor.active)} />
-                      <button type="submit" className="admin-bookings__action-button">
-                        {instructor.active ? "Выключить" : "Включить"}
-                      </button>
-                    </form>
+                    <div className="admin-bookings__actions">
+                      <form action={toggleActiveAction} className="admin-bookings__actions">
+                        <input type="hidden" name="instructorId" value={instructor.id} />
+                        <input type="hidden" name="nextActive" value={String(!instructor.active)} />
+                        <button type="submit" className="admin-bookings__action-button">
+                          {instructor.active ? "Выключить" : "Включить"}
+                        </button>
+                      </form>
+                      <form action={deleteAction} className="admin-bookings__actions">
+                        <input type="hidden" name="instructorId" value={instructor.id} />
+                        <button type="submit" className="admin-bookings__action-button">
+                          Удалить
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))

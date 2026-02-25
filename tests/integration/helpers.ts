@@ -56,7 +56,7 @@ export async function getSeededPadelCourts(limit = 2) {
 
 export async function getSeededPadelInstructors(limit = 2) {
   const instructors = await prisma.instructor.findMany({
-    where: { active: true, sport: "padel" },
+    where: { active: true, sports: { has: "padel" } },
     orderBy: { name: "asc" },
     take: limit,
   });

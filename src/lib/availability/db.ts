@@ -39,7 +39,7 @@ export async function getAvailabilityContextFromDb(args: {
       select: { id: true },
     }),
     prisma.instructor.findMany({
-      where: { active: true, sport: service.sport },
+      where: { active: true, sports: { has: service.sport } },
       select: { id: true },
     }),
     prisma.resourceSchedule.findMany({

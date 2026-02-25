@@ -10,6 +10,8 @@ export default async function AccountPage() {
   const freeCancellationHours = getSafeCustomerFreeCancellationHours();
   const session = await requireAuthenticatedUser("/account");
   const data = await getAccountDashboardData(session.user.id);
+  const roleLabel =
+    data.user.role === "admin" ? "Администратор" : data.user.role === "coach" ? "Тренер" : "Клиент";
 
   return (
     <div className="account-page">
@@ -36,8 +38,8 @@ export default async function AccountPage() {
               <dd className="account-profile__value">{data.user.phone}</dd>
             </div>
             <div className="account-profile__item">
-              <dt className="account-profile__label">Роль</dt>
-              <dd className="account-profile__value">{data.user.role}</dd>
+              <dt className="account-profile__label">Тип аккаунта</dt>
+              <dd className="account-profile__value">{roleLabel}</dd>
             </div>
           </dl>
         </article>
@@ -59,7 +61,7 @@ export default async function AccountPage() {
             </div>
           </div>
           <p className="account-card__text">
-            Страница истории показывает реальные записи из БД, статусы оплаты и бесплатную отмену по правилу {freeCancellationHours} часов.
+            История ваших бронирований, статусы и возможность отмены по правилу {freeCancellationHours} часов.
           </p>
           <Link href="/account/bookings" className="account-card__link">
             Открыть историю

@@ -54,7 +54,10 @@ export default async function LoginPage({
             Вход по email
           </h2>
           <p className="auth-panel__hint">
-            Для теста после `db:seed`: `admin@example.com` / `Admin123!`. Клиенты могут зарегистрироваться отдельно.
+            Нет аккаунта?{" "}
+            <Link href={`/register?next=${encodeURIComponent(next)}`} className="auth-panel__link">
+              Зарегистрироваться
+            </Link>
           </p>
 
           {hasError ? (
@@ -105,9 +108,6 @@ export default async function LoginPage({
             </Link>
             <Link href={`/register?next=${encodeURIComponent(next)}`} className="auth-panel__link">
               Регистрация клиента
-            </Link>
-            <Link href="/admin" className="auth-panel__link">
-              В админ-панель
             </Link>
           </div>
         </div>

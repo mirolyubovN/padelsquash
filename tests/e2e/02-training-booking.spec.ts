@@ -1,18 +1,25 @@
 import { expect, test } from "@playwright/test";
 import {
-  fillBookingCustomerFields,
   isoDatePlusDays,
   pickFirstCourtSlot,
+  registerCustomer,
   selectBookingFlowOptions,
   submitBookingAndExpectSuccess,
   uniqueEmail,
 } from "./helpers";
 
-test("guest can book a training session with trainer selection and trainer-specific pricing", async ({
+test("customer can book a training session with trainer selection and trainer-specific pricing", async ({
   page,
 }) => {
   const bookingDate = isoDatePlusDays(4);
-  const email = uniqueEmail("training-guest");
+  const email = uniqueEmail("training-user");
+
+  await registerCustomer(page, {
+    email,
+    next: "/book",
+    name: "Клиент тренировка",
+    phone: "+77070000002",
+  });
 
   await selectBookingFlowOptions(page, {
     sport: "padel",
@@ -34,11 +41,6 @@ test("guest can book a training session with trainer selection and trainer-speci
 
   await expect(page.locator(".booking-live__summary")).toBeVisible();
   await expect(page.locator(".booking-live__summary")).toContainText(secondTrainerName);
-
-  await fillBookingCustomerFields(page, {
-    name: "Гость тренировка",
-    email,
-    phone: "+77070000002",
-  });
+  await expect(page.getByText(email)).toBeVisible();
   await submitBookingAndExpectSuccess(page);
 });

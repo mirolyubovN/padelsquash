@@ -19,6 +19,11 @@ export const PRICING_PERIOD_LABELS: Record<PricingTier, string> = {
   evening_weekend: "Вечер / выходные",
 };
 
+export const COURT_BASE_PRICING_PERIOD_LABELS = {
+  morning: "Будни 08:00-17:00",
+  evening_weekend: "Будни 17:00-23:00 / Выходные 08:00-23:00",
+} as const;
+
 const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "Формат времени должен быть HH:MM");
 
 export async function ensureOpeningHoursDefaults() {
@@ -107,6 +112,15 @@ export interface ComponentPriceMatrixRow {
   values: Record<PricingTier, number>;
 }
 
+export interface CourtBasePriceAdminRow {
+  sport: "padel" | "squash";
+  label: string;
+  values: {
+    morning: number;
+    evening_weekend: number;
+  };
+}
+
 export async function getComponentPriceMatrix(): Promise<ComponentPriceMatrixRow[]> {
   await ensureComponentPriceDefaults();
   const rows = await prisma.componentPrice.findMany({
@@ -150,6 +164,20 @@ export async function getComponentPriceMatrix(): Promise<ComponentPriceMatrixRow
         keyMap.get(`${combo.sport}:${combo.componentType}:evening_weekend`)?.amount ?? 0,
     },
   }));
+}
+
+export async function getCourtBasePriceMatrix(): Promise<CourtBasePriceAdminRow[]> {
+  const matrix = await getComponentPriceMatrix();
+  return matrix
+    .filter((row) => row.componentType === "court")
+    .map((row) => ({
+      sport: row.sport,
+      label: row.label,
+      values: {
+        morning: row.values.morning,
+        evening_weekend: row.values.evening_weekend,
+      },
+    }));
 }
 
 export async function saveComponentPriceMatrixFromForm(formData: FormData) {
@@ -198,6 +226,65 @@ export async function saveComponentPriceMatrixFromForm(formData: FormData) {
         create: {
           sport: item.sport,
           componentType: item.componentType,
+          period: item.period,
+          currency: "KZT",
+          amount: item.amount,
+        },
+        update: {
+          amount: item.amount,
+        },
+      }),
+    ),
+  );
+}
+
+export async function saveCourtBasePriceMatrixFromForm(formData: FormData) {
+  await ensureComponentPriceDefaults();
+
+  const sports = ["padel", "squash"] as const;
+  const updates: Array<{
+    sport: (typeof sports)[number];
+    period: "morning" | "day" | "evening_weekend";
+    amount: number;
+  }> = [];
+
+  for (const sport of sports) {
+    const morningField = `${sport}_court_morning`;
+    const eveningField = `${sport}_court_evening_weekend`;
+
+    const morningParsed = z.coerce.number().int().nonnegative().safeParse(formData.get(morningField));
+    if (!morningParsed.success) {
+      throw new Error(`Некорректная цена в поле ${morningField}`);
+    }
+
+    const eveningParsed = z.coerce.number().int().nonnegative().safeParse(formData.get(eveningField));
+    if (!eveningParsed.success) {
+      throw new Error(`Некорректная цена в поле ${eveningField}`);
+    }
+
+    updates.push(
+      { sport, period: "morning", amount: morningParsed.data },
+      // Keep legacy "day" period synchronized with morning to preserve booking/UI compatibility
+      // while the system transitions to the court-only two-tier pricing model.
+      { sport, period: "day", amount: morningParsed.data },
+      { sport, period: "evening_weekend", amount: eveningParsed.data },
+    );
+  }
+
+  await prisma.$transaction(
+    updates.map((item) =>
+      prisma.componentPrice.upsert({
+        where: {
+          sport_componentType_period_currency: {
+            sport: item.sport,
+            componentType: "court",
+            period: item.period,
+            currency: "KZT",
+          },
+        },
+        create: {
+          sport: item.sport,
+          componentType: "court",
           period: item.period,
           currency: "KZT",
           amount: item.amount,

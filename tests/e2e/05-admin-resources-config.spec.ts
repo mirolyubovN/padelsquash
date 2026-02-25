@@ -41,6 +41,8 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
   await courtRow.getByRole("button", { name: "Выключить" }).click();
   courtRow = page.locator("tr").filter({ has: page.getByText(courtName) }).first();
   await expect(courtRow.getByText("Нет")).toBeVisible();
+  await courtRow.getByRole("button", { name: "Удалить" }).click();
+  await expect(page.locator("tr").filter({ has: page.getByText(courtName) })).toHaveCount(0);
 
   await page.goto("/admin/instructors");
   await page.getByLabel("Имя").fill(instructorName);
@@ -55,6 +57,8 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
   await instructorRow.getByRole("button", { name: "Выключить" }).click();
   instructorRow = page.locator("tr").filter({ has: page.getByText(instructorName) }).first();
   await expect(instructorRow.getByText("Нет")).toBeVisible();
+  await instructorRow.getByRole("button", { name: "Удалить" }).click();
+  await expect(page.locator("tr").filter({ has: page.getByText(instructorName) })).toHaveCount(0);
 
   await page.goto("/admin/services");
   await page.getByLabel("Код").fill(serviceCode);
@@ -67,6 +71,8 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
   await serviceRow.getByRole("button", { name: "Выключить" }).click();
   serviceRow = page.locator("tr").filter({ has: page.getByText(serviceName) }).first();
   await expect(serviceRow.getByText("Нет")).toBeVisible();
+  await serviceRow.getByRole("button", { name: "Удалить" }).click();
+  await expect(page.locator("tr").filter({ has: page.getByText(serviceName) })).toHaveCount(0);
 
   await page.goto("/admin/exceptions");
   await page.getByLabel("Ресурс").selectOption("venue");

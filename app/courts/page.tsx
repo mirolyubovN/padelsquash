@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHero } from "@/src/components/page-hero";
 import { courtItems, courtsPageContent } from "@/src/lib/content/site-data";
 
@@ -17,8 +18,13 @@ export default function CourtsPage() {
       <section className="card-grid" aria-label="Список кортов">
         {courtItems.map((court) => (
           <article key={court.id} className="card-grid__item">
+            <div className={`visual-placeholder visual-placeholder--${court.sportQuery}`} aria-hidden="true">
+              <div className="visual-placeholder__label">{court.sport}</div>
+              <div className="visual-placeholder__title">{court.name}</div>
+            </div>
             <div className="card-grid__badge">{court.sport}</div>
             <h2 className="card-grid__title">{court.name}</h2>
+            <p className="card-grid__meta">{court.capacity}</p>
             <p className="card-grid__text">{court.description}</p>
             <ul className="tag-list">
               {court.features.map((feature) => (
@@ -27,9 +33,20 @@ export default function CourtsPage() {
                 </li>
               ))}
             </ul>
+            <div className="card-grid__actions">
+              <Link href={`/book?sport=${court.sportQuery}`} className="card-grid__button">
+                Забронировать
+              </Link>
+            </div>
           </article>
         ))}
       </section>
+
+      <div className="listing-page__footer-actions">
+        <Link href="/prices" className="listing-page__link-button">
+          {courtsPageContent.pricesLinkLabel}
+        </Link>
+      </div>
     </div>
   );
 }

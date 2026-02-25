@@ -1,14 +1,33 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin } from "@/src/lib/auth/guards";
-import { createCourtFromForm, getAdminCourts, setCourtActive, SPORT_LABELS } from "@/src/lib/admin/resources";
+import {
+  createCourtFromForm,
+  deleteCourt,
+  getAdminCourts,
+  setCourtActive,
+  SPORT_LABELS,
+} from "@/src/lib/admin/resources";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminCourtsPage() {
+export default async function AdminCourtsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>;
+}) {
   await assertAdmin();
+  const params = await searchParams;
   const courts = await getAdminCourts();
+  const errorMessage =
+    params.error === "delete_blocked"
+      ? "Корт нельзя удалить: он уже используется в истории бронирований."
+      : params.error === "delete_failed"
+        ? "Не удалось удалить корт."
+        : null;
+  const successMessage = params.success === "deleted" ? "Корт удален." : null;
 
   async function createAction(formData: FormData) {
     "use server";
@@ -32,11 +51,45 @@ export default async function AdminCourtsPage() {
     revalidatePath("/admin/courts");
   }
 
+  async function deleteAction(formData: FormData) {
+    "use server";
+    await assertAdmin();
+
+    const courtId = String(formData.get("courtId") ?? "");
+    if (!courtId) {
+      throw new Error("courtId обязателен");
+    }
+
+    try {
+      await deleteCourt(courtId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("истории бронирований")) {
+        redirect("/admin/courts?error=delete_blocked");
+      }
+      redirect("/admin/courts?error=delete_failed");
+    }
+
+    revalidatePath("/admin/courts");
+    revalidatePath("/admin/exceptions");
+    revalidatePath("/book");
+    redirect("/admin/courts?success=deleted");
+  }
+
   return (
     <AdminPageShell
       title="Корты"
       description="Список кортов в БД, включение/выключение и ссылки на разовые исключения по каждому корту."
     >
+      {errorMessage ? (
+        <p className="account-history__message account-history__message--error" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+      {successMessage ? (
+        <p className="account-history__message account-history__message--success">{successMessage}</p>
+      ) : null}
+
       <form action={createAction} className="admin-form">
         <div className="admin-table">
           <table className="admin-table__table">
@@ -127,13 +180,21 @@ export default async function AdminCourtsPage() {
                     </Link>
                   </td>
                   <td className="admin-table__cell">
-                    <form action={toggleActiveAction} className="admin-bookings__actions">
-                      <input type="hidden" name="courtId" value={court.id} />
-                      <input type="hidden" name="nextActive" value={String(!court.active)} />
-                      <button type="submit" className="admin-bookings__action-button">
-                        {court.active ? "Выключить" : "Включить"}
-                      </button>
-                    </form>
+                    <div className="admin-bookings__actions">
+                      <form action={toggleActiveAction} className="admin-bookings__actions">
+                        <input type="hidden" name="courtId" value={court.id} />
+                        <input type="hidden" name="nextActive" value={String(!court.active)} />
+                        <button type="submit" className="admin-bookings__action-button">
+                          {court.active ? "Выключить" : "Включить"}
+                        </button>
+                      </form>
+                      <form action={deleteAction} className="admin-bookings__actions">
+                        <input type="hidden" name="courtId" value={court.id} />
+                        <button type="submit" className="admin-bookings__action-button">
+                          Удалить
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))

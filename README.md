@@ -22,7 +22,7 @@ Important current policies:
 
 - sessions are fixed to `60 minutes`
 - starts are hour-based only (`09:00`, `10:00`, ...)
-- court rentals require authenticated account
+- all bookings require authenticated account
 - customer free cancellation cutoff is `6` hours (configurable)
 - availability/booking demo fallback is disabled by default (`ALLOW_DEMO_FALLBACK=false`)
 
@@ -63,9 +63,9 @@ Important current policies:
 
 - `/admin/opening-hours` (DB-backed Server Action)
 - `/admin/pricing/base` (DB-backed pricing matrix)
-- `/admin/courts` (create / toggle active)
-- `/admin/instructors` (create / toggle active / inline trainer price editing)
-- `/admin/services` (create / toggle active)
+- `/admin/courts` (create / toggle active / delete with history protection)
+- `/admin/instructors` (create / toggle active / inline trainer price editing / delete with history protection)
+- `/admin/services` (create / toggle active / delete with history protection)
 - `/admin/exceptions` (venue/court/instructor exceptions)
 - `/admin/courts/[id]/exceptions`
 - `/admin/instructors/[id]/schedule`
@@ -99,11 +99,11 @@ Important current policies:
 - `app/book/page.tsx`
   - server-side data wiring for booking page (`services`, `courts`, `trainers`, pricing)
 - `src/components/booking/live-booking-form.tsx`
-  - client-side booking UX and API calls
+  - client-side booking UX and API calls (account-first flow, login/register or account summary + edit modal)
 - `app/api/availability/route.ts`
   - availability endpoint (DB-first; demo fallback only when enabled)
 - `app/api/bookings/route.ts`
-  - booking creation endpoint with auth rule for court rentals
+  - booking creation endpoint (authenticated account required for all booking types)
 - `src/lib/availability/engine.ts`
   - hour-based slot generation + availability checks
 - `src/lib/bookings/persistence.ts`
@@ -248,6 +248,7 @@ Key variables:
 - `court` (rental):
   - requires authenticated account
 - `training`:
+  - requires authenticated account
   - requires court + trainer
   - user selects trainer in booking UI
   - final price depends on selected trainer
@@ -332,10 +333,10 @@ npm run test:e2e
   - concurrent booking conflict serialization (one success / one failure)
 - E2E:
   - customer registration -> court booking -> slot disappears after refresh -> account cancellation
-  - guest training booking with trainer selection + trainer-specific pricing
+  - authenticated training booking with trainer selection + trainer-specific pricing
   - admin booking status update
   - admin inline trainer pricing edit reflected in booking preview
-  - admin settings/resource flows (opening hours, pricing matrix, courts, instructors, services, exceptions)
+  - admin settings/resource flows (opening hours, pricing matrix, courts, instructors, services, exceptions, delete actions + delete banners)
 
 ## Prisma / Database Notes
 
@@ -361,6 +362,7 @@ Fix:
 - `docs/devops-postgres.md` - local Docker + PostgreSQL + Prisma runbook
 - `docs/changes-2026-02-23.md` - detailed implementation/change log for current work
 - `docs/next-session-handoff.md` - next-session tasks, risks, and ready-to-copy prompt
+- `docs/next-session-prompt.md` - standalone copy/paste prompt for the next coding session
 - `docs/production-readiness-checklist.md` - launch gate checklist (infra, DB, auth, booking integrity, payments, tests, ops)
 
 ## Known Gaps / Not Yet Production-Ready

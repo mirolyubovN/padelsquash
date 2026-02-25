@@ -17,7 +17,7 @@ test("customer can register, book a court, slot disappears after refresh, and ca
 
   await page.goto("/book");
   await expect(
-    page.getByText("Для бронирования корта требуется зарегистрированный аккаунт.", { exact: false }),
+    page.getByText("Для оформления бронирования войдите в аккаунт или зарегистрируйтесь.", { exact: false }),
   ).toBeVisible();
 
   await registerCustomer(page, {
@@ -40,14 +40,15 @@ test("customer can register, book a court, slot disappears after refresh, and ca
   const slotLabel = (await firstSlotButton.locator(".booking-live__slot-time").innerText()).trim();
   await firstSlotButton.click();
 
-  const emailField = page.getByLabel("Email");
-  await expect(emailField).toHaveValue(email);
-  await expect(emailField).toHaveJSProperty("readOnly", true);
+  await expect(page.getByText(email)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Изменить данные" })).toBeVisible();
 
   await fillBookingCustomerFields(page, {
     name: "Клиент Корты",
+    email,
     phone: "+77070000001",
   });
+  await expect(page.getByText("+77070000001")).toBeVisible();
   await submitBookingAndExpectSuccess(page);
 
   await page.reload();

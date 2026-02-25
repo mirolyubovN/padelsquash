@@ -91,16 +91,14 @@ model Court {
 }
 
 model Instructor {
-  id                  String   @id @default(cuid())
-  name                String
-  sport               Sport
-  bio                 String?
-  priceMorning        Decimal  @db.Decimal(10, 2)
-  priceDay            Decimal  @db.Decimal(10, 2)
-  priceEveningWeekend Decimal  @db.Decimal(10, 2)
-  active              Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  sports      Sport[]
+  bio         String?
+  pricePerHour Decimal @db.Decimal(10, 2)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Service {

@@ -8,7 +8,7 @@ function amountRegex(amount: number): RegExp {
   return new RegExp(grouped);
 }
 
-test("admin can edit trainer prices inline and booking preview uses updated trainer price", async ({
+test("admin can edit trainer price inline and booking preview uses updated trainer price", async ({
   page,
 }) => {
   const newPrice = 23456;
@@ -19,15 +19,11 @@ test("admin can edit trainer prices inline and booking preview uses updated trai
   const ilyaRow = page.locator("tr").filter({ has: page.getByText("Илья Смирнов") }).first();
   await expect(ilyaRow).toBeVisible();
 
-  await ilyaRow.getByLabel("Утро").fill(String(newPrice));
-  await ilyaRow.getByLabel("День").fill(String(newPrice));
-  await ilyaRow.getByLabel("Вечер").fill(String(newPrice));
-  await ilyaRow.getByRole("button", { name: "Сохранить цены" }).click();
+  await ilyaRow.getByLabel("Ставка за час").fill(String(newPrice));
+  await ilyaRow.getByRole("button", { name: "Сохранить" }).click();
 
   const refreshedRow = page.locator("tr").filter({ has: page.getByText("Илья Смирнов") }).first();
-  await expect(refreshedRow.getByLabel("Утро")).toHaveValue(String(newPrice));
-  await expect(refreshedRow.getByLabel("День")).toHaveValue(String(newPrice));
-  await expect(refreshedRow.getByLabel("Вечер")).toHaveValue(String(newPrice));
+  await expect(refreshedRow.getByLabel("Ставка за час")).toHaveValue(String(newPrice));
 
   await selectBookingFlowOptions(page, {
     sport: "padel",

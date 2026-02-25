@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { prisma } from "@/src/lib/prisma";
 import { WEEKDAY_LABELS } from "@/src/lib/settings/service";
-import { toVenueIsoDate, venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
+import {
+  formatDateInVenueTimezone,
+  formatTimeInVenueTimezone,
+  toVenueIsoDate,
+  venueDateTimeToUtc,
+} from "@/src/lib/time/venue-timezone";
 
 const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "Время должно быть в формате HH:MM");
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Дата должна быть в формате YYYY-MM-DD");
@@ -50,11 +55,9 @@ export interface AdminCourtRow {
 export interface AdminInstructorRow {
   id: string;
   name: string;
-  sport: "padel" | "squash";
+  sports: Array<"padel" | "squash">;
   bio?: string;
-  priceMorning: number;
-  priceDay: number;
-  priceEveningWeekend: number;
+  pricePerHour: number;
   active: boolean;
 }
 
@@ -88,6 +91,18 @@ export interface AdminExceptionRow {
   note?: string;
 }
 
+export interface AdminInstructorSessionRow {
+  id: string;
+  date: string;
+  time: string;
+  serviceName: string;
+  customerName: string;
+  customerEmail: string;
+  status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
+  priceTotal: number;
+  courtLabel?: string;
+}
+
 export interface ExceptionTargetOption {
   value: string;
   label: string;
@@ -113,7 +128,7 @@ async function ensureCourtExists(courtId: string) {
 async function ensureInstructorExists(instructorId: string) {
   const instructor = await prisma.instructor.findUnique({
     where: { id: instructorId },
-    select: { id: true, name: true, bio: true, active: true },
+    select: { id: true, name: true, bio: true, active: true, sports: true, pricePerHour: true },
   });
   if (!instructor) {
     throw new Error("Тренер не найден");
@@ -221,28 +236,48 @@ export async function setCourtActive(args: { courtId: string; active: boolean })
   });
 }
 
+export async function deleteCourt(courtId: string) {
+  await ensureCourtExists(courtId);
+
+  const bookingUsageCount = await prisma.bookingResource.count({
+    where: {
+      resourceType: "court",
+      resourceId: courtId,
+    },
+  });
+
+  if (bookingUsageCount > 0) {
+    throw new Error("Нельзя удалить корт: он уже используется в истории бронирований");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.scheduleException.deleteMany({
+      where: { resourceType: "court", resourceId: courtId },
+    });
+    await tx.court.delete({
+      where: { id: courtId },
+    });
+  });
+}
+
 export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
   const rows = await prisma.instructor.findMany({
-    orderBy: [{ sport: "asc" }, { name: "asc" }],
+    orderBy: [{ name: "asc" }],
   });
 
   return rows.map((row: {
     id: string;
     name: string;
-    sport: "padel" | "squash";
+    sports: Array<"padel" | "squash">;
     bio: string | null;
-    priceMorning: unknown;
-    priceDay: unknown;
-    priceEveningWeekend: unknown;
+    pricePerHour: unknown;
     active: boolean;
   }) => ({
     id: row.id,
     name: row.name,
-    sport: row.sport,
+    sports: row.sports,
     bio: row.bio ?? undefined,
-    priceMorning: Number(row.priceMorning),
-    priceDay: Number(row.priceDay),
-    priceEveningWeekend: Number(row.priceEveningWeekend),
+    pricePerHour: Number(row.pricePerHour),
     active: row.active,
   }));
 }
@@ -251,19 +286,15 @@ export async function createInstructorFromForm(formData: FormData) {
   const parsed = z
     .object({
       name: nonEmptyString("Имя"),
-      sport: sportSchema,
+      sports: z.array(sportSchema).min(1, "Выберите хотя бы один вид спорта"),
       bio: optionalTrimmedString,
-      priceMorning: z.coerce.number().int().nonnegative(),
-      priceDay: z.coerce.number().int().nonnegative(),
-      priceEveningWeekend: z.coerce.number().int().nonnegative(),
+      pricePerHour: z.coerce.number().int().nonnegative(),
     })
     .safeParse({
       name: formData.get("name"),
-      sport: formData.get("sport"),
+      sports: formData.getAll("sports"),
       bio: formData.get("bio") ?? undefined,
-      priceMorning: formData.get("priceMorning"),
-      priceDay: formData.get("priceDay"),
-      priceEveningWeekend: formData.get("priceEveningWeekend"),
+      pricePerHour: formData.get("pricePerHour"),
     });
 
   if (!parsed.success) {
@@ -273,11 +304,9 @@ export async function createInstructorFromForm(formData: FormData) {
   await prisma.instructor.create({
     data: {
       name: parsed.data.name,
-      sport: parsed.data.sport,
+      sports: parsed.data.sports,
       bio: parsed.data.bio ?? null,
-      priceMorning: parsed.data.priceMorning,
-      priceDay: parsed.data.priceDay,
-      priceEveningWeekend: parsed.data.priceEveningWeekend,
+      pricePerHour: parsed.data.pricePerHour,
       active: true,
     },
   });
@@ -290,31 +319,58 @@ export async function setInstructorActive(args: { instructorId: string; active: 
   });
 }
 
-export async function updateInstructorPricingFromForm(formData: FormData) {
+export async function deleteInstructor(instructorId: string) {
+  await ensureInstructorExists(instructorId);
+
+  const bookingUsageCount = await prisma.bookingResource.count({
+    where: {
+      resourceType: "instructor",
+      resourceId: instructorId,
+    },
+  });
+
+  if (bookingUsageCount > 0) {
+    throw new Error("Нельзя удалить тренера: он уже используется в истории бронирований");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.resourceSchedule.deleteMany({
+      where: { resourceType: "instructor", resourceId: instructorId },
+    });
+    await tx.scheduleException.deleteMany({
+      where: { resourceType: "instructor", resourceId: instructorId },
+    });
+    await tx.instructor.delete({
+      where: { id: instructorId },
+    });
+  });
+}
+
+export async function updateInstructorFromForm(formData: FormData) {
   const parsed = z
     .object({
       instructorId: nonEmptyString("instructorId"),
-      priceMorning: z.coerce.number().int().nonnegative(),
-      priceDay: z.coerce.number().int().nonnegative(),
-      priceEveningWeekend: z.coerce.number().int().nonnegative(),
+      sports: z.array(sportSchema).min(1, "Выберите хотя бы один вид спорта"),
+      bio: optionalTrimmedString,
+      pricePerHour: z.coerce.number().int().nonnegative(),
     })
     .safeParse({
       instructorId: formData.get("instructorId"),
-      priceMorning: formData.get("priceMorning"),
-      priceDay: formData.get("priceDay"),
-      priceEveningWeekend: formData.get("priceEveningWeekend"),
+      sports: formData.getAll("sports"),
+      bio: formData.get("bio") ?? undefined,
+      pricePerHour: formData.get("pricePerHour"),
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные цены тренера");
+    throw new Error("Некорректные данные тренера");
   }
 
   await prisma.instructor.update({
     where: { id: parsed.data.instructorId },
     data: {
-      priceMorning: parsed.data.priceMorning,
-      priceDay: parsed.data.priceDay,
-      priceEveningWeekend: parsed.data.priceEveningWeekend,
+      sports: parsed.data.sports,
+      bio: parsed.data.bio ?? null,
+      pricePerHour: parsed.data.pricePerHour,
     },
   });
 }
@@ -386,8 +442,31 @@ export async function setServiceActive(args: { serviceId: string; active: boolea
   });
 }
 
+export async function deleteService(serviceId: string) {
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId },
+    select: { id: true },
+  });
+
+  if (!service) {
+    throw new Error("Услуга не найдена");
+  }
+
+  const bookingCount = await prisma.booking.count({
+    where: { serviceId },
+  });
+
+  if (bookingCount > 0) {
+    throw new Error("Нельзя удалить услугу: по ней уже есть бронирования");
+  }
+
+  await prisma.service.delete({
+    where: { id: serviceId },
+  });
+}
+
 export async function getInstructorSchedulePageData(instructorId: string) {
-  const [instructor, scheduleRows, exceptionRows] = await Promise.all([
+  const [instructor, scheduleRows, exceptionRows, sessionRows] = await Promise.all([
     ensureInstructorExists(instructorId),
     prisma.resourceSchedule.findMany({
       where: {
@@ -403,7 +482,52 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     }),
+    prisma.booking.findMany({
+      where: {
+        resources: {
+          some: {
+            resourceType: "instructor",
+            resourceId: instructorId,
+          },
+        },
+      },
+      orderBy: [{ startAt: "desc" }],
+      take: 20,
+      select: {
+        id: true,
+        startAt: true,
+        status: true,
+        priceTotal: true,
+        customer: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        service: {
+          select: {
+            name: true,
+          },
+        },
+        resources: {
+          where: { resourceType: "court" },
+          select: { resourceId: true },
+        },
+      },
+    }),
   ]);
+
+  const courtIds = Array.from(
+    new Set(sessionRows.flatMap((row) => row.resources.map((resource) => resource.resourceId))),
+  );
+  const courtNamesById = new Map(
+    (
+      await prisma.court.findMany({
+        where: { id: { in: courtIds } },
+        select: { id: true, name: true },
+      })
+    ).map((row: { id: string; name: string }) => [row.id, row.name]),
+  );
 
   const instructorNameMap = new Map<string, string>([[instructor.id, instructor.name]]);
 
@@ -412,7 +536,9 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       id: instructor.id,
       name: instructor.name,
       active: instructor.active,
+      sports: instructor.sports,
       bio: instructor.bio ?? undefined,
+      pricePerHour: Number(instructor.pricePerHour),
     },
     schedules: scheduleRows.map(
       (row: { id: string; dayOfWeek: number; startTime: string; endTime: string; active: boolean }) => ({
@@ -439,6 +565,19 @@ export async function getInstructorSchedulePageData(instructorId: string) {
         instructorsById: instructorNameMap,
       },
     ),
+    sessions: sessionRows.map((row) => ({
+      id: row.id,
+      date: formatDateInVenueTimezone(row.startAt),
+      time: formatTimeInVenueTimezone(row.startAt),
+      serviceName: row.service.name,
+      customerName: row.customer.name,
+      customerEmail: row.customer.email,
+      status: row.status,
+      priceTotal: Number(row.priceTotal),
+      courtLabel: row.resources[0]?.resourceId
+        ? (courtNamesById.get(row.resources[0].resourceId) ?? row.resources[0].resourceId)
+        : undefined,
+    })) satisfies AdminInstructorSessionRow[],
   };
 }
 

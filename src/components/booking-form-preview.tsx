@@ -1,5 +1,23 @@
 import Link from "next/link";
-import { bookingPreviewContent, serviceItems } from "@/src/lib/content/site-data";
+import { bookingPreviewContent } from "@/src/lib/content/site-data";
+
+const previewSteps = [
+  {
+    number: "1",
+    title: "Выберите спорт и формат",
+    text: "Падел или сквош, аренда корта или тренировка с тренером.",
+  },
+  {
+    number: "2",
+    title: "Выберите дату и свободный час",
+    text: "Система покажет свободные слоты по каждому корту на выбранную дату.",
+  },
+  {
+    number: "3",
+    title: "Войдите и подтвердите",
+    text: "Подтвердите бронирование и управляйте записями в личном кабинете.",
+  },
+] as const;
 
 export function BookingFormPreview() {
   return (
@@ -15,45 +33,22 @@ export function BookingFormPreview() {
       </div>
 
       <div className="booking-preview__panel">
-        <div className="booking-preview__group">
-          <label htmlFor="booking-service" className="booking-preview__label">
-            Услуга
-          </label>
-          <select id="booking-service" className="booking-preview__field" defaultValue="">
-            <option value="" disabled>
-              Выберите услугу
-            </option>
-            {serviceItems.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <ol className="booking-preview__steps" aria-label="Шаги бронирования">
+          {previewSteps.map((step) => (
+            <li key={step.number} className="booking-preview__step">
+              <span className="booking-preview__step-badge" aria-hidden="true">
+                {step.number}
+              </span>
+              <div className="booking-preview__step-body">
+                <p className="booking-preview__step-title">{step.title}</p>
+                <p className="booking-preview__step-text">{step.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
 
-        <div className="booking-preview__row">
-          <div className="booking-preview__group">
-            <label htmlFor="booking-date" className="booking-preview__label">
-              Дата
-            </label>
-            <input id="booking-date" type="date" className="booking-preview__field" />
-          </div>
-          <div className="booking-preview__group">
-            <label htmlFor="booking-session" className="booking-preview__label">
-              Сессия
-            </label>
-            <input
-              id="booking-session"
-              type="text"
-              className="booking-preview__field"
-              value="60 минут (фиксировано)"
-              readOnly
-            />
-          </div>
-        </div>
-
-        <div className="booking-preview__slots">
-          <p className="booking-preview__slots-title">{bookingPreviewContent.sampleSlotsTitle}</p>
+        <div className="booking-preview__example" aria-hidden="true">
+          <p className="booking-preview__example-title">{bookingPreviewContent.sampleSlotsTitle}</p>
           <ul className="booking-preview__slots-list">
             {bookingPreviewContent.sampleSlots.map((slot) => (
               <li
@@ -67,9 +62,6 @@ export function BookingFormPreview() {
         </div>
 
         <div className="booking-preview__actions">
-          <button type="button" className="booking-preview__button">
-            Проверить доступность
-          </button>
           <Link href="/book" className="booking-preview__link">
             {bookingPreviewContent.primaryActionLabel}
           </Link>

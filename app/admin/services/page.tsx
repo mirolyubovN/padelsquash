@@ -1,8 +1,10 @@
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   createServiceFromForm,
+  deleteService,
   getAdminServices,
   getServiceResourceDescription,
   setServiceActive,
@@ -11,9 +13,21 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminServicesPage() {
+export default async function AdminServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>;
+}) {
   await assertAdmin();
+  const params = await searchParams;
   const services = await getAdminServices();
+  const errorMessage =
+    params.error === "delete_blocked"
+      ? "Услугу нельзя удалить: по ней уже есть бронирования."
+      : params.error === "delete_failed"
+        ? "Не удалось удалить услугу."
+        : null;
+  const successMessage = params.success === "deleted" ? "Услуга удалена." : null;
 
   async function createAction(formData: FormData) {
     "use server";
@@ -39,11 +53,44 @@ export default async function AdminServicesPage() {
     revalidatePath("/book");
   }
 
+  async function deleteAction(formData: FormData) {
+    "use server";
+    await assertAdmin();
+
+    const serviceId = String(formData.get("serviceId") ?? "");
+    if (!serviceId) {
+      throw new Error("serviceId обязателен");
+    }
+
+    try {
+      await deleteService(serviceId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("уже есть бронирования")) {
+        redirect("/admin/services?error=delete_blocked");
+      }
+      redirect("/admin/services?error=delete_failed");
+    }
+
+    revalidatePath("/admin/services");
+    revalidatePath("/book");
+    redirect("/admin/services?success=deleted");
+  }
+
   return (
     <AdminPageShell
       title="Услуги"
       description="Упрощенная модель услуг: фиксированные сессии 60 минут. Тренировка = корт + тренер."
     >
+      {errorMessage ? (
+        <p className="account-history__message account-history__message--error" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+      {successMessage ? (
+        <p className="account-history__message account-history__message--success">{successMessage}</p>
+      ) : null}
+
       <form action={createAction} className="admin-form">
         <div className="admin-table">
           <table className="admin-table__table">
@@ -139,13 +186,21 @@ export default async function AdminServicesPage() {
                     <span className="admin-bookings__chip">{service.active ? "Да" : "Нет"}</span>
                   </td>
                   <td className="admin-table__cell">
-                    <form action={toggleActiveAction} className="admin-bookings__actions">
-                      <input type="hidden" name="serviceId" value={service.id} />
-                      <input type="hidden" name="nextActive" value={String(!service.active)} />
-                      <button type="submit" className="admin-bookings__action-button">
-                        {service.active ? "Выключить" : "Включить"}
-                      </button>
-                    </form>
+                    <div className="admin-bookings__actions">
+                      <form action={toggleActiveAction} className="admin-bookings__actions">
+                        <input type="hidden" name="serviceId" value={service.id} />
+                        <input type="hidden" name="nextActive" value={String(!service.active)} />
+                        <button type="submit" className="admin-bookings__action-button">
+                          {service.active ? "Выключить" : "Включить"}
+                        </button>
+                      </form>
+                      <form action={deleteAction} className="admin-bookings__actions">
+                        <input type="hidden" name="serviceId" value={service.id} />
+                        <button type="submit" className="admin-bookings__action-button">
+                          Удалить
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))

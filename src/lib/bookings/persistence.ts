@@ -1,6 +1,6 @@
 import { withBookingConcurrencyGuard } from "@/src/lib/bookings/concurrency";
 import type { ComponentPriceRecord, ServiceRecord } from "@/src/lib/domain/types";
-import { evaluatePricing, resolvePricingTier } from "@/src/lib/pricing/engine";
+import { evaluatePricing } from "@/src/lib/pricing/engine";
 import { prisma } from "@/src/lib/prisma";
 import { getPaymentProvider } from "@/src/lib/payments/factory";
 import { venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
@@ -50,10 +50,8 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
           select: {
             id: true,
             active: true,
-            sport: true,
-            priceMorning: true,
-            priceDay: true,
-            priceEveningWeekend: true,
+            sports: true,
+            pricePerHour: true,
           },
         })
       : null;
@@ -62,7 +60,7 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
     if (!instructorForPricing || !instructorForPricing.active) {
       throw new Error("Тренер не найден");
     }
-    if (instructorForPricing.sport !== service.sport) {
+    if (!instructorForPricing.sports.includes(service.sport)) {
       throw new Error("Тренер не подходит для выбранного спорта");
     }
   }
@@ -162,16 +160,9 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
         active: service.active,
       };
 
-      const tier = resolvePricingTier(input.date, input.startTime);
       const instructorPriceOverrideAmount =
         service.requiresInstructor && instructorForPricing
-          ? Number(
-              tier === "morning"
-                ? instructorForPricing.priceMorning
-                : tier === "day"
-                  ? instructorForPricing.priceDay
-                  : instructorForPricing.priceEveningWeekend,
-            )
+          ? Number(instructorForPricing.pricePerHour)
           : undefined;
 
       const pricing = evaluatePricing({

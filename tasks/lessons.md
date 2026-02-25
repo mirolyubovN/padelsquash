@@ -11,3 +11,8 @@
 - PostgreSQL advisory lock calls (`pg_advisory_xact_lock`) should use Prisma `$executeRaw`, not `$queryRaw`, because the function returns `void` and Prisma cannot deserialize it.
 - Public website copy must stay customer-facing; keep technical/testing/internal architecture language out of marketing pages and centralize all public content in a dedicated content module.
 - DB-backed concurrency tests can expose serializable write-conflict/deadlock paths outside the final business validation path; add bounded retries where the transaction can be safely retried.
+- In booking UX, account/auth should be a first-class step (not just raw customer inputs): unauthenticated users need clear login/registration actions, and authenticated users should see a concise summary with optional editing.
+- Public navigation shortcuts (header/footer) must be auth-aware: guests should see login/registration entry points, customers should see account, and admins should see admin panel instead of generic account links.
+- When the user replaces a design direction after a phase implementation, treat it as a product-spec override (not an incremental tweak): update the master plan checklist immediately and remove superseded homepage sections instead of layering new sections on top.
+- Pricing ownership must be explicit before building admin/public pricing UX: court base prices and trainer-specific prices are different sources, and admin base pricing must not duplicate trainer pricing controls.
+- Before adding admin UX on top of a resource, confirm the underlying domain cardinality (single vs multi-sport trainer, single vs tiered trainer price) and migrate the schema first; UI patches on a wrong model create cascading rework.

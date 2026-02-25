@@ -106,8 +106,8 @@ describe("booking persistence (DB integration)", () => {
 
     expect(morningA.booking.priceTotal).not.toBe(morningB.booking.priceTotal);
 
-    const priceA = Number(trainerA.priceMorning);
-    const priceB = Number(trainerB.priceMorning);
+    const priceA = Number(trainerA.pricePerHour);
+    const priceB = Number(trainerB.pricePerHour);
     const totalDiff = Math.abs(morningA.booking.priceTotal - morningB.booking.priceTotal);
     expect(totalDiff).toBe(Math.abs(priceA - priceB));
   });

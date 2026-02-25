@@ -19,8 +19,8 @@ interface ServiceOption {
 interface InstructorOption {
   id: string;
   name: string;
-  sport: Sport;
-  prices: Record<PricingTier, number>;
+  sports: Sport[];
+  pricePerHour: number;
 }
 
 type CourtPriceMatrix = Record<Sport, Record<PricingTier, number>>;
@@ -193,6 +193,11 @@ export function LiveBookingForm({
   const [customerName, setCustomerName] = useState(initialCustomer?.name ?? "");
   const [customerEmail, setCustomerEmail] = useState(initialCustomer?.email ?? "");
   const [customerPhone, setCustomerPhone] = useState(initialCustomer?.phone ?? "");
+  const [showCustomerEditor, setShowCustomerEditor] = useState(false);
+  const [customerEditorName, setCustomerEditorName] = useState(initialCustomer?.name ?? "");
+  const [customerEditorEmail, setCustomerEditorEmail] = useState(initialCustomer?.email ?? "");
+  const [customerEditorPhone, setCustomerEditorPhone] = useState(initialCustomer?.phone ?? "");
+  const [customerEditorError, setCustomerEditorError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<BookingApiSuccessPayload | null>(null);
@@ -350,7 +355,7 @@ export function LiveBookingForm({
     return selectedSlot.instructorIds
       .map((id) => instructorsById[id])
       .filter((item): item is InstructorOption => Boolean(item))
-      .filter((item) => item.sport === sport);
+      .filter((item) => item.sports.includes(sport));
   }, [selectedSlot, serviceKind, instructorsById, sport]);
 
   useEffect(() => {
@@ -371,6 +376,8 @@ export function LiveBookingForm({
   }, [serviceKind, selectedSlot, availableTrainerOptions, selectedInstructorId]);
 
   const selectedTrainer = selectedInstructorId ? instructorsById[selectedInstructorId] ?? null : null;
+  const accountStepNumber = serviceKind === "training" ? 5 : 4;
+  const requiresAccountForBooking = true;
 
   const pricePreview = useMemo(() => {
     if (!resolvedService || !selectedSlot) return null;
@@ -378,7 +385,7 @@ export function LiveBookingForm({
     const tier = resolvePricingTier(date, selectedSlot.startTime);
     const courtPrice = courtPrices[sport]?.[tier] ?? 0;
     const instructorPrice =
-      serviceKind === "training" && selectedTrainer ? selectedTrainer.prices[tier] : 0;
+      serviceKind === "training" && selectedTrainer ? selectedTrainer.pricePerHour : 0;
 
     return {
       tier,
@@ -387,6 +394,35 @@ export function LiveBookingForm({
       total: courtPrice + instructorPrice,
     };
   }, [resolvedService, selectedSlot, date, courtPrices, sport, serviceKind, selectedTrainer]);
+
+  function openCustomerEditor() {
+    setCustomerEditorName(customerName);
+    setCustomerEditorEmail(customerEmail);
+    setCustomerEditorPhone(customerPhone);
+    setCustomerEditorError(null);
+    setShowCustomerEditor(true);
+  }
+
+  function saveCustomerEditor() {
+    const nextName = customerEditorName.trim();
+    const nextEmail = customerEditorEmail.trim();
+    const nextPhone = customerEditorPhone.trim();
+
+    if (!nextName || !nextEmail || !nextPhone) {
+      setCustomerEditorError("Заполните имя, email и телефон.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+      setCustomerEditorError("Введите корректный email.");
+      return;
+    }
+
+    setCustomerName(nextName);
+    setCustomerEmail(nextEmail);
+    setCustomerPhone(nextPhone);
+    setCustomerEditorError(null);
+    setShowCustomerEditor(false);
+  }
 
   async function submitBooking() {
     if (!resolvedService) {
@@ -397,12 +433,12 @@ export function LiveBookingForm({
       setSubmitError("Выберите время.");
       return;
     }
-    if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
-      setSubmitError("Заполните имя, email и телефон.");
+    if (requiresAccountForBooking && !isAuthenticated) {
+      setSubmitError("Для бронирования требуется вход в зарегистрированный аккаунт.");
       return;
     }
-    if (serviceKind === "court" && !isAuthenticated) {
-      setSubmitError("Для бронирования корта требуется вход в зарегистрированный аккаунт.");
+    if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
+      setSubmitError("Заполните имя, email и телефон.");
       return;
     }
     if (resolvedService.requiresInstructor && !selectedTrainer) {
@@ -446,7 +482,12 @@ export function LiveBookingForm({
         );
       }
 
-      setSubmitSuccess(payload as BookingApiSuccessPayload);
+      const successPayload = payload as BookingApiSuccessPayload;
+      if (successPayload.source === "demo-fallback") {
+        throw new Error("Не удалось подтвердить бронирование. Попробуйте еще раз.");
+      }
+
+      setSubmitSuccess(successPayload);
       setReloadKey((value) => value + 1);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Ошибка создания брони");
@@ -507,7 +548,7 @@ export function LiveBookingForm({
 
         <div className="booking-live__step">
           <div className="booking-live__date-head">
-            <p className="booking-live__step-title">3. Выберите дату и время (по кортам)</p>
+            <p className="booking-live__step-title">3. Выберите корт, дату и время</p>
             <div className="booking-flow__group booking-live__date-group">
               <label className="booking-flow__label" htmlFor="booking-date-live">
                 Дата
@@ -553,8 +594,7 @@ export function LiveBookingForm({
 
               {timeslotsByCourt.length === 0 ? (
                 <div className="booking-live__empty">
-                  Нет доступного времени на выбранную дату.
-                  {serviceKind === "training" ? " Проверьте графики тренеров в админке." : ""}
+                  Нет доступного времени на выбранную дату. Попробуйте другое время или дату.
                 </div>
               ) : (
                 <div className="booking-live__court-groups">
@@ -565,9 +605,6 @@ export function LiveBookingForm({
                           <span className="booking-live__court-title">
                             {formatCourtLabel(courtId, courtNames)}
                           </span>
-                          {formatCourtLabel(courtId, courtNames) !== courtId ? (
-                            <div className="booking-live__court-id">{courtId}</div>
-                          ) : null}
                         </div>
                         <span className="booking-live__court-count">{rows.length} слотов</span>
                       </div>
@@ -607,7 +644,7 @@ export function LiveBookingForm({
               <div className="booking-live__trainer-list">
                 {availableTrainerOptions.map((trainer) => {
                   const tier = resolvePricingTier(date, selectedSlot.startTime);
-                  const trainerPrice = trainer.prices[tier];
+                  const trainerPrice = trainer.pricePerHour;
                   const courtPrice = courtPrices[sport]?.[tier] ?? 0;
                   const total = courtPrice + trainerPrice;
                   return (
@@ -629,62 +666,47 @@ export function LiveBookingForm({
           </div>
         ) : null}
 
-        {serviceKind === "court" && !isAuthenticated ? (
-          <div className="booking-live__message booking-live__message--warning">
-            Для бронирования корта требуется зарегистрированный аккаунт.
-            <div className="booking-live__links">
-              <Link href="/register?next=%2Fbook" className="booking-live__link">
-                Регистрация
-              </Link>
-              <Link href="/login?next=%2Fbook" className="booking-live__link">
-                Войти
-              </Link>
-            </div>
-          </div>
-        ) : null}
-
         <div className="booking-live__customer">
           <p className="booking-live__section-title">
-            {serviceKind === "training" ? "5. " : "4. "}Данные клиента
+            {accountStepNumber}. {isAuthenticated ? "Данные аккаунта" : "Войти или зарегистрироваться"}
           </p>
-          <div className="booking-flow__grid">
-            <div className="booking-flow__group">
-              <label className="booking-flow__label" htmlFor="customer-name-live">
-                Имя
-              </label>
-              <input
-                id="customer-name-live"
-                className="booking-flow__field"
-                value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
-              />
+          {!isAuthenticated ? (
+            <div className="booking-live__account-box">
+              <p className="booking-live__helper">
+                Для оформления бронирования войдите в аккаунт или зарегистрируйтесь.
+              </p>
+              <div className="booking-live__links">
+                <Link href="/register?next=%2Fbook" className="booking-live__link">
+                  Регистрация
+                </Link>
+                <Link href="/login?next=%2Fbook" className="booking-live__link">
+                  Войти
+                </Link>
+              </div>
             </div>
-            <div className="booking-flow__group">
-              <label className="booking-flow__label" htmlFor="customer-email-live">
-                Email
-              </label>
-              <input
-                id="customer-email-live"
-                type="email"
-                className="booking-flow__field"
-                value={customerEmail}
-                onChange={(event) => setCustomerEmail(event.target.value)}
-                readOnly={serviceKind === "court" && isAuthenticated}
-              />
+          ) : (
+            <div className="booking-live__account-box">
+              <div className="booking-live__account-grid">
+                <div className="booking-live__account-row">
+                  <span className="booking-live__account-label">Имя</span>
+                  <span className="booking-live__account-value">{customerName || "Не указано"}</span>
+                </div>
+                <div className="booking-live__account-row">
+                  <span className="booking-live__account-label">Email</span>
+                  <span className="booking-live__account-value">{customerEmail || "Не указано"}</span>
+                </div>
+                <div className="booking-live__account-row">
+                  <span className="booking-live__account-label">Телефон</span>
+                  <span className="booking-live__account-value">{customerPhone || "Не указано"}</span>
+                </div>
+              </div>
+              <div className="booking-live__links">
+                <button type="button" className="booking-live__link" onClick={openCustomerEditor}>
+                  Изменить данные
+                </button>
+              </div>
             </div>
-            <div className="booking-flow__group">
-              <label className="booking-flow__label" htmlFor="customer-phone-live">
-                Телефон
-              </label>
-              <input
-                id="customer-phone-live"
-                type="tel"
-                className="booking-flow__field"
-                value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         {selectedSlot && pricePreview ? (
@@ -695,7 +717,7 @@ export function LiveBookingForm({
               {selectedSlot.startTime} - {selectedSlot.endTime}
             </p>
             <p className="booking-live__summary-sub">
-              Корт: {formatCourtLabel(selectedSlot.courtId, courtNames)} ({selectedSlot.courtId})
+              Корт: {formatCourtLabel(selectedSlot.courtId, courtNames)}
             </p>
             <p className="booking-live__summary-sub">Период тарифа: {getTierLabel(pricePreview.tier)}</p>
             <div className="booking-live__price-breakdown">
@@ -730,13 +752,16 @@ export function LiveBookingForm({
               submitLoading ||
               !selectedSlot ||
               !resolvedService ||
+              (requiresAccountForBooking && !isAuthenticated) ||
               (resolvedService.requiresInstructor && !selectedTrainer)
             }
           >
             {submitLoading ? "Создаем бронь..." : "Забронировать"}
           </button>
           <span className="booking-live__helper">
-            После бронирования зарегистрируйтесь с тем же email, чтобы увидеть бронь в кабинете.
+            {isAuthenticated
+              ? "Проверьте выбранный корт, время и данные аккаунта перед подтверждением."
+              : "Сначала войдите или зарегистрируйтесь, затем вернитесь к бронированию."}
           </span>
         </div>
 
@@ -762,21 +787,98 @@ export function LiveBookingForm({
               {" • "}Оплата: {submitSuccess.data.payment.status} ({submitSuccess.data.payment.provider})
             </p>
             <div className="booking-live__links">
-              <Link href="/register?next=%2Faccount%2Fbookings" className="booking-live__link">
-                Регистрация
-              </Link>
-              <Link href="/login?next=%2Faccount%2Fbookings" className="booking-live__link">
-                Войти в кабинет
+              <Link href="/account/bookings" className="booking-live__link">
+                Открыть личный кабинет
               </Link>
             </div>
-            {submitSuccess.source === "demo-fallback" ? (
-              <p className="booking-live__result-line">
-                Внимание: использован demo-fallback, бронирование не сохранено в БД.
-              </p>
-            ) : null}
-            {submitSuccess.note ? (
-              <p className="booking-live__result-line">Тех. заметка: {submitSuccess.note}</p>
-            ) : null}
+          </div>
+        ) : null}
+
+        {showCustomerEditor ? (
+          <div
+            className="booking-live__modal-backdrop"
+            role="presentation"
+            onClick={() => setShowCustomerEditor(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="booking-customer-editor-title"
+              className="booking-live__modal"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="booking-live__modal-head">
+                <h3 id="booking-customer-editor-title" className="booking-live__modal-title">
+                  Изменить данные для бронирования
+                </h3>
+                <button
+                  type="button"
+                  className="booking-live__modal-close"
+                  onClick={() => setShowCustomerEditor(false)}
+                  aria-label="Закрыть окно"
+                >
+                  Закрыть
+                </button>
+              </div>
+              <div className="booking-flow__grid">
+                <div className="booking-flow__group">
+                  <label className="booking-flow__label" htmlFor="customer-name-live">
+                    Имя
+                  </label>
+                  <input
+                    id="customer-name-live"
+                    className="booking-flow__field"
+                    value={customerEditorName}
+                    onChange={(event) => setCustomerEditorName(event.target.value)}
+                  />
+                </div>
+                <div className="booking-flow__group">
+                  <label className="booking-flow__label" htmlFor="customer-email-live">
+                    Email
+                  </label>
+                  <input
+                    id="customer-email-live"
+                    type="email"
+                    className="booking-flow__field"
+                    value={customerEditorEmail}
+                    onChange={(event) => setCustomerEditorEmail(event.target.value)}
+                  />
+                </div>
+                <div className="booking-flow__group">
+                  <label className="booking-flow__label" htmlFor="customer-phone-live">
+                    Телефон
+                  </label>
+                  <input
+                    id="customer-phone-live"
+                    type="tel"
+                    className="booking-flow__field"
+                    value={customerEditorPhone}
+                    onChange={(event) => setCustomerEditorPhone(event.target.value)}
+                  />
+                </div>
+              </div>
+              {customerEditorError ? (
+                <div className="booking-live__message booking-live__message--error" role="alert">
+                  {customerEditorError}
+                </div>
+              ) : null}
+              <div className="booking-live__modal-actions">
+                <button
+                  type="button"
+                  className="booking-live__button booking-live__button--accent"
+                  onClick={saveCustomerEditor}
+                >
+                  Сохранить
+                </button>
+                <button
+                  type="button"
+                  className="booking-live__button"
+                  onClick={() => setShowCustomerEditor(false)}
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
       </div>

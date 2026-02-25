@@ -104,6 +104,8 @@ export function findCourtGroupByTitle(page: Page, courtTitle: string): Locator {
 }
 
 export async function fillBookingCustomerFields(page: Page, options: { name?: string; email?: string; phone: string }) {
+  await page.getByRole("button", { name: "Изменить данные" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
   if (options.name !== undefined) {
     await page.locator("#customer-name-live").fill(options.name);
   }
@@ -111,6 +113,8 @@ export async function fillBookingCustomerFields(page: Page, options: { name?: st
     await page.locator("#customer-email-live").fill(options.email);
   }
   await page.locator("#customer-phone-live").fill(options.phone);
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
 export async function submitBookingAndExpectSuccess(page: Page) {
@@ -127,6 +131,13 @@ export async function bookFirstAvailableTrainingSlot(page: Page, options: {
   customerPhone?: string;
   trainerName?: string;
 }) {
+  await registerCustomer(page, {
+    email: options.customerEmail,
+    next: "/book",
+    name: options.customerName ?? "Тренировочный клиент",
+    phone: options.customerPhone ?? "+77012223344",
+  });
+
   await selectBookingFlowOptions(page, {
     sport: options.sport ?? "padel",
     serviceKind: "training",
@@ -141,12 +152,6 @@ export async function bookFirstAvailableTrainingSlot(page: Page, options: {
   } else {
     await page.locator(".booking-live__trainer-button").first().click();
   }
-
-  await fillBookingCustomerFields(page, {
-    name: options.customerName ?? "Тренировочный клиент",
-    email: options.customerEmail,
-    phone: options.customerPhone ?? "+77012223344",
-  });
 
   await submitBookingAndExpectSuccess(page);
 }

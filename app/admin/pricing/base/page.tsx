@@ -2,29 +2,30 @@ import { revalidatePath } from "next/cache";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
-  getComponentPriceMatrix,
-  PRICING_PERIOD_LABELS,
-  saveComponentPriceMatrixFromForm,
+  COURT_BASE_PRICING_PERIOD_LABELS,
+  getCourtBasePriceMatrix,
+  saveCourtBasePriceMatrixFromForm,
 } from "@/src/lib/settings/service";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminBasePricingPage() {
   await assertAdmin();
-  const matrix = await getComponentPriceMatrix();
+  const matrix = await getCourtBasePriceMatrix();
 
   async function saveAction(formData: FormData) {
     "use server";
     await assertAdmin();
-    await saveComponentPriceMatrixFromForm(formData);
+    await saveCourtBasePriceMatrixFromForm(formData);
     revalidatePath("/admin/pricing/base");
     revalidatePath("/prices");
+    revalidatePath("/");
   }
 
   return (
     <AdminPageShell
       title="Матрица цен"
-      description="Фиксированные цены по компонентам (корт / тренер), спорту и периоду. Изменения сохраняются в БД."
+      description="Базовые цены кортов по спорту. Тренировки не настраиваются здесь: стоимость тренера задается отдельно в карточке каждого тренера."
     >
       <form action={saveAction} className="admin-form">
         <div className="admin-table">
@@ -33,19 +34,16 @@ export default async function AdminBasePricingPage() {
               <tr className="admin-table__row">
                 <th className="admin-table__cell admin-table__cell--head">Позиция</th>
                 <th className="admin-table__cell admin-table__cell--head">
-                  {PRICING_PERIOD_LABELS.morning}
+                  {COURT_BASE_PRICING_PERIOD_LABELS.morning}
                 </th>
                 <th className="admin-table__cell admin-table__cell--head">
-                  {PRICING_PERIOD_LABELS.day}
-                </th>
-                <th className="admin-table__cell admin-table__cell--head">
-                  {PRICING_PERIOD_LABELS.evening_weekend}
+                  {COURT_BASE_PRICING_PERIOD_LABELS.evening_weekend}
                 </th>
               </tr>
             </thead>
             <tbody>
               {matrix.map((row) => (
-                <tr key={`${row.sport}-${row.componentType}`} className="admin-table__row">
+                <tr key={row.sport} className="admin-table__row">
                   <td className="admin-table__cell">{row.label}</td>
                   <td className="admin-table__cell">
                     <input
@@ -53,7 +51,7 @@ export default async function AdminBasePricingPage() {
                       type="number"
                       min="0"
                       step="1"
-                      name={`${row.sport}_${row.componentType}_morning`}
+                      name={`${row.sport}_court_morning`}
                       defaultValue={row.values.morning}
                       required
                     />
@@ -64,18 +62,7 @@ export default async function AdminBasePricingPage() {
                       type="number"
                       min="0"
                       step="1"
-                      name={`${row.sport}_${row.componentType}_day`}
-                      defaultValue={row.values.day}
-                      required
-                    />
-                  </td>
-                  <td className="admin-table__cell">
-                    <input
-                      className="admin-form__field"
-                      type="number"
-                      min="0"
-                      step="1"
-                      name={`${row.sport}_${row.componentType}_evening_weekend`}
+                      name={`${row.sport}_court_evening_weekend`}
                       defaultValue={row.values.evening_weekend}
                       required
                     />

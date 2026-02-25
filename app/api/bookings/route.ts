@@ -45,12 +45,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Услуга не найдена" }, { status: 404 });
   }
 
-  const isCourtOnlyService =
-    effectiveService.requiresCourt === true && effectiveService.requiresInstructor === false;
-
-  if (isCourtOnlyService && !session?.user?.id) {
+  if (!session?.user?.id) {
     return NextResponse.json(
-      { error: "Для бронирования корта требуется зарегистрированный аккаунт и вход в систему." },
+      { error: "Для бронирования требуется зарегистрированный аккаунт и вход в систему." },
       { status: 401 },
     );
   }

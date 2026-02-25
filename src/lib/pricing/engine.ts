@@ -104,17 +104,20 @@ function getComponentPrice(args: {
   tier: PricingTier;
   currency: string;
 }): number {
+  const normalizedTier =
+    args.componentType === "court" && args.tier === "day" ? ("morning" as PricingTier) : args.tier;
+
   const record = args.componentPrices.find(
     (item) =>
       item.sport === args.sport &&
       item.componentType === args.componentType &&
-      item.tier === args.tier &&
+      item.tier === normalizedTier &&
       item.currency === args.currency,
   );
 
   if (!record) {
     throw new Error(
-      `Не найдена цена: sport=${args.sport}, component=${args.componentType}, tier=${args.tier}`,
+      `Не найдена цена: sport=${args.sport}, component=${args.componentType}, tier=${normalizedTier}`,
     );
   }
 
