@@ -2,6 +2,7 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
+import { AdminConfirmActionForm } from "@/src/components/admin/admin-confirm-action-form";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   createInstructorFromForm,
@@ -11,6 +12,14 @@ import {
   SPORT_LABELS,
   updateInstructorFromForm,
 } from "@/src/lib/admin/resources";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: тренеры | Padel & Squash KZ",
+  description: "Управление тренерами: виды спорта, описание, ставка за час, активность и переход к расписанию.",
+  path: "/admin/instructors",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 
@@ -107,74 +116,72 @@ export default async function AdminInstructorsPage({
         <p className="account-history__message account-history__message--success">{successMessage}</p>
       ) : null}
 
-      <form action={createAction} className="admin-form">
-        <div className="admin-table">
-          <table className="admin-table__table">
-            <tbody>
-              <tr className="admin-table__row">
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="instructor-name">
-                    Имя
-                  </label>
-                  <input
-                    id="instructor-name"
-                    name="name"
-                    className="admin-form__field"
-                    placeholder="Имя Фамилия"
-                    required
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label">Виды спорта</label>
-                  <div className="admin-inline-checkboxes">
-                    <label className="admin-form__checkbox">
-                      <input name="sports" type="checkbox" value="padel" defaultChecked />
-                      <span>Падел</span>
-                    </label>
-                    <label className="admin-form__checkbox">
-                      <input name="sports" type="checkbox" value="squash" />
-                      <span>Сквош</span>
-                    </label>
-                  </div>
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="instructor-bio">
-                    Описание (для страницы тренеров)
-                  </label>
-                  <input
-                    id="instructor-bio"
-                    name="bio"
-                    className="admin-form__field"
-                    placeholder="Направление, опыт, формат занятий"
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="instructor-price-hour">
-                    Ставка за час (₸)
-                  </label>
-                  <input
-                    id="instructor-price-hour"
-                    name="pricePerHour"
-                    type="number"
-                    min="0"
-                    step="1"
-                    className="admin-form__field"
-                    defaultValue={10000}
-                    required
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <div className="admin-form__actions">
-                    <button type="submit" className="admin-form__submit">
-                      Добавить тренера
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <section className="admin-section">
+        <div className="admin-section__head">
+          <h2 className="admin-section__title">Добавить тренера</h2>
+          <p className="admin-section__description">Тренер появится в бронировании и на странице тренеров.</p>
         </div>
-      </form>
+        <form action={createAction} className="admin-form admin-form--panel">
+          <div className="admin-form__panel-grid">
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="instructor-name">
+                Имя
+              </label>
+              <input
+                id="instructor-name"
+                name="name"
+                className="admin-form__field"
+                placeholder="Имя Фамилия"
+                required
+              />
+            </div>
+            <div className="admin-form__group">
+              <label className="admin-form__label">Виды спорта</label>
+              <div className="admin-inline-checkboxes">
+                <label className="admin-form__checkbox">
+                  <input name="sports" type="checkbox" value="padel" defaultChecked />
+                  <span>Падел</span>
+                </label>
+                <label className="admin-form__checkbox">
+                  <input name="sports" type="checkbox" value="squash" />
+                  <span>Сквош</span>
+                </label>
+              </div>
+            </div>
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="instructor-bio">
+                Описание (для страницы тренеров)
+              </label>
+              <input
+                id="instructor-bio"
+                name="bio"
+                className="admin-form__field"
+                placeholder="Направление, опыт, формат занятий"
+              />
+            </div>
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="instructor-price-hour">
+                Ставка за час (₸)
+              </label>
+              <input
+                id="instructor-price-hour"
+                name="pricePerHour"
+                type="number"
+                min="0"
+                step="1"
+                className="admin-form__field"
+                defaultValue={10000}
+                required
+              />
+            </div>
+          </div>
+          <div className="admin-form__actions">
+            <button type="submit" className="admin-form__submit">
+              Добавить тренера
+            </button>
+          </div>
+        </form>
+      </section>
 
       <div className="admin-table">
         <table className="admin-table__table">
@@ -266,7 +273,10 @@ export default async function AdminInstructorsPage({
                     </form>
                   </td>
                   <td className="admin-table__cell">
-                    <span className="admin-bookings__chip">{instructor.active ? "Да" : "Нет"}</span>
+                    <span className={`admin-status-badge ${instructor.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
+                      <span className="admin-status-badge__dot" aria-hidden="true" />
+                      {instructor.active ? "Активен" : "Неактивен"}
+                    </span>
                   </td>
                   <td className="admin-table__cell">
                     <Link
@@ -285,12 +295,14 @@ export default async function AdminInstructorsPage({
                           {instructor.active ? "Выключить" : "Включить"}
                         </button>
                       </form>
-                      <form action={deleteAction} className="admin-bookings__actions">
-                        <input type="hidden" name="instructorId" value={instructor.id} />
-                        <button type="submit" className="admin-bookings__action-button">
-                          Удалить
-                        </button>
-                      </form>
+                      <AdminConfirmActionForm
+                        action={deleteAction}
+                        hiddenFields={{ instructorId: instructor.id }}
+                        triggerLabel="Удалить"
+                        confirmLabel="Удалить тренера"
+                        title="Удалить тренера?"
+                        description="Удаление доступно только если тренер не используется в истории бронирований."
+                      />
                     </div>
                   </td>
                 </tr>

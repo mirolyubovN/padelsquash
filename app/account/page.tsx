@@ -1,17 +1,34 @@
 import Link from "next/link";
 import { PageHero } from "@/src/components/page-hero";
+import { AccountTabs } from "@/src/components/account/account-tabs";
+import { updateAccountProfileAction } from "@/app/account/actions";
 import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
 import { getAccountDashboardData } from "@/src/lib/account/bookings";
 import { getSafeCustomerFreeCancellationHours } from "@/src/lib/bookings/policy";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Личный кабинет | Padel & Squash KZ",
+  description: "Профиль клиента: личные данные, быстрая сводка по бронированиям и управление аккаунтом.",
+  path: "/account",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string; error?: string }>;
+}) {
   const freeCancellationHours = getSafeCustomerFreeCancellationHours();
   const session = await requireAuthenticatedUser("/account");
+  const params = await searchParams;
   const data = await getAccountDashboardData(session.user.id);
   const roleLabel =
     data.user.role === "admin" ? "Администратор" : data.user.role === "coach" ? "Тренер" : "Клиент";
+  const successMessage = params.success === "profile_saved" ? "Профиль обновлен." : null;
+  const errorMessage = params.error === "profile_invalid" ? "Проверьте имя и телефон." : null;
 
   return (
     <div className="account-page">
@@ -20,6 +37,19 @@ export default async function AccountPage() {
         title="Профиль клиента"
         description={`Профиль пользователя и сводка по бронированиям. Бесплатная отмена доступна не позднее чем за ${freeCancellationHours} часов до начала.`}
       />
+
+      <AccountTabs active="profile" />
+
+      {errorMessage ? (
+        <p className="account-history__message account-history__message--error" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+      {successMessage ? (
+        <p className="account-history__message account-history__message--success" role="status">
+          {successMessage}
+        </p>
+      ) : null}
 
       <section className="account-page__cards">
         <article className="account-card">
@@ -42,6 +72,40 @@ export default async function AccountPage() {
               <dd className="account-profile__value">{roleLabel}</dd>
             </div>
           </dl>
+
+          <form action={updateAccountProfileAction} className="account-profile-form">
+            <p className="account-profile-form__title">Редактировать профиль</p>
+            <div className="account-profile-form__grid">
+              <div className="auth-form__group">
+                <label htmlFor="account-name" className="auth-form__label">
+                  Имя
+                </label>
+                <input
+                  id="account-name"
+                  name="name"
+                  defaultValue={data.user.name}
+                  required
+                  className="auth-form__field"
+                />
+              </div>
+              <div className="auth-form__group">
+                <label htmlFor="account-phone" className="auth-form__label">
+                  Телефон
+                </label>
+                <input
+                  id="account-phone"
+                  name="phone"
+                  type="tel"
+                  defaultValue={data.user.phone}
+                  required
+                  className="auth-form__field"
+                />
+              </div>
+            </div>
+            <button type="submit" className="auth-form__submit">
+              Сохранить профиль
+            </button>
+          </form>
         </article>
 
         <article className="account-card">

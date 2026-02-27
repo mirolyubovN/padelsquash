@@ -8,6 +8,115 @@
 - [x] Verify trainer UX requirements end-to-end (single trainer price, multi-sport support, DB description on coaches page, admin description edit, admin session history).
 - [x] Update `tasks/ux-overhaul-plan.md` instructor model correction checkboxes and document review results in this file.
 
+## Plan (2026-02-25 - UX overhaul Phase 3.2 booking auth banner + URL state persistence)
+
+- [x] Add a persistent top-of-booking-form auth requirement banner for unauthenticated users with login/registration links.
+- [x] Persist booking selections (`sport`, `service`, `trainer`, `date`) into `/book` query params while the user configures the booking.
+- [x] Restore booking form selections from query params on load and preserve them after login/registration redirects.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 2.5 cleanup pass: legal stubs + public copy leaks)
+
+- [x] Fix dead footer legal links by adding minimal `/legal/privacy` and `/legal/terms` pages (or equivalent non-404 behavior).
+- [x] Remove remaining admin/technical framing from public-facing copy (login hero, coaches empty state, homepage content subtitles, account bookings hero text).
+- [x] Fix login default redirect for regular users from `/admin` to `/account` when `?next=` is missing.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 2.5 cleanup pass: orphaned code + prices page polish)
+
+- [x] Remove confirmed orphaned code/assets from Phase 2 work (unused `ContactForm`, static `coachItems`, unused `BookingFormPreview` component if not referenced).
+- [x] Fix prices page edge cases: avoid trainer `0 ₸` output when no trainers exist.
+- [x] Replace homepage-scoped CTA class usage on `/prices` with a shared/non-homepage class.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 2.5 cleanup pass: unused feature/social-proof artifacts)
+
+- [x] Remove unused `featureItems` export from `site-content.ts` if still unreferenced.
+- [x] Remove unused `.feature-grid__*` and `.social-proof__*` CSS blocks if not used by current pages.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 2.5 cleanup pass: homepage placeholders + CSS disabled/loading polish)
+
+- [x] Remove public homepage placeholder sections (FAQ / booking rules / club rules) or replace with real content; prefer removal for now.
+- [x] Fix spinner behavior so disabled buttons do not show loading spinners unless explicitly in loading/pending state.
+- [x] Resolve `transition-transform` + `transition-colors` utility conflicts in CSS classes noted in the review.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 3.7 booking confirmation cleanup: remove raw internal fields)
+
+- [x] Replace raw booking/payment internals in the booking success view with customer-friendly confirmation text and session summary.
+- [x] Keep the confirmation useful (sport/service/date/time/court/trainer/amount + next step to account bookings) without exposing raw UUID/provider/status strings.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 3.3 foundation: availability API instructor filter)
+
+- [x] Add optional `instructorId` query-param validation support for availability requests.
+- [x] Filter availability results by the requested trainer (only slots where that trainer is available/free) while preserving existing behavior when no trainer is specified.
+- [x] Run verification (`npm run lint`, `npm run build`, targeted tests if needed) and document review notes.
+
+## Plan (2026-02-25 - Phase 3.2 trainer selection before time slots)
+
+- [x] Move trainer selection earlier in the booking UI for training bookings (before date/time slot selection).
+- [x] Filter availability fetches by selected trainer (`instructorId`) for training services using the new API support.
+- [x] Keep existing court-booking flow behavior intact and verify with `npm run lint` + `npm run build` (plus e2e if stable).
+
+## Plan (2026-02-25 - Phase 3.2 trainer cards polish: avatar + sport tags)
+
+- [x] Add initials avatar and sport tags to trainer-selection cards in the booking flow (training step).
+- [x] Keep trainer price/hour visible and preserve selected-state styling/behavior.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 3.1 stepper slice: booking step indicator)
+
+- [x] Add a visual step indicator to the booking form with dynamic step count/labels for court vs training flows.
+- [x] Compute current/completed/pending step states from the existing booking form selections without changing backend behavior.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 3.1 progressive disclosure v1: hide downstream steps)
+
+- [x] Hide later booking sections (account step and confirmation action area) until a time slot is selected.
+- [x] Preserve existing booking behavior and top auth banner while reducing early visual noise.
+- [x] Run `npm run lint` + `npm run build` (and e2e if needed) and document review notes.
+
+## Plan (2026-02-25 - Phase 3.1/3.2 progressive disclosure v2: training date step after trainer)
+
+- [x] Hide the training date/time step until a trainer is selected (trainer-first flow).
+- [x] Update booking e2e helpers/tests to set the date after trainer selection for training bookings.
+- [x] Run `npm run lint` + `npm run build` + `npm run test:e2e` and document review notes.
+
+## Plan (2026-02-25 - Phase 3.8 slot display polish: tier + price on time buttons)
+
+- [x] Show a pricing tier label on each slot button.
+- [x] Show per-slot price on/near each slot button (court-only or court+trainer total as applicable).
+- [x] Run `npm run lint` + `npm run build` (+ `npm run test:e2e` if selectors/flow unaffected) and document review notes.
+
+## Plan (2026-02-25 - Phase 3.8 slot display polish: loading skeleton + selected state)
+
+- [x] Replace plain slot-loading text with a slot-loading skeleton UI.
+- [x] Strengthen selected-slot styling so chosen time stands out clearly from available slots.
+- [x] Run `npm run lint` + `npm run build` and document review notes.
+
+## Plan (2026-02-25 - Phase 3.1 progressive disclosure v3: completed-step summaries + edit controls)
+
+- [x] Collapse completed booking steps into compact summaries after a slot is selected (sport, service, trainer, date/time) while keeping the current step visible.
+- [x] Add "Изменить" controls to reopen a completed step for inline correction without breaking the trainer-first flow.
+- [x] Add a lightweight step reveal animation (with reduced-motion fallback) and verify `npm run lint` + `npm run build` (+ `npm run test:e2e` because booking UI changed).
+
+## Plan (2026-02-25 - Phase 3 completion: multi-slot + auto-court booking flow)
+
+- [x] Replace per-court single-slot selection in booking UI with a flat multi-slot time list and selection counter.
+- [x] Submit one booking per selected slot with automatic court assignment (first available court per slot) and partial-failure feedback.
+- [x] Update booking review/confirmation UI for multi-session summaries and assigned-court confirmation details.
+- [x] Omit redundant `availableInstructorIds` in availability API responses when `instructorId` filter is provided.
+- [x] Update integration/e2e tests to the Phase 3 booking UI behavior and run `npm run lint`, `npm run build`, `npm run test:integration`, `npm run test:e2e`.
+
+## Plan (2026-02-25 - Phase 4 auth/account UX completion)
+
+- [x] Complete login UX improvements (submit loading state, forgot-password link/page, warmer auth panel styling).
+- [x] Complete registration UX improvements (password visibility toggle) and verify return redirect behavior remains `next`-aware.
+- [x] Complete account UX improvements (tabs, profile edit form, bookings status badges, cancel confirmation dialog, upcoming/past split, mobile-friendly cards).
+- [x] Run verification (`npm run lint`, `npm run build`, `npm run test:e2e`) and mark Phase 4 complete in `tasks/ux-overhaul-plan.md`.
+
 ## Plan (2026-02-24 - navigation account button)
 
 - [x] Add a persistent header account entry so users can reach profile/bookings from the public site.
@@ -274,6 +383,7 @@
 - Verification:
   - `npm run lint` ✅
   - `npm run build` ✅
+  - `npm run test:e2e` ✅
   - `npm run test:e2e` ✅
 
 ### Review (admin resource deletion)
@@ -582,3 +692,334 @@
   - `npm run test:integration` ✅
   - `npm run build` ✅
   - `npm run test:e2e` ✅
+
+### Review (2026-02-25 - UX overhaul Phase 3.6 auth banner + booking URL state persistence)
+
+- Implemented the next booking UX slice in `src/components/booking/live-booking-form.tsx`:
+  - added a persistent top banner for unauthenticated users with login/registration links
+  - login/register links now carry a dynamic `next` URL that preserves current booking selections
+  - booking selections are synced into `/book` query params (`sport`, `service`, `date`, `instructor`)
+  - booking form restores selections from query params on mount
+- Implementation detail:
+  - trainer selection restore is deferred until a slot is selected and the trainer is available in that slot (uses pending trainer id from URL)
+- Updated `tasks/ux-overhaul-plan.md` section `3.6 Surface auth requirement early` checkboxes to complete.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 2.5 cleanup pass: legal stubs + public copy leaks)
+
+- Fixed footer legal-link 404s by adding stub pages:
+  - `app/legal/privacy/page.tsx`
+  - `app/legal/terms/page.tsx`
+- Removed remaining public-facing admin/technical framing:
+  - login hero description is now customer-facing (`app/login/page.tsx`)
+  - account bookings hero no longer mentions "из БД" (`app/account/bookings/page.tsx`)
+  - coaches empty state no longer tells public users to use admin panel (`app/coaches/page.tsx`)
+  - homepage pricing/about subtitles rewritten to user-facing copy (`src/lib/content/site-content.ts`)
+  - footer copyright no longer says demo version (`src/components/site-footer.tsx`)
+  - removed visible "(демо)" suffix from public phone number in `siteConfig` (`src/lib/content/site-content.ts`)
+- Fixed login default redirect behavior for users without `?next=`:
+  - default now goes to `/account` instead of `/admin`
+  - invalid-credentials redirect preserves the `next` parameter (`app/login/page.tsx`)
+- Updated corresponding Phase 2.5 review checklist items in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 2.5 cleanup pass: orphaned code + prices page polish)
+
+- Removed confirmed orphaned code from earlier homepage/contact iterations:
+  - deleted unused `src/components/booking-form-preview.tsx`
+  - deleted unused `src/components/contact/contact-form.tsx`
+  - deleted orphaned `app/contact/actions.ts` (only used by the removed contact form)
+  - removed unused `coachItems` and `bookingPreviewContent` exports from `src/lib/content/site-content.ts`
+- Fixed `/prices` polish issues:
+  - replaced homepage-scoped CTA class usage with non-homepage class (`card-grid__button`) in `app/prices/page.tsx`
+  - handled no-trainer edge case so the page no longer shows `0 ₸` trainer prices/ranges
+  - example section now shows a fallback message when trainer prices are unavailable instead of fake zero values
+- Updated corresponding Phase 2.5 review checklist items in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 2.5 cleanup pass: unused feature/social-proof artifacts)
+
+- Confirmed the following artifacts were no longer referenced by current pages/components:
+  - `featureItems` export in `src/lib/content/site-content.ts`
+  - `.feature-grid__*` CSS blocks in `app/globals.css`
+  - `.social-proof__*` CSS blocks (and unused `.social-proof` wrapper styles) in `app/globals.css`
+- Removed those unused exports/styles to reduce dead code left behind from superseded homepage iterations.
+- Updated corresponding Phase 2.5 review checklist items in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 2.5 cleanup pass: homepage placeholders + CSS disabled/loading polish)
+
+- Removed public homepage placeholder sections from `app/page.tsx`:
+  - FAQ placeholder
+  - booking rules placeholder
+  - club rules placeholder
+- Removed now-unused homepage placeholder styles from `app/globals.css` (`home-overview__placeholder-grid`, `home-overview__placeholder-card`).
+- Fixed disabled-button spinner behavior in `app/globals.css`:
+  - spinner pseudo-element no longer attaches to all `:disabled` buttons
+  - spinner now shows only for explicit `--loading` modifier classes
+- Added loading modifiers where state is available:
+  - `src/components/auth/register-form.tsx` uses `auth-form__submit--loading` when `isPending`
+  - `src/components/booking/live-booking-form.tsx` uses `booking-live__button--loading` when `submitLoading`
+- Resolved Tailwind transition utility conflicts by replacing `transition-transform transition-colors` with `transition-all` on affected cards in `app/globals.css`:
+  - `.card-grid__item`
+  - `.coach-card`
+  - `.contact-card`
+- Updated corresponding Phase 2.5 review checklist items in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 3.7 booking confirmation cleanup: remove raw internal fields)
+
+- Reworked the booking success view in `src/components/booking/live-booking-form.tsx` to avoid exposing internal identifiers/provider states.
+- Added a UI-safe confirmation summary state captured at submit time (sport/service/date/time/court/trainer/amount/currency).
+- Success card now shows customer-friendly confirmation details and a clear next step to open `/account/bookings`.
+- Removed raw display of:
+  - booking UUID
+  - raw booking status code
+  - raw payment provider/status strings
+- Updated corresponding Phase 3.7 raw-field checklist items and the Phase 2.5 review note in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 3.3 foundation + Phase 3.2 partial UI: trainer-filtered availability and trainer-before-timeslots)
+
+- Added optional trainer filtering support to the availability API:
+  - `src/lib/validation/booking.ts`: `availabilityQuerySchema` now accepts optional `instructorId`
+  - `app/api/availability/route.ts`: passes optional `instructorId` into slot generation (DB + demo paths)
+  - `src/lib/availability/engine.ts`: supports `requestedInstructorId` and filters training slots to that trainer
+- Added DB-backed integration coverage for the new API behavior:
+  - `tests/integration/availability-api-route.test.ts` now verifies `instructorId`-filtered training slots return only the requested trainer
+- Refactored booking UI to choose trainer before time slots for training bookings:
+  - `src/components/booking/live-booking-form.tsx`
+  - training flow now shows sport-filtered trainer cards before availability
+  - availability requests for training include selected `instructorId`
+  - availability/auto-nearest-date lookup waits for trainer selection in training mode
+  - court-booking flow behavior remains unchanged
+- Updated booking e2e helpers/tests to the new trainer-before-timeslot order and confirmation copy:
+  - `tests/e2e/helpers.ts`
+  - `tests/e2e/02-training-booking.spec.ts`
+  - `tests/e2e/04-admin-instructor-pricing-inline.spec.ts`
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - `npm run test:integration` ✅
+  - `npm run test:e2e` ✅
+
+### Review (2026-02-25 - Phase 3.2 trainer cards polish: avatar + sport tags)
+
+- Enhanced booking trainer-selection cards in `src/components/booking/live-booking-form.tsx`:
+  - initials avatar
+  - sport tags (padel/squash badges)
+  - hourly price remains visible
+- Added trainer-card UI styles in `app/globals.css` while preserving existing selected-state behavior.
+- This completes the remaining Phase 3.2 trainer-card content checklist item in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 3.1 stepper slice: booking step indicator)
+
+- Added a dynamic booking stepper to `src/components/booking/live-booking-form.tsx`:
+  - 5 steps for court bookings
+  - 6 steps for training bookings (includes trainer step)
+  - current/completed/pending state styling derived from the current booking selections
+- Added stepper styles in `app/globals.css` (badge + state variants).
+- This completes the Phase 3.1 step-indicator checklist item and provides a base for progressive disclosure next.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 3.1 progressive disclosure v1: hide downstream steps)
+
+- Reduced booking-form visual noise by hiding downstream sections until a slot is selected:
+  - account/auth step section now appears only after slot selection
+  - submit action area now appears only after slot selection
+- Preserved the top auth requirement banner so unauthenticated users still see the account requirement from the first screen.
+- Updated the court-booking e2e assertion to match the new top-banner copy (account-step message is no longer visible before slot selection).
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - `npm run test:e2e` ✅
+
+### Review (2026-02-25 - Phase 3.1/3.2 progressive disclosure v2: training date step after trainer)
+
+- Training bookings now follow a stricter trainer-first order in `src/components/booking/live-booking-form.tsx`:
+  - trainer step appears before date/time
+  - date/time step is hidden until a trainer is selected
+- Updated e2e helper flow to match:
+  - training date is now set after trainer selection
+  - helper `pickTrainerAndWaitForAvailability(...)` can set the date and wait for availability
+- Updated affected booking e2e specs to the new order:
+  - `tests/e2e/02-training-booking.spec.ts`
+  - `tests/e2e/04-admin-instructor-pricing-inline.spec.ts`
+  - plus helper refactor in `tests/e2e/helpers.ts`
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - `npm run test:e2e` ✅
+
+### Review (2026-02-25 - Phase 3.8 slot display polish: tier + price on time buttons)
+
+- Enhanced booking slot buttons in `src/components/booking/live-booking-form.tsx`:
+  - tier tag shown on each slot (`Утро` / `День` / `Вечер / выходные`)
+  - per-slot price shown directly on the button
+  - training slots show total per slot (court + selected trainer), court rentals show court-only price
+- Added supporting slot-tag/price styles in `app/globals.css`.
+- Updated corresponding Phase 3.8 checklist items in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 3.1 progressive disclosure v3: completed-step summaries + edit controls)
+
+- Extended the booking progressive-disclosure flow in `src/components/booking/live-booking-form.tsx`:
+  - after a slot is selected, completed steps collapse into compact summaries (`Спорт`, `Услуга`, `Тренер` for training, `Дата и время`)
+  - each summary has an `Изменить` button that reopens that specific step for inline correction
+  - selecting a new value/slot exits edit mode and keeps the existing trainer-first flow intact
+- Added lightweight step reveal animation + reduced-motion fallback:
+  - `app/globals.css` (`.booking-live__step--animated`, `@keyframes booking-step-reveal`, `prefers-reduced-motion`)
+- Added summary-card styling for collapsed steps in `app/globals.css`.
+- Reconciled Phase 3.8 checklist status in `tasks/ux-overhaul-plan.md` for already-shipped slot loading skeleton + selected-slot visual state.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 3 completion: multi-slot selection, auto-court assignment, and final booking UX)
+
+- Completed the remaining Phase 3 booking-flow overhaul in `src/components/booking/live-booking-form.tsx`:
+  - replaced single-slot state with `selectedSlotKeys[]` multi-select
+  - replaced per-court grouped availability with a flat unique time-slot list (court auto-assigned on submit)
+  - added selection counter and multi-slot price review (per-slot rows + aggregated total)
+  - split date/time into separate steps in the rendered flow (trainer-first for training preserved)
+  - submit now loops over selected slots and creates one booking per slot
+  - partial successes show a warning summary (`X из Y...`) while still showing created bookings
+  - success confirmation now lists all booked sessions and assigned courts, plus total amount and account CTA
+- Completed Phase 3.3 response-shape cleanup:
+  - `app/api/availability/route.ts` omits `availableInstructorIds` when `instructorId` is provided
+  - `tests/integration/availability-api-route.test.ts` updated to assert omission
+- Updated e2e helpers/specs for the flat-slot UI and new confirmation/review behavior:
+  - `tests/e2e/helpers.ts`
+  - `tests/e2e/01-customer-court-booking-account.spec.ts`
+  - `tests/e2e/04-admin-instructor-pricing-inline.spec.ts`
+- Marked remaining Phase 3 checklist items complete in `tasks/ux-overhaul-plan.md` (3.1, 3.3, 3.4, 3.5, 3.7).
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - `npm run test:integration` ✅
+  - `npm run test:e2e` ✅
+
+### Review (2026-02-25 - Phase 4 auth/account UX completion)
+
+- Login UX (`app/login/page.tsx`, `src/components/auth/login-form.tsx`, `app/globals.css`):
+  - moved login form into a client component so submit button shows a real pending/loading state via `useFormStatus`
+  - added `Забыли пароль?` link
+  - improved auth panel presentation with brand mark/header block and warmer surface styling
+- Password reset MVP page:
+  - added `/forgot-password` route (`app/forgot-password/page.tsx`)
+  - added client-side MVP assist form (`src/components/auth/forgot-password-form.tsx`) that collects email and shows admin-contact guidance
+- Registration UX (`src/components/auth/register-form.tsx`):
+  - added password visibility toggle for password + confirmation fields
+  - confirmed existing `next`-aware redirect behavior remains in place via `app/register/actions.ts`
+- Account pages UX (`app/account/page.tsx`, `app/account/bookings/page.tsx`, `app/account/actions.ts`, `src/components/account/*`, `app/globals.css`):
+  - added shared account tab navigation (Профиль / Мои бронирования) on both account pages
+  - added profile edit form (name/phone) directly on `/account` with server action save + cache revalidation + success/error flash via query params
+  - bookings page now shows colored status/payment badges, upcoming vs past sections, and mobile-friendly card layout
+  - added cancellation confirmation dialog before submitting cancellation (`AccountCancelBookingForm`)
+- Updated e2e coverage for the new cancellation confirmation step:
+  - `tests/e2e/01-customer-court-booking-account.spec.ts`
+- Marked all Phase 4 checklist items complete in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - `npm run test:e2e` ✅
+
+### Review (2026-02-25 - Phase 5 admin panel UX overhaul completion)
+
+- Admin shell/navigation (`app/admin/layout.tsx`, `src/components/admin/admin-shell-frame.tsx`, `src/components/admin/admin-nav-config.ts`, `src/components/admin/admin-page-shell.tsx`, `app/globals.css`):
+  - replaced the minimal admin wrapper with a persistent sidebar navigation
+  - added mobile sidebar toggle/overlay behavior
+  - added breadcrumb support in `AdminPageShell` and wired nested admin pages (court exceptions, trainer schedule)
+- Admin dashboard (`app/admin/page.tsx`, `src/lib/admin/dashboard.ts`, `app/globals.css`):
+  - added summary stat cards (today bookings, pending payments, active resources, weekly revenue)
+  - added quick actions + recent bookings panel
+  - added admin alerts (including pending payments and next-day trainer availability gaps by sport)
+- Admin bookings UX (`app/admin/bookings/page.tsx`, `src/lib/admin/bookings.ts`, `app/globals.css`):
+  - humanized booking/payment status labels
+  - added filters (status, sport, date range), search, and pagination
+  - added expandable booking details rows (customer, court/trainer, payment/provider, price breakdown)
+- Admin resources UX (`app/admin/courts/page.tsx`, `app/admin/instructors/page.tsx`, `app/admin/services/page.tsx`, `src/lib/admin/resources.ts`, `src/components/admin/admin-confirm-action-form.tsx`, `app/globals.css`):
+  - moved create forms into separate admin sections above tables
+  - added delete confirmation dialogs for courts/trainers/services
+  - added inline editing for courts (name/notes) and services (name/code)
+  - added colored active/inactive status badges across resource tables
+- E2E maintenance for the new admin/resource markup and booking animations:
+  - `tests/e2e/03-admin-bookings-action.spec.ts` now checks humanized admin booking status labels
+  - `tests/e2e/05-admin-resources-config.spec.ts` now locates admin rows via DOM snapshots (supports inline-edit inputs + server re-renders)
+  - `tests/e2e/helpers.ts` trainer selection click is hardened against animation/stability flake during booking flow tests
+- Marked all Phase 5 checklist items complete in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - `npm run test:e2e` ✅
+
+### Review (2026-02-25 - Phase 6 content & copy quality pass: homepage FAQ/rules + contact directions + booking tone)
+
+- Rewrote customer-facing copy in `src/lib/content/site-content.ts`:
+  - stronger homepage hero/lead (more player-focused, less system-speak)
+  - friendlier homepage pricing/support/social copy
+  - improved coaches page hero copy
+  - warmer contact page hero + booking-support copy
+  - booking page hero and notices updated to match the current trainer-first + auto-court booking flow
+- Added missing informational content in `src/lib/content/site-content.ts`:
+  - homepage FAQ section content (`faqItems`) with answers about equipment, player count, cancellation, first visit, trainer format, and pricing
+  - booking rules list (`bookingRules`)
+  - club rules / dress-code style list (`clubRules`)
+  - richer contact directions copy (`directionsDescription` + expanded directions list)
+- Updated homepage UI to render the new content sections in `app/page.tsx`:
+  - FAQ card grid
+  - booking rules + club rules two-column section
+- Added supporting homepage section styles in `app/globals.css` for the new FAQ/rules blocks.
+- Updated `app/contact/page.tsx`:
+  - added neighborhood/landmark line to the address card
+  - added directions intro text above the "Как добраться" list
+- Marked Phase 6.1 and Phase 6.2 checklist items complete in `tasks/ux-overhaul-plan.md`.
+- Verification:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Review (2026-02-25 - Phase 7 technical polish pass: metadata/SEO + booking auth-state persistence + accessibility foundations)
+
+- Phase 7.2 booking-state persistence completion (`src/components/booking/live-booking-form.tsx`):
+  - extended booking URL sync/restore to include selected slot time(s) using repeated `time=` query params (multi-slot compatible)
+  - login/register `next` URLs now preserve sport/service/date/trainer and selected time slots
+  - URL restore now reselects valid slots after availability loads
+- Phase 7.3 SEO & metadata:
+  - added shared page metadata helper `src/lib/seo/metadata.ts` for title/description/canonical/OG/Twitter metadata
+  - expanded root metadata in `app/layout.tsx` with `metadataBase`, Open Graph, Twitter defaults
+  - added LocalBusiness JSON-LD script to `app/layout.tsx` (sanitized JSON serialization)
+  - added metadata exports with unique title/description for all route pages (`25/25` `app/**/page.tsx`)
+  - added `app/robots.ts` and `app/sitemap.ts` for crawl directives and sitemap generation
+- Phase 7.4 accessibility foundations:
+  - added skip-to-content link in `app/layout.tsx` with `#main-content` target
+  - added global `:focus-visible` outline styles in `app/globals.css` for keyboard navigation clarity
+  - verified icon-only menu/close buttons in custom UI (site header, admin shell, booking modal) have `aria-label`s
+- Phase 7 checklist updates in `tasks/ux-overhaul-plan.md`:
+  - marked `7.2` complete
+  - marked `7.3` complete
+  - marked `7.4` items complete except WCAG AA contrast audit (still pending)
+  - marked `7.1` MVP forgot-password items complete; full email reset-token flow remains pending
+- Verification:
+  - `npm run build` ✅
+  - `npm run test:e2e` ✅
+  - `npm run lint` ✅
+  - Note: `lint` must be run separately from Playwright in this repo because both touch `test-results/` and can race when executed in parallel.

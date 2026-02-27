@@ -17,8 +17,26 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.siteUrl),
   title: siteConfig.name,
   description: siteConfig.shortDescription,
+  applicationName: siteConfig.name,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "ru_KZ",
+    siteName: siteConfig.name,
+    title: siteConfig.name,
+    description: siteConfig.shortDescription,
+    url: siteConfig.siteUrl,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.name,
+    description: siteConfig.shortDescription,
+  },
 };
 
 export default function RootLayout({
@@ -26,12 +44,39 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const localBusinessJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: siteConfig.name,
+    description: siteConfig.shortDescription,
+    url: siteConfig.siteUrl,
+    telephone: siteConfig.phone,
+    email: siteConfig.email,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: siteConfig.address,
+      addressLocality: siteConfig.city,
+      addressCountry: siteConfig.country,
+    },
+    areaServed: siteConfig.city,
+    sameAs: siteConfig.socialLinks.map((link) => link.href),
+  };
+
   return (
     <html lang="ru">
       <body className={`${manrope.variable} ${plexMono.variable}`}>
+        <a href="#main-content" className="skip-link">
+          Перейти к основному содержимому
+        </a>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(localBusinessJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
         <div className="site-frame">
           <SiteHeader />
-          <main className="site-main">
+          <main id="main-content" className="site-main">
             <div className="site-shell site-main__inner">{children}</div>
           </main>
           <SiteFooter />

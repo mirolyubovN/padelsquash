@@ -8,6 +8,14 @@ import {
   getCourtExceptionsPageData,
   SPORT_LABELS,
 } from "@/src/lib/admin/resources";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: исключения корта | Padel & Squash KZ",
+  description: "Разовые исключения доступности для выбранного корта: блокировки, закрытия и техническое обслуживание.",
+  path: "/admin/courts/[id]/exceptions",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +56,11 @@ export default async function AdminCourtExceptionsPage({
     <AdminPageShell
       title={`Исключения корта: ${data.court.name}`}
       description={`Разовые блокировки для ${SPORT_LABELS[data.court.sport]}-корта. Используется в расчете доступности.`}
+      breadcrumbs={[
+        { label: "Корты", href: "/admin/courts" },
+        { label: data.court.name },
+        { label: "Исключения" },
+      ]}
     >
       <form action={addExceptionAction} className="admin-form">
         <div className="admin-table">

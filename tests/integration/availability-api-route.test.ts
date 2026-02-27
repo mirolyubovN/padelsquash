@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { GET as getAvailability } from "@/app/api/availability/route";
 import { prisma } from "@/src/lib/prisma";
-import { nextWeekdayIsoDate } from "./helpers";
+import { getSeededPadelInstructors, nextWeekdayIsoDate } from "./helpers";
 
 describe("availability API route (DB integration)", () => {
   afterAll(async () => {
@@ -35,6 +35,31 @@ describe("availability API route (DB integration)", () => {
       expect(slot.startTime).toMatch(/^\d{2}:00$/);
       expect(slot.endTime).toMatch(/^\d{2}:00$/);
       expect(slot.availableCourtIds.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("filters training slots to a requested instructor when instructorId is provided", async () => {
+    const date = nextWeekdayIsoDate(4);
+    const [trainer] = await getSeededPadelInstructors(1);
+
+    const request = new Request(
+      `http://localhost:3000/api/availability?serviceId=padel-coaching&date=${date}&durationMin=60&instructorId=${trainer.id}`,
+    );
+
+    const response = await getAvailability(request);
+    const payload = (await response.json()) as {
+      error?: string;
+      service?: { id?: string; requiresInstructor?: boolean };
+      slots?: Array<{ availableInstructorIds?: string[] }>;
+    };
+
+    expect(response.status, payload.error).toBe(200);
+    expect(payload.service?.id).toBe("padel-coaching");
+    expect(payload.service?.requiresInstructor).toBe(true);
+    expect((payload.slots?.length ?? 0) > 0).toBe(true);
+
+    for (const slot of payload.slots ?? []) {
+      expect(slot.availableInstructorIds).toBeUndefined();
     }
   });
 });

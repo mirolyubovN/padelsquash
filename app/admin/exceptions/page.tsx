@@ -8,6 +8,14 @@ import {
   getAdminExceptions,
   getExceptionTargetOptions,
 } from "@/src/lib/admin/resources";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: исключения | Padel & Squash KZ",
+  description: "Разовые исключения и блокировки доступности для площадки, кортов и тренеров.",
+  path: "/admin/exceptions",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 

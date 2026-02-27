@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { homePageContent, siteConfig } from "@/src/lib/content/site-data";
 import { getHomepageData } from "@/src/lib/public/homepage";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Главная | Padel & Squash KZ",
+  description: "Падел и сквош в Алматы: бронируйте корты и тренировки онлайн, выбирайте удобное время и управляйте записями в личном кабинете.",
+  path: "/",
+});
 
 export const dynamic = "force-dynamic";
 
@@ -66,15 +73,53 @@ export default async function Home() {
         <p>{homePageContent.equipmentBanner}</p>
       </section>
 
-      <section className="home-overview__placeholder-grid" aria-label="FAQ и правила бронирования">
-        <article className="home-overview__placeholder-card">
-          <h2 className="home-overview__section-title">{homePageContent.faqTitle}</h2>
-          <p className="home-overview__section-text">{homePageContent.faqPlaceholder}</p>
-        </article>
-        <article className="home-overview__placeholder-card">
-          <h2 className="home-overview__section-title">{homePageContent.rulesTitle}</h2>
-          <p className="home-overview__section-text">{homePageContent.rulesPlaceholder}</p>
-        </article>
+      <section className="home-overview__info-section" aria-labelledby="home-faq-title">
+        <div className="home-overview__section-head">
+          <h2 id="home-faq-title" className="home-overview__section-title">
+            {homePageContent.faqTitle}
+          </h2>
+          <p className="home-overview__section-text">{homePageContent.faqSubtitle}</p>
+        </div>
+        <div className="card-grid home-overview__faq-grid">
+          {homePageContent.faqItems.map((item) => (
+            <article key={item.question} className="card-grid__item home-overview__faq-card">
+              <h3 className="home-overview__faq-question">{item.question}</h3>
+              <p className="home-overview__faq-answer">{item.answer}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="home-overview__info-section" aria-labelledby="home-rules-title">
+        <div className="home-overview__section-head">
+          <h2 id="home-rules-title" className="home-overview__section-title">
+            {homePageContent.rulesTitle}
+          </h2>
+          <p className="home-overview__section-text">{homePageContent.rulesSubtitle}</p>
+        </div>
+        <div className="home-overview__rules-grid">
+          <article className="rule-list">
+            <h3 className="rule-list__title">{homePageContent.rulesTitle}</h3>
+            <ul className="rule-list__items">
+              {homePageContent.bookingRules.map((item) => (
+                <li key={item} className="rule-list__item">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </article>
+          <article className="rule-list">
+            <h3 className="rule-list__title">{homePageContent.clubRulesTitle}</h3>
+            <p className="home-overview__club-rules-subtitle">{homePageContent.clubRulesSubtitle}</p>
+            <ul className="rule-list__items">
+              {homePageContent.clubRules.map((item) => (
+                <li key={item} className="rule-list__item">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </article>
+        </div>
       </section>
 
       <section className="home-overview__about" aria-labelledby="home-about-title">
@@ -109,13 +154,6 @@ export default async function Home() {
             </article>
           ))}
         </div>
-      </section>
-
-      <section className="home-overview__placeholder-card" aria-labelledby="home-club-rules-title">
-        <h2 id="home-club-rules-title" className="home-overview__section-title">
-          {homePageContent.clubRulesTitle}
-        </h2>
-        <p className="home-overview__section-text">{homePageContent.clubRulesPlaceholder}</p>
       </section>
 
       <section className="home-overview__socials" aria-labelledby="home-socials-title">

@@ -2,10 +2,13 @@ import Link from "next/link";
 import { PageHero } from "@/src/components/page-hero";
 import { prisma } from "@/src/lib/prisma";
 import { coachesPageContent } from "@/src/lib/content/site-data";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
-export const metadata = {
+export const metadata = buildPageMetadata({
   title: "Тренеры | Padel & Squash KZ",
-};
+  description: "Тренеры по паделу и сквошу в Алматы: индивидуальные и парные занятия, стоимость за час и запись онлайн через форму бронирования.",
+  path: "/coaches",
+});
 
 export default async function CoachesPage() {
   const dbInstructors = await prisma.instructor.findMany({
@@ -34,7 +37,7 @@ export default async function CoachesPage() {
         {dbInstructors.length === 0 ? (
           <article className="coach-card">
             <p className="card-grid__text">
-              Список тренеров скоро появится. Добавьте тренеров в админ-панели.
+              Информация о тренерах скоро появится.
             </p>
             <div className="card-grid__actions">
               <Link href="/book" className="card-grid__button">

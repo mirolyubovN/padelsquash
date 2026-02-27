@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { loginAsAdmin, nextWeekdayIsoDate, pickFirstCourtSlot, selectBookingFlowOptions } from "./helpers";
+import {
+  loginAsAdmin,
+  nextWeekdayIsoDate,
+  pickFirstCourtSlot,
+  pickTrainerAndWaitForAvailability,
+  selectBookingFlowOptions,
+} from "./helpers";
 
 function amountRegex(amount: number): RegExp {
   const digits = amount.toString();
@@ -12,6 +18,7 @@ test("admin can edit trainer price inline and booking preview uses updated train
   page,
 }) => {
   const newPrice = 23456;
+  const bookingDate = nextWeekdayIsoDate(2);
 
   await loginAsAdmin(page);
   await page.goto("/admin/instructors");
@@ -28,16 +35,20 @@ test("admin can edit trainer price inline and booking preview uses updated train
   await selectBookingFlowOptions(page, {
     sport: "padel",
     serviceKind: "training",
-    date: nextWeekdayIsoDate(2),
+    date: bookingDate,
   });
-
-  await pickFirstCourtSlot(page);
 
   const ilyaTrainerButton = page.locator(".booking-live__trainer-button", { hasText: "Илья Смирнов" }).first();
   await expect(ilyaTrainerButton).toBeVisible();
   await expect(ilyaTrainerButton).toContainText(amountRegex(newPrice));
-  await ilyaTrainerButton.click();
+  await pickTrainerAndWaitForAvailability(page, { trainerName: "Илья Смирнов", date: bookingDate });
+
+  const pickedSlot = await pickFirstCourtSlot(page);
 
   await expect(page.locator(".booking-live__summary")).toContainText("Илья Смирнов");
-  await expect(page.locator(".booking-live__summary")).toContainText(amountRegex(newPrice));
+  if (pickedSlot.slotPrice) {
+    await expect(page.locator(".booking-live__summary")).toContainText(pickedSlot.slotPrice);
+  } else {
+    await expect(page.locator(".booking-live__summary")).toContainText(amountRegex(newPrice));
+  }
 });

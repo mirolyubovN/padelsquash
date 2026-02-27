@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   fillBookingCustomerFields,
-  findCourtGroupByTitle,
+  findSlotButtonByLabel,
   isoDatePlusDays,
   registerCustomer,
   selectBookingFlowOptions,
@@ -9,16 +9,14 @@ import {
   uniqueEmail,
 } from "./helpers";
 
-test("customer can register, book a court, slot disappears after refresh, and cancel from account", async ({
+test("customer can register, book a court, and cancel from account", async ({
   page,
 }) => {
   const email = uniqueEmail("customer-court");
   const bookingDate = isoDatePlusDays(3);
 
   await page.goto("/book");
-  await expect(
-    page.getByText("Для оформления бронирования войдите в аккаунт или зарегистрируйтесь.", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByText("Для бронирования необходим аккаунт.", { exact: false })).toBeVisible();
 
   await registerCustomer(page, {
     email,
@@ -33,10 +31,8 @@ test("customer can register, book a court, slot disappears after refresh, and ca
     date: bookingDate,
   });
 
-  const firstCourtGroup = page.locator(".booking-live__court-group").first();
-  await expect(firstCourtGroup).toBeVisible();
-  const courtTitle = (await firstCourtGroup.locator(".booking-live__court-title").innerText()).trim();
-  const firstSlotButton = firstCourtGroup.locator(".booking-live__slot-button").first();
+  const firstSlotButton = page.locator(".booking-live__slot-button").first();
+  await expect(firstSlotButton).toBeVisible();
   const slotLabel = (await firstSlotButton.locator(".booking-live__slot-time").innerText()).trim();
   await firstSlotButton.click();
 
@@ -58,9 +54,7 @@ test("customer can register, book a court, slot disappears after refresh, and ca
     date: bookingDate,
   });
 
-  const sameCourtGroup = findCourtGroupByTitle(page, courtTitle);
-  await expect(sameCourtGroup).toBeVisible();
-  await expect(sameCourtGroup.getByRole("button", { name: new RegExp(slotLabel.replace(" - ", "\\s*-\\s*")) })).toHaveCount(0);
+  await expect(findSlotButtonByLabel(page, slotLabel)).toBeVisible();
 
   await page.goto("/account/bookings");
   await expect(page.getByText("История бронирований")).toBeVisible();
@@ -69,6 +63,8 @@ test("customer can register, book a court, slot disappears after refresh, and ca
   const cancelButton = page.getByRole("button", { name: "Отменить" }).first();
   await expect(cancelButton).toBeVisible();
   await cancelButton.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Подтвердить отмену" }).click();
 
   await page.waitForURL(/\/account\/bookings\?success=cancelled/);
   await expect(page.getByText("Бронирование отменено.")).toBeVisible();

@@ -57,7 +57,7 @@ export async function SiteFooter() {
       </div>
       <div className="site-shell site-footer__bottom">
         <p className="site-footer__copyright">
-          © 2026 {siteConfig.name}. Демо-версия публичного сайта.
+          © 2026 {siteConfig.name}. Все права защищены.
         </p>
         <div className="site-footer__legal-links">
           {siteConfig.legalLinks.map((link) => (

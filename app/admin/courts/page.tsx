@@ -2,6 +2,7 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
+import { AdminConfirmActionForm } from "@/src/components/admin/admin-confirm-action-form";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   createCourtFromForm,
@@ -9,7 +10,16 @@ import {
   getAdminCourts,
   setCourtActive,
   SPORT_LABELS,
+  updateCourtFromForm,
 } from "@/src/lib/admin/resources";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: корты | Padel & Squash KZ",
+  description: "Управление кортами клуба: создание, редактирование, включение/выключение и переход к исключениям по каждому корту.",
+  path: "/admin/courts",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +61,14 @@ export default async function AdminCourtsPage({
     revalidatePath("/admin/courts");
   }
 
+  async function updateAction(formData: FormData) {
+    "use server";
+    await assertAdmin();
+    await updateCourtFromForm(formData);
+    revalidatePath("/admin/courts");
+    revalidatePath("/book");
+  }
+
   async function deleteAction(formData: FormData) {
     "use server";
     await assertAdmin();
@@ -90,55 +108,53 @@ export default async function AdminCourtsPage({
         <p className="account-history__message account-history__message--success">{successMessage}</p>
       ) : null}
 
-      <form action={createAction} className="admin-form">
-        <div className="admin-table">
-          <table className="admin-table__table">
-            <tbody>
-              <tr className="admin-table__row">
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="court-name">
-                    Название
-                  </label>
-                  <input
-                    id="court-name"
-                    name="name"
-                    className="admin-form__field"
-                    placeholder="Падел 4"
-                    required
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="court-sport">
-                    Спорт
-                  </label>
-                  <select id="court-sport" name="sport" className="admin-form__field" defaultValue="padel">
-                    <option value="padel">Падел</option>
-                    <option value="squash">Сквош</option>
-                  </select>
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="court-notes">
-                    Примечание (опционально)
-                  </label>
-                  <input
-                    id="court-notes"
-                    name="notes"
-                    className="admin-form__field"
-                    placeholder="Например: временно без камеры"
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <div className="admin-form__actions">
-                    <button type="submit" className="admin-form__submit">
-                      Добавить корт
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <section className="admin-section">
+        <div className="admin-section__head">
+          <h2 className="admin-section__title">Добавить корт</h2>
+          <p className="admin-section__description">Новая площадка появится в бронировании сразу после создания.</p>
         </div>
-      </form>
+        <form action={createAction} className="admin-form admin-form--panel">
+          <div className="admin-form__panel-grid">
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="court-name">
+                Название
+              </label>
+              <input
+                id="court-name"
+                name="name"
+                className="admin-form__field"
+                placeholder="Падел 4"
+                required
+              />
+            </div>
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="court-sport">
+                Спорт
+              </label>
+              <select id="court-sport" name="sport" className="admin-form__field" defaultValue="padel">
+                <option value="padel">Падел</option>
+                <option value="squash">Сквош</option>
+              </select>
+            </div>
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="court-notes">
+                Примечание (опционально)
+              </label>
+              <input
+                id="court-notes"
+                name="notes"
+                className="admin-form__field"
+                placeholder="Например: временно без камеры"
+              />
+            </div>
+          </div>
+          <div className="admin-form__actions">
+            <button type="submit" className="admin-form__submit">
+              Добавить корт
+            </button>
+          </div>
+        </form>
+      </section>
 
       <div className="admin-table">
         <table className="admin-table__table">
@@ -163,14 +179,48 @@ export default async function AdminCourtsPage({
               courts.map((court) => (
                 <tr key={court.id} className="admin-table__row">
                   <td className="admin-table__cell">
-                    <div className="admin-bookings__cell-title">{court.name}</div>
-                    <div className="admin-bookings__cell-sub">{court.id}</div>
+                    <form action={updateAction} className="admin-inline-row-form">
+                      <input type="hidden" name="courtId" value={court.id} />
+                      <input type="hidden" name="notes" value={court.notes ?? ""} />
+                      <label className="admin-form__label" htmlFor={`court-name-${court.id}`}>
+                        Название
+                      </label>
+                      <input
+                        id={`court-name-${court.id}`}
+                        name="name"
+                        className="admin-form__field"
+                        defaultValue={court.name}
+                        required
+                      />
+                      <div className="admin-bookings__cell-sub">{court.id}</div>
+                    </form>
                   </td>
                   <td className="admin-table__cell">{SPORT_LABELS[court.sport]}</td>
                   <td className="admin-table__cell">
-                    <span className="admin-bookings__chip">{court.active ? "Да" : "Нет"}</span>
+                    <span className={`admin-status-badge ${court.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
+                      <span className="admin-status-badge__dot" aria-hidden="true" />
+                      {court.active ? "Активен" : "Неактивен"}
+                    </span>
                   </td>
-                  <td className="admin-table__cell">{court.notes ?? "—"}</td>
+                  <td className="admin-table__cell">
+                    <form action={updateAction} className="admin-inline-row-form">
+                      <input type="hidden" name="courtId" value={court.id} />
+                      <input type="hidden" name="name" value={court.name} />
+                      <label className="admin-form__label" htmlFor={`court-notes-${court.id}`}>
+                        Примечание
+                      </label>
+                      <input
+                        id={`court-notes-${court.id}`}
+                        name="notes"
+                        className="admin-form__field"
+                        defaultValue={court.notes ?? ""}
+                        placeholder="—"
+                      />
+                      <button type="submit" className="admin-bookings__action-button">
+                        Сохранить
+                      </button>
+                    </form>
+                  </td>
                   <td className="admin-table__cell">
                     <Link
                       href={`/admin/courts/${court.id}/exceptions`}
@@ -188,12 +238,14 @@ export default async function AdminCourtsPage({
                           {court.active ? "Выключить" : "Включить"}
                         </button>
                       </form>
-                      <form action={deleteAction} className="admin-bookings__actions">
-                        <input type="hidden" name="courtId" value={court.id} />
-                        <button type="submit" className="admin-bookings__action-button">
-                          Удалить
-                        </button>
-                      </form>
+                      <AdminConfirmActionForm
+                        action={deleteAction}
+                        hiddenFields={{ courtId: court.id }}
+                        triggerLabel="Удалить"
+                        confirmLabel="Удалить корт"
+                        title="Удалить корт?"
+                        description="Удаление доступно только если корт не используется в истории бронирований."
+                      />
                     </div>
                   </td>
                 </tr>

@@ -2,10 +2,13 @@ import Link from "next/link";
 import { PageHero } from "@/src/components/page-hero";
 import { contactPageContent, siteConfig } from "@/src/lib/content/site-data";
 import { WEEKDAY_LABELS, getOpeningHours } from "@/src/lib/settings/service";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
-export const metadata = {
+export const metadata = buildPageMetadata({
   title: "Контакты | Padel & Squash KZ",
-};
+  description: "Адрес, телефон, часы работы и как добраться до клуба падела и сквоша в Алматы. Ссылки на WhatsApp, Telegram и Instagram.",
+  path: "/contact",
+});
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +27,10 @@ export default async function ContactPage() {
         <article className="contact-card">
           <h2 className="contact-card__title">Адрес</h2>
           <p className="contact-card__text">{siteConfig.address}</p>
-          <p className="contact-card__text">{siteConfig.city}, {siteConfig.country}</p>
+          <p className="contact-card__text">
+            {siteConfig.city}, {siteConfig.country}
+          </p>
+          <p className="contact-card__text">Ориентир: {siteConfig.neighborhood}</p>
           <Link href={contactPageContent.mapUrl} className="contact-card__link" target="_blank" rel="noreferrer">
             {contactPageContent.mapLinkLabel}
           </Link>
@@ -65,6 +71,7 @@ export default async function ContactPage() {
 
         <article className="rule-list">
           <h2 className="rule-list__title">{contactPageContent.directionsTitle}</h2>
+          <p className="contact-card__text">{contactPageContent.directionsDescription}</p>
           <ul className="rule-list__notes">
             {contactPageContent.directions.map((item) => (
               <li key={item} className="rule-list__note">

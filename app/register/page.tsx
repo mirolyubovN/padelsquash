@@ -1,10 +1,14 @@
 import { PageHero } from "@/src/components/page-hero";
 import { RegisterForm } from "@/src/components/auth/register-form";
 import { getSafeCustomerFreeCancellationHours } from "@/src/lib/bookings/policy";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
-export const metadata = {
+export const metadata = buildPageMetadata({
   title: "Регистрация | Padel & Squash KZ",
-};
+  description: "Создайте аккаунт для онлайн-бронирования кортов и тренировок, подтверждений записи и управления отменой в личном кабинете.",
+  path: "/register",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +31,14 @@ export default async function RegisterPage({
 
       <section className="auth-panel" aria-labelledby="register-form-title">
         <div className="auth-panel__box">
+          <div className="auth-panel__brand" aria-hidden="true">
+            <span className="auth-panel__brand-mark">PS</span>
+            <div>
+              <p className="auth-panel__brand-title">Padel & Squash KZ</p>
+              <p className="auth-panel__brand-subtitle">Создание клиентского аккаунта</p>
+            </div>
+          </div>
+
           <h2 id="register-form-title" className="auth-panel__title">
             Регистрация клиента
           </h2>

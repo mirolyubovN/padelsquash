@@ -236,6 +236,32 @@ export async function setCourtActive(args: { courtId: string; active: boolean })
   });
 }
 
+export async function updateCourtFromForm(formData: FormData) {
+  const parsed = z
+    .object({
+      courtId: nonEmptyString("courtId"),
+      name: nonEmptyString("Название"),
+      notes: optionalTrimmedString,
+    })
+    .safeParse({
+      courtId: formData.get("courtId"),
+      name: formData.get("name"),
+      notes: formData.get("notes") ?? undefined,
+    });
+
+  if (!parsed.success) {
+    throw new Error("Некорректные данные корта");
+  }
+
+  await prisma.court.update({
+    where: { id: parsed.data.courtId },
+    data: {
+      name: parsed.data.name,
+      notes: parsed.data.notes ?? null,
+    },
+  });
+}
+
 export async function deleteCourt(courtId: string) {
   await ensureCourtExists(courtId);
 
@@ -439,6 +465,35 @@ export async function setServiceActive(args: { serviceId: string; active: boolea
   await prisma.service.update({
     where: { id: args.serviceId },
     data: { active: args.active },
+  });
+}
+
+export async function updateServiceFromForm(formData: FormData) {
+  const parsed = z
+    .object({
+      serviceId: nonEmptyString("serviceId"),
+      code: z
+        .string()
+        .transform((value) => value.trim().toLowerCase())
+        .pipe(z.string().regex(/^[a-z0-9-]{3,64}$/, "code: только a-z, 0-9 и -")),
+      name: nonEmptyString("Название"),
+    })
+    .safeParse({
+      serviceId: formData.get("serviceId"),
+      code: formData.get("code"),
+      name: formData.get("name"),
+    });
+
+  if (!parsed.success) {
+    throw new Error("Некорректные данные услуги");
+  }
+
+  await prisma.service.update({
+    where: { id: parsed.data.serviceId },
+    data: {
+      code: parsed.data.code,
+      name: parsed.data.name,
+    },
   });
 }
 

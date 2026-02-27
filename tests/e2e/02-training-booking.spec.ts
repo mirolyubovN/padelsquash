@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   isoDatePlusDays,
+  pickTrainerAndWaitForAvailability,
   pickFirstCourtSlot,
   registerCustomer,
   selectBookingFlowOptions,
@@ -27,8 +28,6 @@ test("customer can book a training session with trainer selection and trainer-sp
     date: bookingDate,
   });
 
-  await pickFirstCourtSlot(page);
-
   const trainerButtons = page.locator(".booking-live__trainer-button");
   await expect(trainerButtons.first()).toBeVisible();
   const trainerCount = await trainerButtons.count();
@@ -39,7 +38,9 @@ test("customer can book a training session with trainer selection and trainer-sp
   expect(firstTrainerText).not.toBe(secondTrainerText);
 
   const secondTrainerName = ((await trainerButtons.nth(1).locator(".booking-live__trainer-name").innerText()) ?? "").trim();
-  await trainerButtons.nth(1).click();
+  await pickTrainerAndWaitForAvailability(page, { trainerName: secondTrainerName, date: bookingDate });
+
+  await pickFirstCourtSlot(page);
 
   await expect(page.locator(".booking-live__summary")).toBeVisible();
   await expect(page.locator(".booking-live__summary")).toContainText(secondTrainerName);

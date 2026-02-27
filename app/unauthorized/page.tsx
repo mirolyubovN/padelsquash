@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { PageHero } from "@/src/components/page-hero";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
-export const metadata = {
+export const metadata = buildPageMetadata({
   title: "Доступ запрещен | Padel & Squash KZ",
-};
+  description: "Страница ограничения доступа к разделу сайта. Обратитесь к администратору, если считаете это ошибкой.",
+  path: "/unauthorized",
+  noIndex: true,
+});
 
 export default function UnauthorizedPage() {
   return (

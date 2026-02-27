@@ -6,6 +6,14 @@ import {
   getCourtBasePriceMatrix,
   saveCourtBasePriceMatrixFromForm,
 } from "@/src/lib/settings/service";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: матрица цен | Padel & Squash KZ",
+  description: "Базовая матрица цен на аренду кортов по спорту и тарифным периодам.",
+  path: "/admin/pricing/base",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 

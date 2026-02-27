@@ -1,9 +1,19 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PageHero } from "@/src/components/page-hero";
+import { AccountCancelBookingForm } from "@/src/components/account/account-cancel-booking-form";
+import { AccountTabs } from "@/src/components/account/account-tabs";
 import { cancelCustomerBooking, getAccountBookings } from "@/src/lib/account/bookings";
 import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
 import { getSafeCustomerFreeCancellationHours } from "@/src/lib/bookings/policy";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Мои бронирования | Padel & Squash KZ",
+  description: "Список предстоящих и прошедших бронирований клиента со статусами оплаты и возможностью отмены.",
+  path: "/account/bookings",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +26,10 @@ export default async function AccountBookingsPage({
   const session = await requireAuthenticatedUser("/account/bookings");
   const params = await searchParams;
   const bookings = await getAccountBookings(session.user.id, 100);
+  const now = new Date();
+
+  const upcomingBookings = bookings.filter((row) => new Date(row.startAtIso) >= now);
+  const pastBookings = bookings.filter((row) => new Date(row.startAtIso) < now);
 
   const errorMessage =
     params.error === "cancel_not_allowed"
@@ -66,8 +80,10 @@ export default async function AccountBookingsPage({
       <PageHero
         eyebrow="Личный кабинет"
         title="История бронирований"
-        description={`Список ваших бронирований из БД. Бесплатная отмена доступна не позднее чем за ${freeCancellationHours} часов до начала и только для активных статусов.`}
+        description={`История ваших бронирований и статусов. Бесплатная отмена доступна не позднее чем за ${freeCancellationHours} часов до начала и только для активных статусов.`}
       />
+
+      <AccountTabs active="bookings" />
 
       <section className="account-history">
         {errorMessage ? (
@@ -84,65 +100,79 @@ export default async function AccountBookingsPage({
             Бронирований пока нет. После создания брони с вашим email и входа в аккаунт записи появятся здесь.
           </div>
         ) : (
-          <div className="admin-table">
-            <table className="admin-table__table">
-              <thead>
-                <tr className="admin-table__row">
-                  <th className="admin-table__cell admin-table__cell--head">Услуга</th>
-                  <th className="admin-table__cell admin-table__cell--head">Дата / время</th>
-                  <th className="admin-table__cell admin-table__cell--head">Статус</th>
-                  <th className="admin-table__cell admin-table__cell--head">Оплата</th>
-                  <th className="admin-table__cell admin-table__cell--head">Сумма</th>
-                  <th className="admin-table__cell admin-table__cell--head">Отмена</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map((row) => (
-                  <tr key={row.id} className="admin-table__row">
-                    <td className="admin-table__cell">
-                      <div className="admin-bookings__cell-title">{row.serviceName}</div>
-                      <div className="admin-bookings__cell-sub">{row.serviceCode}</div>
-                    </td>
-                    <td className="admin-table__cell">
-                      <div className="admin-bookings__cell-title">{row.date}</div>
-                      <div className="admin-bookings__cell-sub">{row.timeRange}</div>
-                    </td>
-                    <td className="admin-table__cell">
-                      <span className="admin-bookings__chip">{row.statusLabel}</span>
-                    </td>
-                    <td className="admin-table__cell">
-                      <span className="admin-bookings__chip admin-bookings__chip--muted">
-                        {row.paymentStatusLabel}
-                      </span>
-                    </td>
-                    <td className="admin-table__cell">{row.amountKzt}</td>
-                    <td className="admin-table__cell">
-                      {row.canCancel ? (
-                        <form action={cancelAction} className="admin-bookings__actions">
-                          <input type="hidden" name="bookingId" value={row.id} />
-                          <button
-                            type="submit"
-                            className="admin-bookings__action-button admin-bookings__action-button--primary"
-                          >
-                            Отменить
-                          </button>
-                        </form>
-                      ) : (
-                        <div className="account-history__cancel-meta">
-                          <div>{row.cancelBlockedReason ?? "Отмена недоступна"}</div>
-                          {row.cancellationDeadlineText ? (
-                            <div className="admin-bookings__cell-sub">
-                              До: {row.cancellationDeadlineText}
-                            </div>
-                          ) : null}
+          <>
+            {[
+              { key: "upcoming", title: "Предстоящие", rows: upcomingBookings },
+              { key: "past", title: "Прошедшие и архив", rows: pastBookings },
+            ].map((section) =>
+              section.rows.length > 0 ? (
+                <div key={section.key} className="account-history__section">
+                  <div className="account-history__section-head">
+                    <h2 className="account-history__section-title">{section.title}</h2>
+                    <span className="account-history__section-count">{section.rows.length}</span>
+                  </div>
+
+                  <div className="account-history__card-list">
+                    {section.rows.map((row) => (
+                      <article key={row.id} className="account-history__card">
+                        <div className="account-history__card-head">
+                          <div>
+                            <p className="account-history__card-title">{row.serviceName}</p>
+                            <p className="account-history__card-sub">{row.serviceCode}</p>
+                          </div>
+                          <p className="account-history__card-price">{row.amountKzt}</p>
                         </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+                        <div className="account-history__card-grid">
+                          <div className="account-history__card-item">
+                            <span className="account-history__card-label">Дата</span>
+                            <span className="account-history__card-value">{row.date}</span>
+                          </div>
+                          <div className="account-history__card-item">
+                            <span className="account-history__card-label">Время</span>
+                            <span className="account-history__card-value">{row.timeRange}</span>
+                          </div>
+                          <div className="account-history__card-item">
+                            <span className="account-history__card-label">Статус</span>
+                            <span
+                              className={`account-history__badge account-history__badge--status-${row.status.replaceAll("_", "-")}`}
+                            >
+                              {row.statusLabel}
+                            </span>
+                          </div>
+                          <div className="account-history__card-item">
+                            <span className="account-history__card-label">Оплата</span>
+                            <span
+                              className={`account-history__badge account-history__badge--payment-${row.paymentStatus.replaceAll("_", "-")}`}
+                            >
+                              {row.paymentStatusLabel}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="account-history__card-actions">
+                          {row.canCancel ? (
+                            <AccountCancelBookingForm
+                              bookingId={row.id}
+                              cancellationDeadlineText={row.cancellationDeadlineText}
+                              action={cancelAction}
+                            />
+                          ) : (
+                            <div className="account-history__cancel-meta">
+                              <div>{row.cancelBlockedReason ?? "Отмена недоступна"}</div>
+                              {row.cancellationDeadlineText ? (
+                                <div className="admin-bookings__cell-sub">До: {row.cancellationDeadlineText}</div>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : null,
+            )}
+          </>
         )}
       </section>
     </div>

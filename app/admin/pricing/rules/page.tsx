@@ -1,5 +1,13 @@
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { AdminTable } from "@/src/components/admin/admin-table";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: периоды цен | Padel & Squash KZ",
+  description: "Справочник тарифных периодов клуба: утро, день и вечер/выходные для применения матрицы цен.",
+  path: "/admin/pricing/rules",
+  noIndex: true,
+});
 
 export default function AdminPricingRulesPage() {
   return (

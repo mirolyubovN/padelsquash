@@ -5,10 +5,13 @@ import { demoServices } from "@/src/lib/availability/demo";
 import { demoComponentPrices } from "@/src/lib/pricing/demo";
 import { bookPageContent, courtItems } from "@/src/lib/content/site-data";
 import { prisma } from "@/src/lib/prisma";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
-export const metadata = {
+export const metadata = buildPageMetadata({
   title: "Забронировать | Padel & Squash KZ",
-};
+  description: "Онлайн-запись на падел и сквош: выберите спорт, формат занятия, дату и свободные слоты. Для тренировок сначала выберите тренера.",
+  path: "/book",
+});
 
 export const dynamic = "force-dynamic";
 

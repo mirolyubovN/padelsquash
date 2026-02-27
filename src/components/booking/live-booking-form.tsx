@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { resolvePricingTier } from "@/src/lib/pricing/engine";
 
 type Sport = "padel" | "squash";
@@ -29,7 +29,7 @@ interface SlotOption {
   startTime: string;
   endTime: string;
   availableCourtIds: string[];
-  availableInstructorIds: string[];
+  availableInstructorIds?: string[];
 }
 
 interface AvailabilityPayload {
@@ -58,12 +58,34 @@ interface BookingApiSuccessPayload {
       status: string;
       priceTotal: number;
       currency: string;
+      resources?: Array<{
+        resourceType: "court" | "instructor";
+        resourceId: string;
+      }>;
     };
     payment: {
       provider: string;
       status: string;
     };
   };
+}
+
+interface BookingSuccessSessionSummary {
+  sport: Sport;
+  serviceKind: ServiceKind;
+  date: string;
+  startTime: string;
+  endTime: string;
+  courtLabel: string;
+  trainerName?: string;
+  amount: number;
+  currency: string;
+}
+
+interface BookingSuccessSummary {
+  sessions: BookingSuccessSessionSummary[];
+  totalAmount: number;
+  currency: string;
 }
 
 interface LiveBookingFormProps {
@@ -79,13 +101,7 @@ interface LiveBookingFormProps {
   };
 }
 
-interface CourtTimeslotRow {
-  key: string;
-  courtId: string;
-  startTime: string;
-  endTime: string;
-  instructorIds: string[];
-}
+type EditableStepId = "sport" | "service" | "trainer" | "datetime";
 
 function getTodayDate(): string {
   const now = new Date();
@@ -130,11 +146,28 @@ function formatCourtLabel(courtId: string, courtNames: Record<string, string>): 
   return courtNames[courtId] ?? courtId;
 }
 
-async function fetchAvailability(serviceId: string, date: string): Promise<AvailabilityPayload> {
-  const response = await fetch(
-    `/api/availability?serviceId=${encodeURIComponent(serviceId)}&date=${encodeURIComponent(date)}&durationMin=60`,
-    { method: "GET", cache: "no-store" },
-  );
+function getSlotKey(slot: Pick<SlotOption, "startTime" | "endTime">): string {
+  return `${slot.startTime}|${slot.endTime}`;
+}
+
+async function fetchAvailability(
+  serviceId: string,
+  date: string,
+  instructorId?: string,
+): Promise<AvailabilityPayload> {
+  const params = new URLSearchParams({
+    serviceId,
+    date,
+    durationMin: "60",
+  });
+  if (instructorId) {
+    params.set("instructorId", instructorId);
+  }
+
+  const response = await fetch(`/api/availability?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
 
   const payload = (await response.json().catch(() => null)) as
     | AvailabilityPayload
@@ -160,6 +193,10 @@ export function LiveBookingForm({
   isAuthenticated,
   initialCustomer,
 }: LiveBookingFormProps) {
+  const hasRestoredFromUrlRef = useRef(false);
+  const skipInitialUrlSyncRef = useRef(true);
+  const pendingTrainerIdFromUrlRef = useRef<string | null>(null);
+  const pendingSlotTimesFromUrlRef = useRef<string[] | null>(null);
   const serviceMatrix = useMemo(() => {
     const result: Record<Sport, Partial<Record<ServiceKind, ServiceOption>>> = {
       padel: {},
@@ -187,7 +224,7 @@ export function LiveBookingForm({
   const [autoDateMessage, setAutoDateMessage] = useState<string | null>(null);
   const [autoSearchKey, setAutoSearchKey] = useState<string>("");
 
-  const [selectedSlotKey, setSelectedSlotKey] = useState("");
+  const [selectedSlotKeys, setSelectedSlotKeys] = useState<string[]>([]);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
 
   const [customerName, setCustomerName] = useState(initialCustomer?.name ?? "");
@@ -200,13 +237,20 @@ export function LiveBookingForm({
   const [customerEditorError, setCustomerEditorError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitWarning, setSubmitWarning] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<BookingApiSuccessPayload | null>(null);
+  const [submitSuccessSummary, setSubmitSuccessSummary] = useState<BookingSuccessSummary | null>(null);
+  const [editingStepId, setEditingStepId] = useState<EditableStepId | null>(null);
 
   const resolvedService = serviceMatrix[sport][serviceKind] ?? null;
   const availableKindsForSport = serviceMatrix[sport];
   const instructorsById = useMemo(
     () => Object.fromEntries(instructors.map((instructor) => [instructor.id, instructor])),
     [instructors],
+  );
+  const trainersForSport = useMemo(
+    () => instructors.filter((instructor) => instructor.sports.includes(sport)),
+    [instructors, sport],
   );
 
   useEffect(() => {
@@ -220,17 +264,74 @@ export function LiveBookingForm({
   }, [availableKindsForSport, resolvedService]);
 
   useEffect(() => {
-    setSelectedSlotKey("");
+    if (hasRestoredFromUrlRef.current || typeof window === "undefined") {
+      return;
+    }
+    hasRestoredFromUrlRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const sportParam = params.get("sport");
+    const serviceParam = params.get("service");
+    const dateParam = params.get("date");
+    const trainerParam = params.get("instructor");
+    const timeParams = params.getAll("time");
+    const timesParam = params.get("times");
+
+    if (sportParam === "padel" || sportParam === "squash") {
+      setSport(sportParam);
+    }
+    if (serviceParam === "court" || serviceParam === "training") {
+      setServiceKind(serviceParam);
+    }
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      setDate(dateParam);
+    }
+    if (trainerParam) {
+      pendingTrainerIdFromUrlRef.current = trainerParam;
+    }
+    const restoredTimes = [
+      ...timeParams,
+      ...(timesParam ? timesParam.split(",") : []),
+    ]
+      .map((value) => value.trim())
+      .filter((value) => /^\d{2}:\d{2}$/.test(value));
+    if (restoredTimes.length > 0) {
+      pendingSlotTimesFromUrlRef.current = Array.from(new Set(restoredTimes));
+    }
+  }, []);
+
+  useEffect(() => {
+    setSelectedSlotKeys([]);
     setSelectedInstructorId("");
     setSubmitError(null);
+    setSubmitWarning(null);
     setSubmitSuccess(null);
+    setSubmitSuccessSummary(null);
     setAutoDateMessage(null);
     setAutoSearchKey("");
-  }, [sport, serviceKind, date]);
+    setEditingStepId(null);
+  }, [sport, serviceKind]);
+
+  useEffect(() => {
+    setSelectedSlotKeys([]);
+    setSubmitError(null);
+    setSubmitWarning(null);
+    setSubmitSuccess(null);
+    setSubmitSuccessSummary(null);
+    setAutoDateMessage(null);
+    setAutoSearchKey("");
+    setEditingStepId(null);
+  }, [date]);
 
   useEffect(() => {
     if (!resolvedService || !date) {
       setAvailability(null);
+      return;
+    }
+    if (resolvedService.requiresInstructor && !selectedInstructorId) {
+      setAvailability(null);
+      setAvailabilityError(null);
+      setAvailabilityLoading(false);
       return;
     }
     const service = resolvedService;
@@ -241,7 +342,7 @@ export function LiveBookingForm({
       setAvailabilityLoading(true);
       setAvailabilityError(null);
       try {
-        const payload = await fetchAvailability(service.id, date);
+        const payload = await fetchAvailability(service.id, date, service.requiresInstructor ? selectedInstructorId : undefined);
         if (!cancelled) {
           setAvailability(payload);
         }
@@ -261,7 +362,26 @@ export function LiveBookingForm({
     return () => {
       cancelled = true;
     };
-  }, [resolvedService, date, reloadKey]);
+  }, [resolvedService, date, reloadKey, selectedInstructorId]);
+
+  useEffect(() => {
+    const pendingTimes = pendingSlotTimesFromUrlRef.current;
+    if (!pendingTimes || !availability) {
+      return;
+    }
+
+    const availableSlotsByStart = new Map(
+      availability.slots.map((slot) => [slot.startTime, getSlotKey(slot)]),
+    );
+    const restoredKeys = pendingTimes
+      .map((time) => availableSlotsByStart.get(time))
+      .filter((value): value is string => Boolean(value));
+
+    if (restoredKeys.length > 0) {
+      setSelectedSlotKeys(Array.from(new Set(restoredKeys)));
+    }
+    pendingSlotTimesFromUrlRef.current = null;
+  }, [availability]);
 
   useEffect(() => {
     if (!resolvedService || availabilityLoading || availabilityError || !availability) {
@@ -272,7 +392,11 @@ export function LiveBookingForm({
       return;
     }
 
-    const key = `${resolvedService.id}:${date}`;
+    if (resolvedService.requiresInstructor && !selectedInstructorId) {
+      return;
+    }
+
+    const key = `${resolvedService.id}:${date}:${selectedInstructorId || ""}`;
     const service = resolvedService;
     if (autoSearchKey === key) {
       return;
@@ -283,9 +407,13 @@ export function LiveBookingForm({
 
     async function findNearestDate() {
       for (let i = 1; i <= 14; i += 1) {
-          const nextDate = addDays(date, i);
-          try {
-            const nextAvailability = await fetchAvailability(service.id, nextDate);
+        const nextDate = addDays(date, i);
+        try {
+          const nextAvailability = await fetchAvailability(
+            service.id,
+            nextDate,
+            service.requiresInstructor ? selectedInstructorId : undefined,
+          );
           if (cancelled) return;
           if (nextAvailability.slots.length > 0) {
             setAutoDateMessage(`На ${date} слотов нет. Показана ближайшая дата: ${nextDate}.`);
@@ -305,58 +433,26 @@ export function LiveBookingForm({
     return () => {
       cancelled = true;
     };
-  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey]);
+  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey, selectedInstructorId]);
 
-  const expandedTimeslots = useMemo<CourtTimeslotRow[]>(() => {
+  const availableTimeSlots = useMemo(() => {
     if (!availability) return [];
+    return [...availability.slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [availability]);
 
-    const rows: CourtTimeslotRow[] = [];
-    for (const slot of availability.slots) {
-      for (const courtId of slot.availableCourtIds) {
-        rows.push({
-          key: `${courtId}|${slot.startTime}`,
-          courtId,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          instructorIds: slot.availableInstructorIds,
-        });
-      }
+  const selectedSlots = useMemo(() => {
+    if (!selectedSlotKeys.length) return [] as SlotOption[];
+    const selectedSet = new Set(selectedSlotKeys);
+    return availableTimeSlots.filter((slot) => selectedSet.has(getSlotKey(slot)));
+  }, [availableTimeSlots, selectedSlotKeys]);
+
+  useEffect(() => {
+    if (!selectedSlotKeys.length) {
+      return;
     }
-
-    rows.sort((a, b) => {
-      const labelA = formatCourtLabel(a.courtId, courtNames);
-      const labelB = formatCourtLabel(b.courtId, courtNames);
-      if (labelA === labelB) return a.startTime.localeCompare(b.startTime);
-      return labelA.localeCompare(labelB, "ru");
-    });
-
-    return rows;
-  }, [availability, courtNames]);
-
-  const timeslotsByCourt = useMemo(() => {
-    const map = new Map<string, CourtTimeslotRow[]>();
-    for (const row of expandedTimeslots) {
-      if (!map.has(row.courtId)) map.set(row.courtId, []);
-      map.get(row.courtId)?.push(row);
-    }
-    return Array.from(map.entries());
-  }, [expandedTimeslots]);
-
-  const selectedSlot = useMemo(
-    () => expandedTimeslots.find((row) => row.key === selectedSlotKey) ?? null,
-    [expandedTimeslots, selectedSlotKey],
-  );
-
-  const availableTrainerOptions = useMemo(() => {
-    if (!selectedSlot || serviceKind !== "training") {
-      return [] as InstructorOption[];
-    }
-
-    return selectedSlot.instructorIds
-      .map((id) => instructorsById[id])
-      .filter((item): item is InstructorOption => Boolean(item))
-      .filter((item) => item.sports.includes(sport));
-  }, [selectedSlot, serviceKind, instructorsById, sport]);
+    const availableKeys = new Set(availableTimeSlots.map((slot) => getSlotKey(slot)));
+    setSelectedSlotKeys((previous) => previous.filter((key) => availableKeys.has(key)));
+  }, [availableTimeSlots, selectedSlotKeys.length]);
 
   useEffect(() => {
     if (serviceKind !== "training") {
@@ -364,36 +460,138 @@ export function LiveBookingForm({
       return;
     }
 
-    if (!selectedSlot) {
-      setSelectedInstructorId("");
+    const pendingTrainerId = pendingTrainerIdFromUrlRef.current;
+    if (pendingTrainerId) {
+      const pendingTrainerExists = trainersForSport.some((trainer) => trainer.id === pendingTrainerId);
+      if (pendingTrainerExists) {
+        setSelectedInstructorId(pendingTrainerId);
+        pendingTrainerIdFromUrlRef.current = null;
+        return;
+      }
+    }
+
+    const stillAvailable = trainersForSport.some((trainer) => trainer.id === selectedInstructorId);
+    if (stillAvailable) return;
+
+    setSelectedInstructorId("");
+  }, [serviceKind, trainersForSport, selectedInstructorId]);
+
+  const selectedTrainer = selectedInstructorId ? instructorsById[selectedInstructorId] ?? null : null;
+  const dateStepNumber = serviceKind === "training" ? 4 : 3;
+  const timeStepNumber = serviceKind === "training" ? 5 : 4;
+  const accountStepNumber = serviceKind === "training" ? 6 : 5;
+  const reviewStepNumber = serviceKind === "training" ? 7 : 6;
+  const requiresAccountForBooking = true;
+  const bookingReturnToPath = useMemo(() => {
+    const trainerIdForUrl =
+      serviceKind === "training" ? selectedInstructorId || pendingTrainerIdFromUrlRef.current || "" : "";
+    const params = new URLSearchParams();
+    params.set("sport", sport);
+    params.set("service", serviceKind);
+    params.set("date", date);
+    if (trainerIdForUrl) {
+      params.set("instructor", trainerIdForUrl);
+    }
+    const selectedStartTimes = selectedSlots.map((slot) => slot.startTime);
+    if (selectedStartTimes.length > 0) {
+      for (const time of selectedStartTimes) {
+        params.append("time", time);
+      }
+    }
+    return `/book?${params.toString()}`;
+  }, [sport, serviceKind, date, selectedInstructorId, selectedSlots]);
+
+  const stepperItems = useMemo(() => {
+    const slotChosen = selectedSlotKeys.length > 0;
+    const dateChosen = Boolean(date);
+    const items =
+      serviceKind === "training"
+        ? [
+            { id: "sport", label: "Спорт", ready: true },
+            { id: "service", label: "Услуга", ready: Boolean(resolvedService) },
+            { id: "trainer", label: "Тренер", ready: Boolean(selectedInstructorId) },
+            { id: "date", label: "Дата", ready: dateChosen },
+            { id: "time", label: "Время", ready: slotChosen },
+            { id: "account", label: "Аккаунт", ready: slotChosen && isAuthenticated },
+            { id: "confirm", label: "Подтверждение", ready: Boolean(submitSuccess) },
+          ]
+        : [
+            { id: "sport", label: "Спорт", ready: true },
+            { id: "service", label: "Услуга", ready: Boolean(resolvedService) },
+            { id: "date", label: "Дата", ready: dateChosen },
+            { id: "time", label: "Время", ready: slotChosen },
+            { id: "account", label: "Аккаунт", ready: slotChosen && isAuthenticated },
+            { id: "confirm", label: "Подтверждение", ready: Boolean(submitSuccess) },
+          ];
+
+    const currentIndex = items.findIndex((item) => !item.ready);
+    const activeIndex = currentIndex === -1 ? items.length - 1 : currentIndex;
+
+    return items.map((item, index) => ({
+      ...item,
+      state: index < activeIndex ? ("completed" as const) : index === activeIndex ? ("current" as const) : ("pending" as const),
+      stepNumber: index + 1,
+    }));
+  }, [serviceKind, resolvedService, selectedInstructorId, selectedSlotKeys.length, isAuthenticated, submitSuccess, date]);
+
+  useEffect(() => {
+    if (!hasRestoredFromUrlRef.current || typeof window === "undefined") {
+      return;
+    }
+    if (skipInitialUrlSyncRef.current) {
+      skipInitialUrlSyncRef.current = false;
       return;
     }
 
-    const stillAvailable = availableTrainerOptions.some((trainer) => trainer.id === selectedInstructorId);
-    if (stillAvailable) return;
+    const params = new URLSearchParams(window.location.search);
+    const trainerIdForUrl =
+      serviceKind === "training" ? selectedInstructorId || pendingTrainerIdFromUrlRef.current || "" : "";
+    params.set("sport", sport);
+    params.set("service", serviceKind);
+    params.set("date", date);
 
-    setSelectedInstructorId(availableTrainerOptions[0]?.id ?? "");
-  }, [serviceKind, selectedSlot, availableTrainerOptions, selectedInstructorId]);
+    if (trainerIdForUrl) {
+      params.set("instructor", trainerIdForUrl);
+    } else {
+      params.delete("instructor");
+    }
+    params.delete("time");
+    params.delete("times");
+    for (const slot of selectedSlots) {
+      params.append("time", slot.startTime);
+    }
 
-  const selectedTrainer = selectedInstructorId ? instructorsById[selectedInstructorId] ?? null : null;
-  const accountStepNumber = serviceKind === "training" ? 5 : 4;
-  const requiresAccountForBooking = true;
+    const nextUrl = `${window.location.pathname}?${params.toString()}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [sport, serviceKind, date, selectedInstructorId, selectedSlots]);
 
   const pricePreview = useMemo(() => {
-    if (!resolvedService || !selectedSlot) return null;
+    if (!resolvedService || selectedSlots.length === 0) return null;
 
-    const tier = resolvePricingTier(date, selectedSlot.startTime);
-    const courtPrice = courtPrices[sport]?.[tier] ?? 0;
-    const instructorPrice =
-      serviceKind === "training" && selectedTrainer ? selectedTrainer.pricePerHour : 0;
+    const slotLines = selectedSlots.map((slot) => {
+      const tier = resolvePricingTier(date, slot.startTime);
+      const courtPrice = courtPrices[sport]?.[tier] ?? 0;
+      const instructorPrice = serviceKind === "training" && selectedTrainer ? selectedTrainer.pricePerHour : 0;
+      return {
+        key: getSlotKey(slot),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        tier,
+        courtPrice,
+        instructorPrice,
+        total: courtPrice + instructorPrice,
+      };
+    });
 
     return {
-      tier,
-      courtPrice,
-      instructorPrice,
-      total: courtPrice + instructorPrice,
+      slotLines,
+      total: slotLines.reduce((sum, line) => sum + line.total, 0),
+      selectedCount: slotLines.length,
     };
-  }, [resolvedService, selectedSlot, date, courtPrices, sport, serviceKind, selectedTrainer]);
+  }, [resolvedService, selectedSlots, date, courtPrices, sport, serviceKind, selectedTrainer]);
 
   function openCustomerEditor() {
     setCustomerEditorName(customerName);
@@ -429,8 +627,8 @@ export function LiveBookingForm({
       setSubmitError("Выберите спорт и услугу.");
       return;
     }
-    if (!selectedSlot) {
-      setSubmitError("Выберите время.");
+    if (selectedSlots.length === 0) {
+      setSubmitError("Выберите хотя бы один слот.");
       return;
     }
     if (requiresAccountForBooking && !isAuthenticated) {
@@ -448,46 +646,95 @@ export function LiveBookingForm({
 
     setSubmitLoading(true);
     setSubmitError(null);
+    setSubmitWarning(null);
     setSubmitSuccess(null);
+    setSubmitSuccessSummary(null);
 
     try {
-      const response = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serviceId: resolvedService.id,
+      const sessionsToBook = [...selectedSlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      const bookedSessions: BookingSuccessSessionSummary[] = [];
+      const failedSlots: string[] = [];
+      let lastSuccessPayload: BookingApiSuccessPayload | null = null;
+
+      for (const slot of sessionsToBook) {
+        const fallbackCourtId = slot.availableCourtIds[0];
+        if (!fallbackCourtId) {
+          failedSlots.push(`${slot.startTime} - ${slot.endTime}: нет свободного корта`);
+          continue;
+        }
+
+        const response = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            serviceId: resolvedService.id,
+            date,
+            startTime: slot.startTime,
+            durationMin: 60,
+            courtId: fallbackCourtId,
+            instructorId: resolvedService.requiresInstructor ? selectedTrainer?.id : undefined,
+            customer: {
+              name: customerName.trim(),
+              email: customerEmail.trim(),
+              phone: customerPhone.trim(),
+            },
+          }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | BookingApiSuccessPayload
+          | { error?: string }
+          | null;
+
+        if (!response.ok) {
+          const errorMessage =
+            payload && typeof payload === "object" && "error" in payload && payload.error
+              ? payload.error
+              : "Не удалось создать бронирование";
+          failedSlots.push(`${slot.startTime} - ${slot.endTime}: ${errorMessage}`);
+          continue;
+        }
+
+        const successPayload = payload as BookingApiSuccessPayload;
+        if (successPayload.source === "demo-fallback") {
+          failedSlots.push(`${slot.startTime} - ${slot.endTime}: Не удалось подтвердить бронирование`);
+          continue;
+        }
+
+        const assignedCourtId =
+          successPayload.data.booking.resources?.find((resource) => resource.resourceType === "court")?.resourceId ??
+          fallbackCourtId;
+
+        bookedSessions.push({
+          sport,
+          serviceKind,
           date,
-          startTime: selectedSlot.startTime,
-          durationMin: 60,
-          courtId: selectedSlot.courtId,
-          instructorId: resolvedService.requiresInstructor ? selectedTrainer?.id : undefined,
-          customer: {
-            name: customerName.trim(),
-            email: customerEmail.trim(),
-            phone: customerPhone.trim(),
-          },
-        }),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          courtLabel: formatCourtLabel(assignedCourtId, courtNames),
+          trainerName: serviceKind === "training" ? selectedTrainer?.name : undefined,
+          amount: successPayload.data.booking.priceTotal,
+          currency: successPayload.data.booking.currency,
+        });
+        lastSuccessPayload = successPayload;
+      }
+
+      if (bookedSessions.length === 0) {
+        throw new Error(failedSlots[0] ?? "Не удалось создать бронирование");
+      }
+
+      const summaryCurrency = bookedSessions[0]?.currency ?? "KZT";
+      setSubmitSuccessSummary({
+        sessions: bookedSessions,
+        totalAmount: bookedSessions.reduce((sum, session) => sum + session.amount, 0),
+        currency: summaryCurrency,
       });
-
-      const payload = (await response.json().catch(() => null)) as
-        | BookingApiSuccessPayload
-        | { error?: string }
-        | null;
-
-      if (!response.ok) {
-        throw new Error(
-          payload && typeof payload === "object" && "error" in payload && payload.error
-            ? payload.error
-            : "Не удалось создать бронирование",
+      setSubmitSuccess(lastSuccessPayload);
+      if (failedSlots.length > 0) {
+        setSubmitWarning(
+          `${bookedSessions.length} из ${sessionsToBook.length} бронирований созданы. ${failedSlots[0]}`,
         );
       }
-
-      const successPayload = payload as BookingApiSuccessPayload;
-      if (successPayload.source === "demo-fallback") {
-        throw new Error("Не удалось подтвердить бронирование. Попробуйте еще раз.");
-      }
-
-      setSubmitSuccess(successPayload);
       setReloadKey((value) => value + 1);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Ошибка создания брони");
@@ -497,6 +744,21 @@ export function LiveBookingForm({
   }
 
   const noServiceForChoice = !resolvedService;
+  const hasSelectedSlot = selectedSlots.length > 0;
+  const canShowDateTimeStep = serviceKind !== "training" || Boolean(selectedInstructorId);
+  const collapseCompletedSteps = hasSelectedSlot;
+  const showSportEditor = !collapseCompletedSteps || editingStepId === "sport";
+  const showServiceEditor = !collapseCompletedSteps || editingStepId === "service";
+  const showTrainerEditor =
+    serviceKind === "training" && (!collapseCompletedSteps || editingStepId === "trainer");
+  const showDateTimeEditor = canShowDateTimeStep && (!collapseCompletedSteps || editingStepId === "datetime");
+  const selectedSportLabel = getSportLabel(sport);
+  const selectedDateTimeSummary = hasSelectedSlot
+    ? `${date} · ${selectedSlots.map((slot) => `${slot.startTime} - ${slot.endTime}`).join(", ")}`
+    : date;
+  const selectedDateTimeSub = hasSelectedSlot
+    ? `Выбрано слотов: ${selectedSlots.length}. Корт назначается автоматически.`
+    : null;
 
   return (
     <section className="booking-flow" aria-labelledby="booking-flow-title">
@@ -504,266 +766,454 @@ export function LiveBookingForm({
         Онлайн-бронирование
       </h2>
 
+      <ol className="booking-live__stepper" aria-label="Шаги бронирования">
+        {stepperItems.map((step) => (
+          <li key={step.id} className={`booking-live__stepper-item booking-live__stepper-item--${step.state}`}>
+            <span className="booking-live__stepper-badge" aria-hidden="true">
+              {step.stepNumber}
+            </span>
+            <span className="booking-live__stepper-label">{step.label}</span>
+          </li>
+        ))}
+      </ol>
+
       <div className="booking-flow__panel">
-        <div className="booking-live__step">
-          <p className="booking-live__step-title">1. Выберите спорт</p>
-          <div className="booking-live__choice-list">
-            {(["padel", "squash"] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                className={`booking-live__choice-button${sport === item ? " booking-live__choice-button--active" : ""}`}
-                onClick={() => setSport(item)}
+        {!isAuthenticated ? (
+          <div className="booking-live__message booking-live__message--warning" role="note">
+            <p>Для бронирования необходим аккаунт.</p>
+            <div className="booking-live__links">
+              <Link
+                href={`/register?next=${encodeURIComponent(bookingReturnToPath)}`}
+                className="booking-live__link"
               >
-                {getSportLabel(item)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="booking-live__step">
-          <p className="booking-live__step-title">2. Выберите услугу</p>
-          <div className="booking-live__choice-list">
-            {(["court", "training"] as const).map((kind) => {
-              const available = Boolean(serviceMatrix[sport][kind]);
-              return (
-                <button
-                  key={kind}
-                  type="button"
-                  disabled={!available}
-                  className={`booking-live__choice-button${serviceKind === kind ? " booking-live__choice-button--active" : ""}`}
-                  onClick={() => setServiceKind(kind)}
-                >
-                  {getServiceKindLabel(kind)}
-                </button>
-              );
-            })}
-          </div>
-          <p className="booking-live__helper">
-            {resolvedService
-              ? `Услуга: ${resolvedService.name}`
-              : "Для этого спорта выбранный тип услуги пока не настроен."}
-          </p>
-        </div>
-
-        <div className="booking-live__step">
-          <div className="booking-live__date-head">
-            <p className="booking-live__step-title">3. Выберите корт, дату и время</p>
-            <div className="booking-flow__group booking-live__date-group">
-              <label className="booking-flow__label" htmlFor="booking-date-live">
-                Дата
-              </label>
-              <input
-                id="booking-date-live"
-                type="date"
-                className="booking-flow__field"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
+                Зарегистрироваться
+              </Link>
+              <Link href={`/login?next=${encodeURIComponent(bookingReturnToPath)}`} className="booking-live__link">
+                Войти
+              </Link>
             </div>
           </div>
+        ) : null}
 
-          {autoDateMessage ? <p className="booking-live__helper">{autoDateMessage}</p> : null}
-
-          {noServiceForChoice ? (
-            <div className="booking-live__empty">Сначала выберите доступную услугу.</div>
-          ) : availabilityLoading ? (
-            <div className="booking-live__empty">Загружаем доступное время...</div>
-          ) : availabilityError ? (
-            <div className="booking-live__message booking-live__message--error" role="alert">
-              {availabilityError}
-              <div className="booking-live__links">
+        {showSportEditor ? (
+          <div className="booking-live__step booking-live__step--animated">
+            <p className="booking-live__step-title">1. Выберите спорт</p>
+            <div className="booking-live__choice-list">
+              {(["padel", "squash"] as const).map((item) => (
                 <button
+                  key={item}
                   type="button"
-                  className="booking-live__link"
-                  onClick={() => setReloadKey((value) => value + 1)}
+                  className={`booking-live__choice-button${sport === item ? " booking-live__choice-button--active" : ""}`}
+                  onClick={() => {
+                    setEditingStepId(null);
+                    setSport(item);
+                  }}
                 >
-                  Повторить
+                  {getSportLabel(item)}
                 </button>
-              </div>
+              ))}
             </div>
-          ) : availability ? (
-            <div className="booking-live__availability">
-              <div className="booking-live__availability-head">
-                <div>
-                  <p className="booking-live__availability-title">
-                    {availability.date}: {availability.service.name}
-                  </p>
-                </div>
-              </div>
+          </div>
+        ) : (
+          <div className="booking-live__step-summary booking-live__step--animated">
+            <div className="booking-live__step-summary-content">
+              <p className="booking-live__step-summary-title">1. Спорт</p>
+              <p className="booking-live__step-summary-value">{selectedSportLabel}</p>
+            </div>
+            <button
+              type="button"
+              className="booking-live__link"
+              onClick={() => setEditingStepId("sport")}
+            >
+              Изменить
+            </button>
+          </div>
+        )}
 
-              {timeslotsByCourt.length === 0 ? (
-                <div className="booking-live__empty">
-                  Нет доступного времени на выбранную дату. Попробуйте другое время или дату.
-                </div>
+        {showServiceEditor ? (
+          <div className="booking-live__step booking-live__step--animated">
+            <p className="booking-live__step-title">2. Выберите услугу</p>
+            <div className="booking-live__choice-list">
+              {(["court", "training"] as const).map((kind) => {
+                const available = Boolean(serviceMatrix[sport][kind]);
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    disabled={!available}
+                    className={`booking-live__choice-button${serviceKind === kind ? " booking-live__choice-button--active" : ""}`}
+                    onClick={() => {
+                      setEditingStepId(null);
+                      setServiceKind(kind);
+                    }}
+                  >
+                    {getServiceKindLabel(kind)}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="booking-live__helper">
+              {resolvedService
+                ? `Услуга: ${resolvedService.name}`
+                : "Для этого спорта выбранный тип услуги пока не настроен."}
+            </p>
+          </div>
+        ) : (
+          <div className="booking-live__step-summary booking-live__step--animated">
+            <div className="booking-live__step-summary-content">
+              <p className="booking-live__step-summary-title">2. Услуга</p>
+              <p className="booking-live__step-summary-value">{getServiceKindLabel(serviceKind)}</p>
+              {resolvedService ? (
+                <p className="booking-live__step-summary-sub">{resolvedService.name}</p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="booking-live__link"
+              onClick={() => setEditingStepId("service")}
+            >
+              Изменить
+            </button>
+          </div>
+        )}
+
+        {serviceKind === "training" ? (
+          showTrainerEditor ? (
+            <div className="booking-live__step booking-live__step--animated">
+              <p className="booking-live__step-title">3. Выберите тренера</p>
+              {trainersForSport.length === 0 ? (
+                <div className="booking-live__empty">Для выбранного спорта пока нет доступных тренеров.</div>
               ) : (
-                <div className="booking-live__court-groups">
-                  {timeslotsByCourt.map(([courtId, rows]) => (
-                    <section key={courtId} className="booking-live__court-group">
-                      <div className="booking-live__court-header">
-                        <div>
-                          <span className="booking-live__court-title">
-                            {formatCourtLabel(courtId, courtNames)}
-                          </span>
-                        </div>
-                        <span className="booking-live__court-count">{rows.length} слотов</span>
-                      </div>
-                      <div className="booking-live__slots-inline">
-                        {rows.map((row) => (
-                          <button
-                            key={row.key}
-                            type="button"
-                            className={`booking-live__slot-button${selectedSlotKey === row.key ? " booking-live__slot-button--selected" : ""}`}
-                            onClick={() => setSelectedSlotKey(row.key)}
-                          >
-                            <span className="booking-live__slot-time">
-                              {row.startTime} - {row.endTime}
-                            </span>
-                            <span className="booking-live__slot-meta">
-                              {serviceKind === "training"
-                                ? `Тренеров: ${row.instructorIds.length}`
-                                : "Свободный корт"}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        {serviceKind === "training" && selectedSlot ? (
-          <div className="booking-live__step">
-            <p className="booking-live__step-title">4. Выберите тренера</p>
-            {availableTrainerOptions.length === 0 ? (
-              <div className="booking-live__empty">На это время нет доступных тренеров.</div>
-            ) : (
-              <div className="booking-live__trainer-list">
-                {availableTrainerOptions.map((trainer) => {
-                  const tier = resolvePricingTier(date, selectedSlot.startTime);
-                  const trainerPrice = trainer.pricePerHour;
-                  const courtPrice = courtPrices[sport]?.[tier] ?? 0;
-                  const total = courtPrice + trainerPrice;
-                  return (
+                <div className="booking-live__trainer-list">
+                  {trainersForSport.map((trainer) => (
                     <button
                       key={trainer.id}
                       type="button"
                       className={`booking-live__trainer-button${selectedInstructorId === trainer.id ? " booking-live__trainer-button--selected" : ""}`}
-                      onClick={() => setSelectedInstructorId(trainer.id)}
+                      onClick={() => {
+                        pendingTrainerIdFromUrlRef.current = null;
+                        setEditingStepId(null);
+                        setSelectedInstructorId(trainer.id);
+                      }}
                     >
-                      <span className="booking-live__trainer-name">{trainer.name}</span>
+                      <span className="booking-live__trainer-head">
+                        <span className="booking-live__trainer-avatar" aria-hidden="true">
+                          {trainer.name
+                            .split(" ")
+                            .map((part) => part[0])
+                            .slice(0, 2)
+                            .join("")}
+                        </span>
+                        <span className="booking-live__trainer-meta">
+                          <span className="booking-live__trainer-name">{trainer.name}</span>
+                          <span className="booking-live__trainer-tags">
+                            {trainer.sports.map((trainerSport) => (
+                              <span key={`${trainer.id}-${trainerSport}`} className="booking-live__trainer-tag">
+                                {getSportLabel(trainerSport)}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      </span>
                       <span className="booking-live__trainer-price">
-                        Тренер: {formatMoneyKzt(trainerPrice)} • Итого: {formatMoneyKzt(total)}
+                        {formatMoneyKzt(trainer.pricePerHour)} / час
                       </span>
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="booking-live__step-summary booking-live__step--animated">
+              <div className="booking-live__step-summary-content">
+                <p className="booking-live__step-summary-title">3. Тренер</p>
+                <p className="booking-live__step-summary-value">
+                  {selectedTrainer ? selectedTrainer.name : "Не выбран"}
+                </p>
+                {selectedTrainer ? (
+                  <p className="booking-live__step-summary-sub">
+                    {formatMoneyKzt(selectedTrainer.pricePerHour)} / час
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="booking-live__link"
+                onClick={() => setEditingStepId("trainer")}
+              >
+                Изменить
+              </button>
+            </div>
+          )
+        ) : null}
+
+        {showDateTimeEditor ? (
+          <>
+            <div className="booking-live__step booking-live__step--animated">
+              <div className="booking-live__date-head">
+                <p className="booking-live__step-title">{dateStepNumber}. Выберите дату</p>
+                <div className="booking-flow__group booking-live__date-group">
+                  <label className="booking-flow__label" htmlFor="booking-date-live">
+                    Дата
+                  </label>
+                  <input
+                    id="booking-date-live"
+                    type="date"
+                    className="booking-flow__field"
+                    value={date}
+                    onChange={(event) => {
+                      setEditingStepId(null);
+                      setDate(event.target.value);
+                    }}
+                  />
+                </div>
+              </div>
+              {autoDateMessage ? <p className="booking-live__helper">{autoDateMessage}</p> : null}
+            </div>
+
+            <div className="booking-live__step booking-live__step--animated">
+              <p className="booking-live__step-title">{timeStepNumber}. Выберите время</p>
+              <p className="booking-live__helper">
+                Можно выбрать несколько слотов. Корт будет назначен автоматически при подтверждении.
+              </p>
+
+              {noServiceForChoice ? (
+                <div className="booking-live__empty">Сначала выберите доступную услугу.</div>
+              ) : serviceKind === "training" && !selectedInstructorId ? (
+                <div className="booking-live__empty">Сначала выберите тренера, чтобы показать доступное время.</div>
+              ) : availabilityLoading ? (
+                <div className="booking-live__availability-skeleton" aria-hidden="true">
+                  <div className="booking-live__availability-skeleton-head" />
+                  <div className="booking-live__availability-skeleton-group">
+                    <div className="booking-live__availability-skeleton-line booking-live__availability-skeleton-line--wide" />
+                    <div className="booking-live__availability-skeleton-slots">
+                      <div className="booking-live__availability-skeleton-slot" />
+                      <div className="booking-live__availability-skeleton-slot" />
+                      <div className="booking-live__availability-skeleton-slot" />
+                    </div>
+                  </div>
+                  <div className="booking-live__availability-skeleton-group">
+                    <div className="booking-live__availability-skeleton-line" />
+                    <div className="booking-live__availability-skeleton-slots">
+                      <div className="booking-live__availability-skeleton-slot" />
+                      <div className="booking-live__availability-skeleton-slot" />
+                    </div>
+                  </div>
+                </div>
+              ) : availabilityError ? (
+                <div className="booking-live__message booking-live__message--error" role="alert">
+                  {availabilityError}
+                  <div className="booking-live__links">
+                    <button
+                      type="button"
+                      className="booking-live__link"
+                      onClick={() => setReloadKey((value) => value + 1)}
+                    >
+                      Повторить
+                    </button>
+                  </div>
+                </div>
+              ) : availability ? (
+                <div className="booking-live__availability">
+                  <div className="booking-live__availability-head">
+                    <div>
+                      <p className="booking-live__availability-title">
+                        {availability.date}: {availability.service.name}
+                      </p>
+                      <p className="booking-live__availability-sub">
+                        {selectedSlotKeys.length > 0
+                          ? `Выбрано: ${selectedSlotKeys.length} ${selectedSlotKeys.length === 1 ? "слот" : selectedSlotKeys.length < 5 ? "слота" : "слотов"}`
+                          : "Выберите один или несколько слотов"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {availableTimeSlots.length === 0 ? (
+                    <div className="booking-live__empty">
+                      Нет доступного времени на выбранную дату. Попробуйте другую дату.
+                    </div>
+                  ) : (
+                    <div className="booking-live__slots-inline">
+                      {availableTimeSlots.map((slot) => {
+                        const slotKey = getSlotKey(slot);
+                        const isSelected = selectedSlotKeys.includes(slotKey);
+                        const tier = resolvePricingTier(date, slot.startTime);
+                        const courtPrice = courtPrices[sport]?.[tier] ?? 0;
+                        const trainerPrice =
+                          serviceKind === "training" && selectedTrainer ? selectedTrainer.pricePerHour : 0;
+                        const slotTotal = courtPrice + trainerPrice;
+
+                        return (
+                          <button
+                            key={slotKey}
+                            type="button"
+                            className={`booking-live__slot-button${isSelected ? " booking-live__slot-button--selected" : ""}`}
+                            onClick={() => {
+                              setEditingStepId(null);
+                              setSelectedSlotKeys((previous) =>
+                                previous.includes(slotKey)
+                                  ? previous.filter((key) => key !== slotKey)
+                                  : [...previous, slotKey],
+                              );
+                            }}
+                          >
+                            <span className="booking-live__slot-time">
+                              {slot.startTime} - {slot.endTime}
+                            </span>
+                            <span className="booking-live__slot-tags">
+                              <span className="booking-live__slot-tag">{getTierLabel(tier)}</span>
+                              <span className="booking-live__slot-tag">
+                                {slot.availableCourtIds.length} {slot.availableCourtIds.length === 1 ? "корт" : slot.availableCourtIds.length < 5 ? "корта" : "кортов"}
+                              </span>
+                            </span>
+                            <span className="booking-live__slot-meta">
+                              {serviceKind === "training" && selectedTrainer
+                                ? `Тренер: ${selectedTrainer.name}`
+                                : "Корт назначается автоматически"}
+                            </span>
+                            <span className="booking-live__slot-price">{formatMoneyKzt(slotTotal)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : hasSelectedSlot ? (
+          <div className="booking-live__step-summary booking-live__step--animated">
+            <div className="booking-live__step-summary-content">
+              <p className="booking-live__step-summary-title">{dateStepNumber}. Дата и время</p>
+              <p className="booking-live__step-summary-value">{selectedDateTimeSummary}</p>
+              {selectedDateTimeSub ? (
+                <p className="booking-live__step-summary-sub">{selectedDateTimeSub}</p>
+              ) : null}
+              {pricePreview ? (
+                <p className="booking-live__step-summary-sub">
+                  Тарифы:{" "}
+                  {Array.from(new Set(pricePreview.slotLines.map((line) => getTierLabel(line.tier)))).join(", ")}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="booking-live__link"
+              onClick={() => setEditingStepId("datetime")}
+            >
+              Изменить
+            </button>
+          </div>
+        ) : null}
+
+        {hasSelectedSlot ? (
+          <div className="booking-live__customer">
+            <p className="booking-live__section-title">
+              {accountStepNumber}. {isAuthenticated ? "Данные аккаунта" : "Войти или зарегистрироваться"}
+            </p>
+            {!isAuthenticated ? (
+              <div className="booking-live__account-box">
+                <p className="booking-live__helper">
+                  Для оформления бронирования войдите в аккаунт или зарегистрируйтесь.
+                </p>
+                <div className="booking-live__links">
+                  <Link
+                    href={`/register?next=${encodeURIComponent(bookingReturnToPath)}`}
+                    className="booking-live__link"
+                  >
+                    Регистрация
+                  </Link>
+                  <Link href={`/login?next=${encodeURIComponent(bookingReturnToPath)}`} className="booking-live__link">
+                    Войти
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="booking-live__account-box">
+                <div className="booking-live__account-grid">
+                  <div className="booking-live__account-row">
+                    <span className="booking-live__account-label">Имя</span>
+                    <span className="booking-live__account-value">{customerName || "Не указано"}</span>
+                  </div>
+                  <div className="booking-live__account-row">
+                    <span className="booking-live__account-label">Email</span>
+                    <span className="booking-live__account-value">{customerEmail || "Не указано"}</span>
+                  </div>
+                  <div className="booking-live__account-row">
+                    <span className="booking-live__account-label">Телефон</span>
+                    <span className="booking-live__account-value">{customerPhone || "Не указано"}</span>
+                  </div>
+                </div>
+                <div className="booking-live__links">
+                  <button type="button" className="booking-live__link" onClick={openCustomerEditor}>
+                    Изменить данные
+                  </button>
+                </div>
               </div>
             )}
           </div>
         ) : null}
 
-        <div className="booking-live__customer">
-          <p className="booking-live__section-title">
-            {accountStepNumber}. {isAuthenticated ? "Данные аккаунта" : "Войти или зарегистрироваться"}
-          </p>
-          {!isAuthenticated ? (
-            <div className="booking-live__account-box">
-              <p className="booking-live__helper">
-                Для оформления бронирования войдите в аккаунт или зарегистрируйтесь.
-              </p>
-              <div className="booking-live__links">
-                <Link href="/register?next=%2Fbook" className="booking-live__link">
-                  Регистрация
-                </Link>
-                <Link href="/login?next=%2Fbook" className="booking-live__link">
-                  Войти
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="booking-live__account-box">
-              <div className="booking-live__account-grid">
-                <div className="booking-live__account-row">
-                  <span className="booking-live__account-label">Имя</span>
-                  <span className="booking-live__account-value">{customerName || "Не указано"}</span>
-                </div>
-                <div className="booking-live__account-row">
-                  <span className="booking-live__account-label">Email</span>
-                  <span className="booking-live__account-value">{customerEmail || "Не указано"}</span>
-                </div>
-                <div className="booking-live__account-row">
-                  <span className="booking-live__account-label">Телефон</span>
-                  <span className="booking-live__account-value">{customerPhone || "Не указано"}</span>
-                </div>
-              </div>
-              <div className="booking-live__links">
-                <button type="button" className="booking-live__link" onClick={openCustomerEditor}>
-                  Изменить данные
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {selectedSlot && pricePreview ? (
+        {hasSelectedSlot && pricePreview ? (
           <div className="booking-live__summary">
-            <p className="booking-live__section-title">Предпросмотр цены</p>
+            <p className="booking-live__section-title">{reviewStepNumber}. Проверка и подтверждение</p>
             <p className="booking-live__summary-line">
-              {getSportLabel(sport)} / {getServiceKindLabel(serviceKind)} / {date} /{" "}
-              {selectedSlot.startTime} - {selectedSlot.endTime}
+              {getSportLabel(sport)} / {getServiceKindLabel(serviceKind)} / {date}
             </p>
             <p className="booking-live__summary-sub">
-              Корт: {formatCourtLabel(selectedSlot.courtId, courtNames)}
+              Выбрано слотов: {pricePreview.selectedCount}. Корт назначается автоматически при создании каждой брони.
             </p>
-            <p className="booking-live__summary-sub">Период тарифа: {getTierLabel(pricePreview.tier)}</p>
+            {serviceKind === "training" && selectedTrainer ? (
+              <p className="booking-live__summary-sub">Тренер: {selectedTrainer.name}</p>
+            ) : null}
             <div className="booking-live__price-breakdown">
-              <div className="booking-live__price-row">
-                <span>Корт</span>
-                <span>{formatMoneyKzt(pricePreview.courtPrice)}</span>
-              </div>
-              {serviceKind === "training" ? (
-                <div className="booking-live__price-row">
-                  <span>Тренер{selectedTrainer ? ` (${selectedTrainer.name})` : ""}</span>
+              {pricePreview.slotLines.map((line) => (
+                <div key={line.key} className="booking-live__price-row">
                   <span>
-                    {selectedTrainer ? formatMoneyKzt(pricePreview.instructorPrice) : "Выберите тренера"}
+                    {line.startTime} - {line.endTime} ({getTierLabel(line.tier)})
                   </span>
+                  <span>{formatMoneyKzt(line.total)}</span>
                 </div>
-              ) : null}
+              ))}
               <div className="booking-live__price-row booking-live__price-row--total">
-                <span>Итого за 60 минут</span>
+                <span>Итого за {pricePreview.selectedCount} {pricePreview.selectedCount === 1 ? "слот" : pricePreview.selectedCount < 5 ? "слота" : "слотов"}</span>
                 <span>{formatMoneyKzt(pricePreview.total)}</span>
               </div>
             </div>
           </div>
         ) : null}
 
-        <div className="booking-live__actions">
-          <button
-            type="button"
-            className="booking-live__button booking-live__button--accent"
-            onClick={() => {
-              void submitBooking();
-            }}
-            disabled={
-              submitLoading ||
-              !selectedSlot ||
-              !resolvedService ||
-              (requiresAccountForBooking && !isAuthenticated) ||
-              (resolvedService.requiresInstructor && !selectedTrainer)
-            }
-          >
-            {submitLoading ? "Создаем бронь..." : "Забронировать"}
-          </button>
-          <span className="booking-live__helper">
-            {isAuthenticated
-              ? "Проверьте выбранный корт, время и данные аккаунта перед подтверждением."
-              : "Сначала войдите или зарегистрируйтесь, затем вернитесь к бронированию."}
-          </span>
-        </div>
+        {hasSelectedSlot ? (
+          <div className="booking-live__actions">
+            <button
+              type="button"
+              className={`booking-live__button booking-live__button--accent${submitLoading ? " booking-live__button--loading" : ""}`}
+              onClick={() => {
+                void submitBooking();
+              }}
+              disabled={
+                submitLoading ||
+                selectedSlots.length === 0 ||
+                !resolvedService ||
+                (requiresAccountForBooking && !isAuthenticated) ||
+                (resolvedService.requiresInstructor && !selectedTrainer)
+              }
+            >
+              {submitLoading ? "Создаем бронирования..." : "Забронировать"}
+            </button>
+            <span className="booking-live__helper">
+              {isAuthenticated
+                ? "Проверьте выбранные слоты и данные аккаунта перед подтверждением."
+                : "Сначала войдите или зарегистрируйтесь, затем вернитесь к бронированию."}
+            </span>
+          </div>
+        ) : null}
+
+        {submitWarning ? (
+          <div className="booking-live__message booking-live__message--warning" role="status">
+            {submitWarning}
+          </div>
+        ) : null}
 
         {submitError ? (
           <div className="booking-live__message booking-live__message--error" role="alert">
@@ -771,20 +1221,36 @@ export function LiveBookingForm({
           </div>
         ) : null}
 
-        {submitSuccess ? (
+        {submitSuccess && submitSuccessSummary ? (
           <div className="booking-live__message booking-live__message--success">
-            <p className="booking-live__result-title">{submitSuccess.message}</p>
+            <p className="booking-live__result-title">Бронирование создано</p>
             <p className="booking-live__result-line">
-              Бронь: <strong>{submitSuccess.data.booking.id}</strong>, статус:{" "}
-              <strong>{submitSuccess.data.booking.status}</strong>
+              <strong>
+                {getSportLabel(sport)} / {getServiceKindLabel(serviceKind)}
+              </strong>
             </p>
+            <div className="booking-live__price-breakdown">
+              {submitSuccessSummary.sessions.map((session) => (
+                <div key={`${session.date}-${session.startTime}`} className="booking-live__price-row">
+                  <span>
+                    {session.date}, {session.startTime} - {session.endTime}
+                    <br />
+                    Корт: {session.courtLabel}
+                    {session.trainerName ? ` · Тренер: ${session.trainerName}` : ""}
+                  </span>
+                  <span>{formatMoneyKzt(session.amount)}</span>
+                </div>
+              ))}
+            </div>
             <p className="booking-live__result-line">
               Сумма:{" "}
               <strong>
-                {submitSuccess.data.booking.priceTotal.toLocaleString("ru-KZ")}{" "}
-                {submitSuccess.data.booking.currency === "KZT" ? "₸" : submitSuccess.data.booking.currency}
+                {submitSuccessSummary.totalAmount.toLocaleString("ru-KZ")}{" "}
+                {submitSuccessSummary.currency === "KZT" ? "₸" : submitSuccessSummary.currency}
               </strong>
-              {" • "}Оплата: {submitSuccess.data.payment.status} ({submitSuccess.data.payment.provider})
+            </p>
+            <p className="booking-live__result-line">
+              Бронирование подтверждено. Детали доступны в личном кабинете.
             </p>
             <div className="booking-live__links">
               <Link href="/account/bookings" className="booking-live__link">

@@ -1,231 +1,102 @@
-# Next Session Handoff / Prompt
+# Next Session Handoff
 
-This document is a ready-to-use handoff for the next development session.
+This document summarizes the current project state and the remaining work after the UX overhaul + technical polish sessions on **2026-02-25**.
 
 ## Current State (At a Glance)
 
-The app is now a working local MVP with:
+The app is a working local MVP with:
 
-- DB-backed booking + availability
-- customer registration/login/account bookings
-- 6-hour free cancellation (configurable)
+- DB-backed booking + availability (Prisma/Postgres)
+- customer registration/login/account/profile editing
+- account bookings with cancel confirmation and status badges
 - admin CRUD for courts/instructors/services/schedules/exceptions/bookings
-- trainer-specific pricing and trainer selection in booking flow
-- hour-based one-hour slots only
-- all bookings require authenticated account
+- trainer model refactor complete (`sports[]` + `pricePerHour`)
+- booking UX overhaul complete (trainer-first training flow, multi-slot selection, auto-court assignment)
+- admin panel UX overhaul complete (sidebar, mobile nav, breadcrumbs, dashboard, bookings filters/search/pagination/details)
+- content/copy pass complete (homepage FAQ/rules, contact directions, friendlier booking copy)
+- SEO metadata baseline complete (unique metadata on all pages, OG/Twitter defaults, JSON-LD, robots, sitemap)
+- accessibility foundations complete (skip link, focus-visible styles, icon button labels)
 
-## Important Before You Start (Local)
+## What Was Completed Most Recently
 
-Latest schema changes require migration and reseed.
+### Phase 7 technical polish pass
 
-### Required commands
+- `7.2` Booking state persistence across auth:
+  - `/book` query sync/restore includes `sport`, `service`, `date`, `instructor`, and selected slot `time` values
+  - login/register `next` links preserve booking selections (including multi-slot time selection)
+- `7.3` SEO/metadata:
+  - shared metadata helper (`src/lib/seo/metadata.ts`)
+  - unique `metadata` exports across all `app/**/page.tsx` routes (25/25)
+  - root layout Open Graph/Twitter defaults and `metadataBase`
+  - LocalBusiness JSON-LD in root layout
+  - `app/robots.ts`, `app/sitemap.ts`
+- `7.4` Accessibility foundations:
+  - skip-to-content link in `app/layout.tsx`
+  - global `:focus-visible` styles in `app/globals.css`
+  - icon-only menu/close buttons verified to have `aria-label`
 
-1. Stop any running `next dev` process
-2. Apply DB migration:
+## Remaining Work (Recommended Next Priority)
 
-```powershell
-npx prisma migrate dev --name trainer_pricing_and_booking_auth
-```
+### 1) Phase 7.1 (remaining): Full password reset token flow
 
-3. Regenerate Prisma Client:
-
-```powershell
-npx prisma generate
-```
-
-4. Reseed local DB:
-
-```powershell
-npm run db:seed
-```
-
-5. Start app:
-
-```powershell
-npm run dev
-```
-
-## Known Operational Caveats
-
-- Windows Prisma `EPERM` file-lock on `query_engine-windows.dll.node` can happen if `next dev` is running during `prisma generate`.
-- Demo fallback is intentionally disabled by default:
-  - `ALLOW_DEMO_FALLBACK=false`
-  - This is to avoid fake-success bookings that do not persist.
-
-## What Was Just Completed (Latest Iteration)
-
-- Booking UX refactor to:
-  - `sport -> service type -> date -> per-court timeslots`
-- Hour-only slots (`HH:00`)
-- Trainer selection + trainer-specific pricing + price preview
-- Nearest available date auto-shift (14 days)
-- Court rentals require login
-- Training bookings now also require login (API auth policy aligned to `/book` UI)
-- Inline trainer price editing in admin
-- Silent demo fallback disabled by default
-- Admin delete actions for courts/instructors/services with history-safe blocking and inline result banners
-
-## High-Priority Next Tasks (Recommended Order)
-
-## 1. Payment Integration + Webhooks (Highest Impact)
-
-Goal:
-
-- Replace placeholder payment flow with real provider integration (Kaspi / Freedom)
-- Add webhook handlers for payment status updates
-- Implement real refund flow for eligible cancellations
-
-Acceptance criteria:
-
-- booking can create provider payment session/URL
-- webhook updates `Payment.status` and `Booking.status`
-- customer cancellation triggers refund request (where supported)
-- idempotent webhook processing
-
-## 2. Admin Editing UX Improvements
-
-Goal:
-
-- Expand inline editing beyond trainer prices:
-  - trainer name / bio / sport
-  - courts (name/notes)
-  - services
-
-Acceptance criteria:
-
-- no page reload confusion
-- validation errors visible in UI
-- consistent server actions and revalidation
-
-## 3. Booking UX Quality / Reliability
-
-Goal:
-
-- Improve clarity and trust in booking flow
-
-Suggestions:
-
-- explicit “booking source” indicator hidden in production / shown in dev
-- slot loading skeletons
-- disabled submit while availability stale
-- optimistic refresh after booking/cancel
-- better trainer card details (bio/level)
-
-## 4. Test Expansion + CI
-
-Goal:
-
-- expand the new automated coverage and wire it into CI
+MVP page exists (`/forgot-password`) but does not yet implement email-based reset tokens.
 
 Suggested scope:
 
-- expand integration tests beyond current availability + booking persistence coverage
-- add negative e2e cases (auth failures, cancellation cutoff blocked, no slots)
-- CI pipeline: lint + build + unit + e2e (or staged e2e subset)
+- `PasswordResetToken` persistence (Prisma model + migration)
+- token issuance + expiry
+- `/reset-password` page and form
+- server actions / route handlers for request + reset
+- secure token hashing/storage and one-time use invalidation
+- UI feedback for invalid/expired tokens
 
-## 5. Production Readiness Hardening
+### 2) Phase 7.4 (remaining): WCAG AA contrast audit
 
-Goal:
+Accessibility foundations are in place, but a manual contrast audit is still pending.
 
-- close operational/security gaps
+Suggested scope:
 
-Scope:
+- audit key UI surfaces (hero overlays, badges, muted text, button states, admin chips)
+- patch failing color pairs in `app/globals.css`
+- verify focus states remain visible on all backgrounds
 
-- rate limiting on auth and booking endpoints
-- audit log for admin mutations
-- structured logging / error tracking
-- deployment docs
-- backup/restore procedures
+## Verification Baseline (Latest Known Good)
 
-## Suggested Next Session Prompt (Copy/Paste)
+Latest successful commands during the last session:
 
-Use this prompt in the next session:
+- `npm run build` ✅
+- `npm run test:e2e` ✅
+- `npm run lint` ✅
 
-```text
-Continue development on D:\\Websites\\padelsquash.
+Notes:
 
-First, read:
-- README.md
-- docs/devops-postgres.md
-- docs/changes-2026-02-23.md
-- docs/next-session-handoff.md
-- tasks/todo.md
-- tasks/lessons.md
+- `npm run lint` should be run **separately** from `npm run test:e2e` in this repo.
+- Running them in parallel can cause an intermittent race on `test-results/`.
 
-Then:
-1) verify local DB/schema is up to date (run prisma migrate/generate/seed if needed),
-2) implement real payment integration/webhook flow for bookings and refunds,
-3) keep existing booking UX behavior (sport -> service type -> date -> per-court slots, trainer selection, hour-only slots),
-4) do not re-enable silent demo fallback by default,
-5) run lint/build and summarize exact verification.
+## Important Behavior to Preserve
+
+- Auth required for all bookings
+- 60-minute slots only
+- Training flow order: sport -> service -> trainer -> date -> time
+- Multi-slot selection creates multiple bookings in one submit action
+- Court auto-assignment (user no longer chooses a specific court)
+- Booking restore across auth redirect via `/book` query params
+
+## Useful Commands (Local)
+
+```powershell
+docker compose ps
+npx prisma generate
+npm run db:seed
+npm run lint
+npm run build
+npm run test:e2e
 ```
 
-## Suggested Verification Checklist (Next Session)
+## Primary References
 
-- `npm run lint`
-- `npm run build`
-- register/login flow
-- court rental booking (auth required)
-- training booking with trainer selection and expected price
-- slot disappears after booking
-- cancellation works with 6-hour cutoff
-- admin inline trainer price edit affects booking price preview
-
-## References
-
-- Local DB runbook: `docs/devops-postgres.md`
-- Changes summary: `docs/changes-2026-02-23.md`
-- Current task/history log: `tasks/todo.md`
-- Session lessons: `tasks/lessons.md`
-
-## Update: Automated Tests Implemented
-
-The local automated test baseline is now implemented and passing:
-
-- Unit (`Vitest`):
-  - availability engine
-  - pricing engine
-  - booking validation
-  - cancellation policy
-- E2E (`Playwright`):
-  - customer register -> court booking -> refresh slot disappears -> account cancellation
-  - training booking with trainer selection + trainer-specific prices
-  - admin booking status action
-  - admin inline trainer price editing reflected in booking preview
-  - admin settings/resource CRUD and toggles
-- Integration/API (`Vitest` + real Postgres):
-  - availability route handler DB-backed response + hour-slot validation
-  - booking persistence overlap/concurrency behavior
-  - trainer-specific pricing effect in persisted training bookings
-
-Commands verified:
-
-- `npm run test:unit` ✅
-- `npm run test:integration` ✅
-- `npm run test:e2e` ✅
-
-Important notes:
-
-- Playwright config uses `http://localhost:3000` to match `NEXTAUTH_URL` (avoids Auth.js cookie/session issues seen with `127.0.0.1`).
-- E2E runs reseed the local DB before execution (`npm run test:e2e`).
-- Integration tests also reseed the local DB (`npm run test:integration`).
-
-## Update: Public Content Refactor Implemented
-
-- Public-site copy is now centralized in `src/lib/content/site-content.ts`.
-- `src/lib/demo/hardcoded-data.ts` is now reserved for demo fallback operational data (availability/pricing/services) and no longer mixes marketing copy with fallback logic.
-- Public pages no longer show technical/internal/testing language (e.g. MVP/admin/test instructions) in customer-facing sections.
-
-## Update: Booking Auth Alignment + Admin Delete UX
-
-- `POST /api/bookings` now requires an authenticated account for all booking types (court + training), matching the `/book` account-first flow.
-- Admin resources now support safe deletion with booking-history protection:
-  - courts, instructors, services
-- Admin delete attempts now show inline feedback banners instead of raw server-action failures:
-  - success (`deleted`)
-  - blocked by booking history
-  - generic failure
-
-## Standalone Next Session Prompt
-
-- Copy/paste prompt also available in `docs/next-session-prompt.md`
+- Task log / review history: `tasks/todo.md`
+- UX plan checklist: `tasks/ux-overhaul-plan.md`
+- Lessons: `tasks/lessons.md`
+- Copy/paste session prompt: `docs/next-session-prompt.md`
+- Local DB / Docker notes: `docs/devops-postgres.md`

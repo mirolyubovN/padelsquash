@@ -2,6 +2,14 @@ import { revalidatePath } from "next/cache";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import { getOpeningHours, saveOpeningHoursFromForm, WEEKDAY_LABELS } from "@/src/lib/settings/service";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: часы работы | Padel & Squash KZ",
+  description: "Настройка часов работы площадки по дням недели для расчета доступности и бронирования.",
+  path: "/admin/opening-hours",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 

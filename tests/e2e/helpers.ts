@@ -75,31 +75,61 @@ export async function selectBookingFlowOptions(page: Page, options: {
     .getByRole("button", { name: options.serviceKind === "court" ? "Аренда корта" : "Тренировка" })
     .click();
 
-  const dateInput = page.locator("#booking-date-live");
-  await dateInput.fill(options.date);
-  await expect(dateInput).toHaveValue(options.date);
-
-  await waitForAvailabilityLoaded(page);
+  if (options.serviceKind === "court") {
+    await setBookingDate(page, options.date);
+    await waitForAvailabilityLoaded(page);
+  }
 }
 
 export async function waitForAvailabilityLoaded(page: Page) {
   await expect(page.locator(".booking-live__availability-title")).toBeVisible();
 }
 
-export async function pickFirstCourtSlot(page: Page): Promise<{ courtTitle: string; slotLabel: string }> {
-  const firstCourtGroup = page.locator(".booking-live__court-group").first();
-  await expect(firstCourtGroup).toBeVisible();
-  const courtTitle = (await firstCourtGroup.locator(".booking-live__court-title").first().innerText()).trim();
-  const firstSlotButton = firstCourtGroup.locator(".booking-live__slot-button").first();
-  const slotLabel = (await firstSlotButton.locator(".booking-live__slot-time").innerText()).trim();
-  await firstSlotButton.click();
-  return { courtTitle, slotLabel };
+export async function setBookingDate(page: Page, date: string) {
+  const dateInput = page.locator("#booking-date-live");
+  await expect(dateInput).toBeVisible();
+  await dateInput.fill(date);
+  await expect(dateInput).toHaveValue(date);
 }
 
-export function findCourtGroupByTitle(page: Page, courtTitle: string): Locator {
+export async function pickTrainerAndWaitForAvailability(
+  page: Page,
+  options?: { trainerName?: string; date?: string },
+) {
+  const trainerButtons = page.locator(".booking-live__trainer-button");
+  await expect(trainerButtons.first()).toBeVisible();
+  expect(await trainerButtons.count()).toBeGreaterThan(0);
+
+  const targetTrainerButton = options?.trainerName
+    ? page.locator(".booking-live__trainer-button", { hasText: options.trainerName }).first()
+    : trainerButtons.first();
+
+  if (options?.trainerName) {
+    await expect(targetTrainerButton).toBeVisible();
+  }
+  await targetTrainerButton.scrollIntoViewIfNeeded();
+  await targetTrainerButton.click({ force: true });
+
+  if (options?.date) {
+    await setBookingDate(page, options.date);
+  }
+
+  await waitForAvailabilityLoaded(page);
+}
+
+export async function pickFirstCourtSlot(page: Page): Promise<{ slotLabel: string; slotPrice?: string }> {
+  const firstSlotButton = page.locator(".booking-live__slot-button").first();
+  await expect(firstSlotButton).toBeVisible();
+  const slotLabel = (await firstSlotButton.locator(".booking-live__slot-time").innerText()).trim();
+  const slotPrice = (await firstSlotButton.locator(".booking-live__slot-price").innerText().catch(() => "")).trim();
+  await firstSlotButton.click();
+  return { slotLabel, slotPrice: slotPrice || undefined };
+}
+
+export function findSlotButtonByLabel(page: Page, slotLabel: string): Locator {
   return page
-    .locator(".booking-live__court-group")
-    .filter({ has: page.locator(".booking-live__court-title", { hasText: courtTitle }) })
+    .locator(".booking-live__slot-button")
+    .filter({ has: page.locator(".booking-live__slot-time", { hasText: slotLabel }) })
     .first();
 }
 
@@ -120,7 +150,8 @@ export async function fillBookingCustomerFields(page: Page, options: { name?: st
 export async function submitBookingAndExpectSuccess(page: Page) {
   await page.getByRole("button", { name: "Забронировать" }).click();
   await expect(page.locator(".booking-live__message--success")).toBeVisible();
-  await expect(page.getByText("Бронь:", { exact: false })).toBeVisible();
+  await expect(page.getByText("Бронирование создано")).toBeVisible();
+  await expect(page.getByText("Бронирование подтверждено. Детали доступны в личном кабинете.")).toBeVisible();
 }
 
 export async function bookFirstAvailableTrainingSlot(page: Page, options: {
@@ -144,16 +175,8 @@ export async function bookFirstAvailableTrainingSlot(page: Page, options: {
     date: options.date,
   });
 
+  await pickTrainerAndWaitForAvailability(page, { trainerName: options.trainerName, date: options.date });
   await pickFirstCourtSlot(page);
-  const trainerButtons = page.locator(".booking-live__trainer-button");
-  await expect(trainerButtons.first()).toBeVisible();
-  expect(await trainerButtons.count()).toBeGreaterThan(0);
-
-  if (options.trainerName) {
-    await page.locator(".booking-live__trainer-button", { hasText: options.trainerName }).click();
-  } else {
-    await page.locator(".booking-live__trainer-button").first().click();
-  }
 
   await submitBookingAndExpectSuccess(page);
 }

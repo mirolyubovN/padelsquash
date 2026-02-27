@@ -1,5 +1,106 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { isoDatePlusDays, loginAsAdmin } from "./helpers";
+
+async function getAdminTableRowIndicesByNameValue(page: Page, targetName: string): Promise<number[]> {
+  return page.locator("tbody tr").evaluateAll((rows, name) => {
+    const matches: number[] = [];
+    rows.forEach((row, index) => {
+      const hasMatch = Array.from(row.querySelectorAll('input[name="name"]')).some(
+        (input) => (input as HTMLInputElement).value === name,
+      );
+      if (hasMatch) {
+        matches.push(index);
+      }
+    });
+    return matches;
+  }, targetName);
+}
+
+async function waitForAdminTableRowByNameValue(page: Page, targetName: string, timeoutMs = 20_000): Promise<Locator> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const matchIndices = await getAdminTableRowIndicesByNameValue(page, targetName);
+    if (matchIndices.length > 0) {
+      return page.locator("tbody tr").nth(matchIndices[0]);
+    }
+    await page.waitForTimeout(200);
+  }
+
+  throw new Error(`Не найдена строка таблицы с name="${targetName}"`);
+}
+
+async function waitForAdminTableRowCountByNameValue(
+  page: Page,
+  targetName: string,
+  expectedCount: number,
+  timeoutMs = 20_000,
+) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const matchIndices = await getAdminTableRowIndicesByNameValue(page, targetName);
+    if (matchIndices.length === expectedCount) {
+      return;
+    }
+    await page.waitForTimeout(200);
+  }
+
+  const lastCount = (await getAdminTableRowIndicesByNameValue(page, targetName)).length;
+  throw new Error(
+    `Ожидалось ${expectedCount} строк(и) таблицы с name="${targetName}", получено ${lastCount}`,
+  );
+}
+
+async function getAdminTableRowIndicesContainingText(page: Page, targetText: string): Promise<number[]> {
+  return page.locator("tbody tr").evaluateAll((rows, textToFind) => {
+    const matches: number[] = [];
+    rows.forEach((row, index) => {
+      if ((row.textContent ?? "").includes(textToFind)) {
+        matches.push(index);
+      }
+    });
+    return matches;
+  }, targetText);
+}
+
+async function waitForAdminTableRowContainingText(
+  page: Page,
+  targetText: string,
+  timeoutMs = 20_000,
+): Promise<Locator> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const matchIndices = await getAdminTableRowIndicesContainingText(page, targetText);
+    if (matchIndices.length > 0) {
+      return page.locator("tbody tr").nth(matchIndices[0]);
+    }
+    await page.waitForTimeout(200);
+  }
+
+  throw new Error(`Не найдена строка таблицы с текстом "${targetText}"`);
+}
+
+async function waitForAdminTableRowCountContainingText(
+  page: Page,
+  targetText: string,
+  expectedCount: number,
+  timeoutMs = 20_000,
+) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const matchIndices = await getAdminTableRowIndicesContainingText(page, targetText);
+    if (matchIndices.length === expectedCount) {
+      return;
+    }
+    await page.waitForTimeout(200);
+  }
+
+  const lastCount = (await getAdminTableRowIndicesContainingText(page, targetText)).length;
+  throw new Error(`Ожидалось ${expectedCount} строк(и) таблицы с текстом "${targetText}", получено ${lastCount}`);
+}
 
 test("admin can manage config and resource CRUD/toggle flows", async ({ page }) => {
   const uniqueSuffix = `${Date.now()}`;
@@ -13,9 +114,9 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
 
   await page.goto("/admin");
   await expect(page.getByText("Панель управления")).toBeVisible();
-  await expect(page.locator('a[href="/admin/courts"]')).toBeVisible();
-  await expect(page.locator('a[href="/admin/instructors"]')).toBeVisible();
-  await expect(page.locator('a[href="/admin/bookings"]')).toBeVisible();
+  await expect(page.getByRole("link", { name: "Корты" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Тренеры" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Бронирования" }).first()).toBeVisible();
 
   await page.goto("/admin/opening-hours");
   await expect(page.getByText("Часы работы площадки")).toBeVisible();
@@ -32,17 +133,19 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
   await expect(page.getByText("Вечер / выходные")).toBeVisible();
 
   await page.goto("/admin/courts");
-  await page.getByLabel("Название").fill(courtName);
-  await page.getByLabel("Спорт").selectOption("padel");
-  await page.getByLabel("Примечание (опционально)").fill("E2E court");
-  await page.getByRole("button", { name: "Добавить корт" }).click();
-  let courtRow = page.locator("tr").filter({ has: page.getByText(courtName) }).first();
-  await expect(courtRow).toBeVisible();
+  const createCourtSection = page.locator(".admin-section").filter({ has: page.getByRole("button", { name: "Добавить корт" }) }).first();
+  await createCourtSection.getByLabel("Название").fill(courtName);
+  await createCourtSection.getByLabel("Спорт").selectOption("padel");
+  await createCourtSection.getByLabel("Примечание (опционально)").fill("E2E court");
+  await createCourtSection.getByRole("button", { name: "Добавить корт" }).click();
+  let courtRow = await waitForAdminTableRowByNameValue(page, courtName);
+  await expect(courtRow).toBeVisible({ timeout: 20000 });
   await courtRow.getByRole("button", { name: "Выключить" }).click();
-  courtRow = page.locator("tr").filter({ has: page.getByText(courtName) }).first();
-  await expect(courtRow.getByText("Нет")).toBeVisible();
+  courtRow = await waitForAdminTableRowByNameValue(page, courtName);
+  await expect(courtRow.getByText("Неактивен")).toBeVisible();
   await courtRow.getByRole("button", { name: "Удалить" }).click();
-  await expect(page.locator("tr").filter({ has: page.getByText(courtName) })).toHaveCount(0);
+  await page.getByRole("button", { name: "Удалить корт" }).click();
+  await waitForAdminTableRowCountByNameValue(page, courtName, 0);
 
   await page.goto("/admin/instructors");
   const createInstructorForm = page
@@ -55,27 +158,30 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
   await createInstructorForm.getByLabel("Описание (для страницы тренеров)").fill("E2E trainer");
   await createInstructorForm.getByLabel("Ставка за час (₸)").fill("9003");
   await createInstructorForm.getByRole("button", { name: "Добавить тренера" }).click();
-  let instructorRow = page.locator("tr").filter({ has: page.getByText(instructorName) }).first();
-  await expect(instructorRow).toBeVisible();
+  let instructorRow = await waitForAdminTableRowContainingText(page, instructorName);
+  await expect(instructorRow).toBeVisible({ timeout: 20000 });
   await instructorRow.getByRole("button", { name: "Выключить" }).click();
-  instructorRow = page.locator("tr").filter({ has: page.getByText(instructorName) }).first();
-  await expect(instructorRow.getByText("Нет")).toBeVisible();
+  instructorRow = await waitForAdminTableRowContainingText(page, instructorName);
+  await expect(instructorRow.getByText("Неактивен")).toBeVisible();
   await instructorRow.getByRole("button", { name: "Удалить" }).click();
-  await expect(page.locator("tr").filter({ has: page.getByText(instructorName) })).toHaveCount(0);
+  await page.getByRole("button", { name: "Удалить тренера" }).click();
+  await waitForAdminTableRowCountContainingText(page, instructorName, 0);
 
   await page.goto("/admin/services");
-  await page.getByLabel("Код").fill(serviceCode);
-  await page.getByLabel("Название").fill(serviceName);
-  await page.getByLabel("Спорт").selectOption("squash");
-  await page.getByRole("checkbox", { name: "Это тренировка (добавляет тренера к цене)" }).check();
-  await page.getByRole("button", { name: "Добавить услугу" }).click();
-  let serviceRow = page.locator("tr").filter({ has: page.getByText(serviceName) }).first();
-  await expect(serviceRow).toBeVisible();
+  const createServiceSection = page.locator(".admin-section").filter({ has: page.getByRole("button", { name: "Добавить услугу" }) }).first();
+  await createServiceSection.getByLabel("Код").fill(serviceCode);
+  await createServiceSection.getByLabel("Название").fill(serviceName);
+  await createServiceSection.getByLabel("Спорт").selectOption("squash");
+  await createServiceSection.getByRole("checkbox", { name: "Это тренировка (добавляет тренера к цене)" }).check();
+  await createServiceSection.getByRole("button", { name: "Добавить услугу" }).click();
+  let serviceRow = await waitForAdminTableRowByNameValue(page, serviceName);
+  await expect(serviceRow).toBeVisible({ timeout: 20000 });
   await serviceRow.getByRole("button", { name: "Выключить" }).click();
-  serviceRow = page.locator("tr").filter({ has: page.getByText(serviceName) }).first();
-  await expect(serviceRow.getByText("Нет")).toBeVisible();
+  serviceRow = await waitForAdminTableRowByNameValue(page, serviceName);
+  await expect(serviceRow.getByText("Неактивна")).toBeVisible();
   await serviceRow.getByRole("button", { name: "Удалить" }).click();
-  await expect(page.locator("tr").filter({ has: page.getByText(serviceName) })).toHaveCount(0);
+  await page.getByRole("button", { name: "Удалить услугу" }).click();
+  await waitForAdminTableRowCountByNameValue(page, serviceName, 0);
 
   await page.goto("/admin/exceptions");
   await page.getByLabel("Ресурс").selectOption("venue");

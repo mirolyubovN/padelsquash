@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
+import { AdminConfirmActionForm } from "@/src/components/admin/admin-confirm-action-form";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   createServiceFromForm,
@@ -9,7 +10,16 @@ import {
   getServiceResourceDescription,
   setServiceActive,
   SPORT_LABELS,
+  updateServiceFromForm,
 } from "@/src/lib/admin/resources";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: услуги | Padel & Squash KZ",
+  description: "Управление услугами клуба: аренда и тренировка, код услуги, спорт, активность и параметры расчета.",
+  path: "/admin/services",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +63,14 @@ export default async function AdminServicesPage({
     revalidatePath("/book");
   }
 
+  async function updateAction(formData: FormData) {
+    "use server";
+    await assertAdmin();
+    await updateServiceFromForm(formData);
+    revalidatePath("/admin/services");
+    revalidatePath("/book");
+  }
+
   async function deleteAction(formData: FormData) {
     "use server";
     await assertAdmin();
@@ -91,63 +109,61 @@ export default async function AdminServicesPage({
         <p className="account-history__message account-history__message--success">{successMessage}</p>
       ) : null}
 
-      <form action={createAction} className="admin-form">
-        <div className="admin-table">
-          <table className="admin-table__table">
-            <tbody>
-              <tr className="admin-table__row">
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="service-code">
-                    Код
-                  </label>
-                  <input
-                    id="service-code"
-                    name="code"
-                    className="admin-form__field"
-                    placeholder="padel-rental"
-                    pattern="[a-z0-9-]+"
-                    required
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="service-name">
-                    Название
-                  </label>
-                  <input
-                    id="service-name"
-                    name="name"
-                    className="admin-form__field"
-                    placeholder="Аренда корта (падел)"
-                    required
-                  />
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__label" htmlFor="service-sport">
-                    Спорт
-                  </label>
-                  <select id="service-sport" name="sport" className="admin-form__field" defaultValue="padel">
-                    <option value="padel">Падел</option>
-                    <option value="squash">Сквош</option>
-                  </select>
-                </td>
-                <td className="admin-table__cell">
-                  <label className="admin-form__checkbox">
-                    <input name="includesInstructor" type="checkbox" />
-                    <span>Это тренировка (добавляет тренера к цене)</span>
-                  </label>
-                </td>
-                <td className="admin-table__cell">
-                  <div className="admin-form__actions">
-                    <button type="submit" className="admin-form__submit">
-                      Добавить услугу
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <section className="admin-section">
+        <div className="admin-section__head">
+          <h2 className="admin-section__title">Добавить услугу</h2>
+          <p className="admin-section__description">Создайте аренду или тренировку для выбранного спорта.</p>
         </div>
-      </form>
+        <form action={createAction} className="admin-form admin-form--panel">
+          <div className="admin-form__panel-grid">
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="service-code">
+                Код
+              </label>
+              <input
+                id="service-code"
+                name="code"
+                className="admin-form__field"
+                placeholder="padel-rental"
+                pattern="[a-z0-9-]+"
+                required
+              />
+            </div>
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="service-name">
+                Название
+              </label>
+              <input
+                id="service-name"
+                name="name"
+                className="admin-form__field"
+                placeholder="Аренда корта (падел)"
+                required
+              />
+            </div>
+            <div className="admin-form__group">
+              <label className="admin-form__label" htmlFor="service-sport">
+                Спорт
+              </label>
+              <select id="service-sport" name="sport" className="admin-form__field" defaultValue="padel">
+                <option value="padel">Падел</option>
+                <option value="squash">Сквош</option>
+              </select>
+            </div>
+            <div className="admin-form__group">
+              <label className="admin-form__checkbox">
+                <input name="includesInstructor" type="checkbox" />
+                <span>Это тренировка (добавляет тренера к цене)</span>
+              </label>
+            </div>
+          </div>
+          <div className="admin-form__actions">
+            <button type="submit" className="admin-form__submit">
+              Добавить услугу
+            </button>
+          </div>
+        </form>
+      </section>
 
       <div className="admin-table">
         <table className="admin-table__table">
@@ -173,8 +189,33 @@ export default async function AdminServicesPage({
               services.map((service) => (
                 <tr key={service.id} className="admin-table__row">
                   <td className="admin-table__cell">
-                    <div className="admin-bookings__cell-title">{service.name}</div>
-                    <div className="admin-bookings__cell-sub">{service.code}</div>
+                    <form action={updateAction} className="admin-inline-row-form">
+                      <input type="hidden" name="serviceId" value={service.id} />
+                      <label className="admin-form__label" htmlFor={`service-name-${service.id}`}>
+                        Название
+                      </label>
+                      <input
+                        id={`service-name-${service.id}`}
+                        name="name"
+                        className="admin-form__field"
+                        defaultValue={service.name}
+                        required
+                      />
+                      <label className="admin-form__label" htmlFor={`service-code-${service.id}`}>
+                        Код
+                      </label>
+                      <input
+                        id={`service-code-${service.id}`}
+                        name="code"
+                        className="admin-form__field"
+                        defaultValue={service.code}
+                        pattern="[a-z0-9-]+"
+                        required
+                      />
+                      <button type="submit" className="admin-bookings__action-button">
+                        Сохранить
+                      </button>
+                    </form>
                   </td>
                   <td className="admin-table__cell">{SPORT_LABELS[service.sport]}</td>
                   <td className="admin-table__cell">
@@ -183,7 +224,10 @@ export default async function AdminServicesPage({
                   <td className="admin-table__cell">{getServiceResourceDescription(service)}</td>
                   <td className="admin-table__cell">60 минут</td>
                   <td className="admin-table__cell">
-                    <span className="admin-bookings__chip">{service.active ? "Да" : "Нет"}</span>
+                    <span className={`admin-status-badge ${service.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
+                      <span className="admin-status-badge__dot" aria-hidden="true" />
+                      {service.active ? "Активна" : "Неактивна"}
+                    </span>
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
@@ -194,12 +238,14 @@ export default async function AdminServicesPage({
                           {service.active ? "Выключить" : "Включить"}
                         </button>
                       </form>
-                      <form action={deleteAction} className="admin-bookings__actions">
-                        <input type="hidden" name="serviceId" value={service.id} />
-                        <button type="submit" className="admin-bookings__action-button">
-                          Удалить
-                        </button>
-                      </form>
+                      <AdminConfirmActionForm
+                        action={deleteAction}
+                        hiddenFields={{ serviceId: service.id }}
+                        triggerLabel="Удалить"
+                        confirmLabel="Удалить услугу"
+                        title="Удалить услугу?"
+                        description="Удаление доступно только если по услуге нет исторических бронирований."
+                      />
                     </div>
                   </td>
                 </tr>

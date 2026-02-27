@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { PageHero } from "@/src/components/page-hero";
 import { courtItems, courtsPageContent } from "@/src/lib/content/site-data";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
-export const metadata = {
+export const metadata = buildPageMetadata({
   title: "Корты | Padel & Squash KZ",
-};
+  description: "Корты для падела и сквоша в одном клубе: описание площадок, особенности покрытия и быстрый переход к онлайн-бронированию.",
+  path: "/courts",
+});
 
 export default function CourtsPage() {
   return (

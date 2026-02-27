@@ -19,6 +19,7 @@ export interface AvailabilityInput {
   instructorSchedules: ResourceScheduleRecord[];
   exceptions: ScheduleExceptionRecord[];
   existingBookings: ExistingBookingRecord[];
+  requestedInstructorId?: string;
 }
 
 export interface AvailableSlot {
@@ -75,8 +76,13 @@ export function generateAvailableSlots(input: AvailabilityInput): AvailableSlot[
       continue;
     }
 
+    const candidateInstructorIds =
+      input.service.requiresInstructor && input.requestedInstructorId
+        ? input.instructorIds.filter((id) => id === input.requestedInstructorId)
+        : input.instructorIds;
+
     const availableInstructorIds = input.service.requiresInstructor
-      ? input.instructorIds.filter((instructorId) =>
+      ? candidateInstructorIds.filter((instructorId) =>
           isResourceAvailable({
             date: input.date,
             dayOfWeek,

@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     serviceId: url.searchParams.get("serviceId"),
     date: url.searchParams.get("date"),
     durationMin: url.searchParams.get("durationMin"),
+    instructorId: url.searchParams.get("instructorId") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -32,6 +33,20 @@ export async function GET(request: Request) {
       { status: 400 },
     );
   }
+
+  const serializeSlots = (slots: Array<{
+    startTime: string;
+    endTime: string;
+    availableCourtIds: string[];
+    availableInstructorIds: string[];
+  }>) =>
+    parsed.data.instructorId
+      ? slots.map((slot) => ({
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          availableCourtIds: slot.availableCourtIds,
+        }))
+      : slots;
 
   let dbErrorMessage: string | null = null;
   try {
@@ -51,6 +66,7 @@ export async function GET(request: Request) {
         instructorSchedules: dbContext.instructorSchedules,
         exceptions: dbContext.exceptions,
         existingBookings: dbContext.existingBookings,
+        requestedInstructorId: parsed.data.instructorId,
       });
 
       return NextResponse.json({
@@ -63,7 +79,7 @@ export async function GET(request: Request) {
         },
         service: dbContext.service,
         date: parsed.data.date,
-        slots,
+        slots: serializeSlots(slots),
       });
     }
   } catch (error) {
@@ -94,6 +110,7 @@ export async function GET(request: Request) {
     instructorSchedules: demoInstructorSchedules,
     exceptions: demoExceptions,
     existingBookings: demoExistingBookings,
+    requestedInstructorId: parsed.data.instructorId,
   });
 
   return NextResponse.json({
@@ -113,6 +130,6 @@ export async function GET(request: Request) {
       requiresInstructor: service.requiresInstructor,
     },
     date: parsed.data.date,
-    slots,
+    slots: serializeSlots(slots),
   });
 }

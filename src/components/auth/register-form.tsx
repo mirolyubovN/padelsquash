@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { submitRegisterAction } from "@/app/register/actions";
 import { createInitialRegisterFormState } from "@/src/lib/auth/register-form-state";
 
@@ -14,6 +14,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
     submitRegisterAction,
     createInitialRegisterFormState(next),
   );
+  const [showPasswords, setShowPasswords] = useState(false);
 
   return (
     <>
@@ -98,17 +99,27 @@ export function RegisterForm({ next }: RegisterFormProps) {
           <label htmlFor="register-password" className="auth-form__label">
             Пароль
           </label>
-          <input
-            id="register-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-            className={`auth-form__field${state.fieldErrors.password ? " auth-form__field--error" : ""}`}
-            aria-invalid={state.fieldErrors.password ? "true" : "false"}
-            aria-describedby={state.fieldErrors.password ? "register-password-error" : undefined}
-          />
+          <div className="auth-form__field-row">
+            <input
+              id="register-password"
+              name="password"
+              type={showPasswords ? "text" : "password"}
+              autoComplete="new-password"
+              minLength={8}
+              required
+              className={`auth-form__field auth-form__field--row${state.fieldErrors.password ? " auth-form__field--error" : ""}`}
+              aria-invalid={state.fieldErrors.password ? "true" : "false"}
+              aria-describedby={state.fieldErrors.password ? "register-password-error" : undefined}
+            />
+            <button
+              type="button"
+              className="auth-form__toggle"
+              onClick={() => setShowPasswords((value) => !value)}
+              aria-pressed={showPasswords}
+            >
+              {showPasswords ? "Скрыть" : "Показать"}
+            </button>
+          </div>
           {state.fieldErrors.password ? (
             <p id="register-password-error" className="auth-form__field-error" role="alert">
               {state.fieldErrors.password}
@@ -120,17 +131,27 @@ export function RegisterForm({ next }: RegisterFormProps) {
           <label htmlFor="register-password-confirm" className="auth-form__label">
             Повторите пароль
           </label>
-          <input
-            id="register-password-confirm"
-            name="passwordConfirm"
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-            className={`auth-form__field${state.fieldErrors.passwordConfirm ? " auth-form__field--error" : ""}`}
-            aria-invalid={state.fieldErrors.passwordConfirm ? "true" : "false"}
-            aria-describedby={state.fieldErrors.passwordConfirm ? "register-password-confirm-error" : undefined}
-          />
+          <div className="auth-form__field-row">
+            <input
+              id="register-password-confirm"
+              name="passwordConfirm"
+              type={showPasswords ? "text" : "password"}
+              autoComplete="new-password"
+              minLength={8}
+              required
+              className={`auth-form__field auth-form__field--row${state.fieldErrors.passwordConfirm ? " auth-form__field--error" : ""}`}
+              aria-invalid={state.fieldErrors.passwordConfirm ? "true" : "false"}
+              aria-describedby={state.fieldErrors.passwordConfirm ? "register-password-confirm-error" : undefined}
+            />
+            <button
+              type="button"
+              className="auth-form__toggle"
+              onClick={() => setShowPasswords((value) => !value)}
+              aria-pressed={showPasswords}
+            >
+              {showPasswords ? "Скрыть" : "Показать"}
+            </button>
+          </div>
           {state.fieldErrors.passwordConfirm ? (
             <p id="register-password-confirm-error" className="auth-form__field-error" role="alert">
               {state.fieldErrors.passwordConfirm}
@@ -138,7 +159,11 @@ export function RegisterForm({ next }: RegisterFormProps) {
           ) : null}
         </div>
 
-        <button type="submit" className="auth-form__submit" disabled={isPending}>
+        <button
+          type="submit"
+          className={`auth-form__submit${isPending ? " auth-form__submit--loading" : ""}`}
+          disabled={isPending}
+        >
           {isPending ? "Создаем аккаунт..." : "Создать аккаунт"}
         </button>
       </form>

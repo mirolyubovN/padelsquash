@@ -12,6 +12,14 @@ import {
   SPORT_LABELS,
   setInstructorScheduleActive,
 } from "@/src/lib/admin/resources";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata = buildPageMetadata({
+  title: "Админ: график тренера | Padel & Squash KZ",
+  description: "Расписание тренера, интервалы доступности, исключения и история последних сессий.",
+  path: "/admin/instructors/[id]/schedule",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +98,11 @@ export default async function AdminInstructorSchedulePage({
     <AdminPageShell
       title={`График тренера: ${data.instructor.name}`}
       description="Недельные интервалы доступности, разовые исключения и последние сессии тренера."
+      breadcrumbs={[
+        { label: "Тренеры", href: "/admin/instructors" },
+        { label: data.instructor.name },
+        { label: "Расписание" },
+      ]}
     >
       <div className="admin-table">
         <table className="admin-table__table">

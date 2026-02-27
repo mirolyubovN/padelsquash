@@ -1,5 +1,21 @@
+import type { Metadata } from "next";
 import { requireAdmin } from "@/src/lib/auth/guards";
+import { AdminShellFrame } from "@/src/components/admin/admin-shell-frame";
 import { signOut } from "@/auth";
+import { buildPageMetadata } from "@/src/lib/seo/metadata";
+
+export const metadata: Metadata = {
+  ...buildPageMetadata({
+    title: "Админ-панель | Padel & Squash KZ",
+    description: "Раздел администрирования клуба: управление бронированиями, ресурсами, ценами и расписанием.",
+    path: "/admin",
+    noIndex: true,
+  }),
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export const dynamic = "force-dynamic";
 
@@ -16,19 +32,8 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="admin-shell">
-      <div className="admin-shell__toolbar">
-        <div className="admin-shell__identity">
-          <span className="admin-shell__badge">admin</span>
-          <span className="admin-shell__email">{session.user.email}</span>
-        </div>
-        <form action={logoutAction}>
-          <button type="submit" className="admin-shell__logout">
-            Выйти
-          </button>
-        </form>
-      </div>
+    <AdminShellFrame email={session.user.email ?? "admin"} logoutAction={logoutAction}>
       {children}
-    </div>
+    </AdminShellFrame>
   );
 }

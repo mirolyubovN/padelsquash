@@ -19,5 +19,5 @@ test("admin can update booking status from bookings page", async ({ page }) => {
   await row.getByRole("button", { name: "Завершено" }).click();
 
   const updatedRow = page.locator("tr").filter({ has: page.getByText(customerEmail) }).first();
-  await expect(updatedRow.getByText("completed")).toBeVisible();
+  await expect(updatedRow.getByText("Завершено")).toBeVisible();
 });
