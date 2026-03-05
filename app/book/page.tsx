@@ -3,7 +3,8 @@ import { PageHero } from "@/src/components/page-hero";
 import { LiveBookingForm } from "@/src/components/booking/live-booking-form";
 import { demoServices } from "@/src/lib/availability/demo";
 import { demoComponentPrices } from "@/src/lib/pricing/demo";
-import { bookPageContent, courtItems } from "@/src/lib/content/site-data";
+import { bookPageContent, siteConfig } from "@/src/lib/content/site-data";
+import { resolveLocationBySlug } from "@/src/lib/locations/service";
 import { prisma } from "@/src/lib/prisma";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
@@ -18,7 +19,8 @@ export const dynamic = "force-dynamic";
 interface BookServiceOption {
   id: string;
   name: string;
-  sport: "padel" | "squash";
+  sport: string;
+  sportName: string;
   requiresCourt: boolean;
   requiresInstructor: boolean;
 }
@@ -26,11 +28,32 @@ interface BookServiceOption {
 interface BookInstructorOption {
   id: string;
   name: string;
-  sports: Array<"padel" | "squash">;
-  pricePerHour: number;
+  sports: string[];
+  sportPrices: Record<string, number>;
 }
 
-type CourtPriceMatrix = Record<"padel" | "squash", Record<"morning" | "day" | "evening_weekend", number>>;
+interface BookLocationOption {
+  id: string;
+  slug: string;
+  name: string;
+  address: string;
+}
+
+type CourtPriceMatrix = Record<string, Record<"morning" | "day" | "evening_weekend", number>>;
+
+const DEMO_COURT_NAMES: Record<string, string> = {
+  "padel-1": "Падел 1",
+  "padel-2": "Падел 2",
+  "padel-3": "Падел 3",
+  "squash-1": "Сквош 1",
+  "squash-2": "Сквош 2",
+};
+
+function getFallbackSportName(slug: string): string {
+  if (slug === "padel") return "Падел";
+  if (slug === "squash") return "Сквош";
+  return slug;
+}
 
 async function getInitialCustomerProfile(userId?: string): Promise<{
   name?: string;
@@ -59,15 +82,23 @@ async function getInitialCustomerProfile(userId?: string): Promise<{
   }
 }
 
-async function getBookServices(): Promise<BookServiceOption[]> {
+async function getBookServices(locationId: string): Promise<BookServiceOption[]> {
   try {
     const rows = await prisma.service.findMany({
-      where: { active: true },
-      orderBy: [{ sport: "asc" }, { name: "asc" }],
+      where: {
+        active: true,
+        OR: [{ locationId: null }, { locationId }],
+      },
+      orderBy: [{ sport: { sortOrder: "asc" } }, { name: "asc" }],
       select: {
         code: true,
         name: true,
-        sport: true,
+        sport: {
+          select: {
+            slug: true,
+            name: true,
+          },
+        },
         requiresCourt: true,
         requiresInstructor: true,
       },
@@ -78,13 +109,14 @@ async function getBookServices(): Promise<BookServiceOption[]> {
         (row: {
           code: string;
           name: string;
-          sport: "padel" | "squash";
+          sport: { slug: string; name: string };
           requiresCourt: boolean;
           requiresInstructor: boolean;
         }) => ({
           id: row.code,
           name: row.name,
-          sport: row.sport,
+          sport: row.sport.slug,
+          sportName: row.sport.name,
           requiresCourt: row.requiresCourt,
           requiresInstructor: row.requiresInstructor,
         }),
@@ -100,15 +132,16 @@ async function getBookServices(): Promise<BookServiceOption[]> {
       id: service.id,
       name: service.name,
       sport: service.sport,
+      sportName: getFallbackSportName(service.sport),
       requiresCourt: service.requiresCourt,
       requiresInstructor: service.requiresInstructor,
     }));
 }
 
-async function getBookCourtNames(): Promise<Record<string, string>> {
+async function getBookCourtNames(locationId: string): Promise<Record<string, string>> {
   try {
     const rows = await prisma.court.findMany({
-      where: { active: true },
+      where: { active: true, locationId },
       select: { id: true, name: true },
       orderBy: [{ name: "asc" }],
     });
@@ -120,19 +153,35 @@ async function getBookCourtNames(): Promise<Record<string, string>> {
     // Fall back to demo labels if DB is unavailable.
   }
 
-  return Object.fromEntries(courtItems.map((court) => [court.id, court.name]));
+  return DEMO_COURT_NAMES;
 }
 
-async function getBookInstructors(): Promise<BookInstructorOption[]> {
+async function getBookInstructors(locationId: string): Promise<BookInstructorOption[]> {
   try {
     const rows = await prisma.instructor.findMany({
-      where: { active: true },
+      where: {
+        active: true,
+        instructorLocations: {
+          some: {
+            locationId,
+            active: true,
+          },
+        },
+      },
       orderBy: [{ name: "asc" }],
       select: {
         id: true,
         name: true,
-        sports: true,
-        pricePerHour: true,
+        instructorSports: {
+          select: {
+            pricePerHour: true,
+            sport: {
+              select: {
+                slug: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -141,13 +190,14 @@ async function getBookInstructors(): Promise<BookInstructorOption[]> {
         (row: {
           id: string;
           name: string;
-          sports: Array<"padel" | "squash">;
-          pricePerHour: unknown;
+          instructorSports: Array<{ pricePerHour: unknown; sport: { slug: string } }>;
         }) => ({
           id: row.id,
           name: row.name,
-          sports: row.sports,
-          pricePerHour: Number(row.pricePerHour),
+          sports: row.instructorSports.map((item) => item.sport.slug),
+          sportPrices: Object.fromEntries(
+            row.instructorSports.map((item) => [item.sport.slug, Number(item.pricePerHour)]),
+          ),
         }),
       );
     }
@@ -158,42 +208,54 @@ async function getBookInstructors(): Promise<BookInstructorOption[]> {
   return [
     {
       id: "coach-1",
-      name: "Тренер Падел (demo)",
+      name: "Тренер Падел",
       sports: ["padel"],
-      pricePerHour: 9000,
+      sportPrices: { padel: 9000 },
     },
     {
       id: "coach-2",
-      name: "Тренер Сквош (demo)",
+      name: "Тренер Сквош",
       sports: ["squash"],
-      pricePerHour: 7000,
+      sportPrices: { squash: 7000 },
     },
   ];
 }
 
-async function getCourtPriceMatrix(): Promise<CourtPriceMatrix> {
-  const base: CourtPriceMatrix = {
-    padel: { morning: 0, day: 0, evening_weekend: 0 },
-    squash: { morning: 0, day: 0, evening_weekend: 0 },
-  };
+async function getCourtPriceMatrix(locationId: string): Promise<CourtPriceMatrix> {
+  const base: CourtPriceMatrix = {};
 
   try {
     const rows = await prisma.componentPrice.findMany({
-      where: { componentType: "court", currency: "KZT" },
-      select: { sport: true, period: true, amount: true },
+      where: {
+        locationId,
+        componentType: "court",
+        currency: "KZT",
+      },
+      select: {
+        sport: {
+          select: {
+            slug: true,
+          },
+        },
+        period: true,
+        amount: true,
+      },
     });
     if (rows.length > 0) {
       for (const row of rows as Array<{
-        sport: "padel" | "squash";
+        sport: { slug: string };
         period: "morning" | "day" | "evening_weekend";
         amount: unknown;
       }>) {
-        if (row.period !== "day") {
-          base[row.sport][row.period] = Number(row.amount);
+        const sportSlug = row.sport.slug;
+        if (!base[sportSlug]) {
+          base[sportSlug] = { morning: 0, day: 0, evening_weekend: 0 };
         }
+        if (row.period !== "day") {
+          base[sportSlug][row.period] = Number(row.amount);
+        }
+        base[sportSlug].day = base[sportSlug].morning;
       }
-      base.padel.day = base.padel.morning;
-      base.squash.day = base.squash.morning;
       return base;
     }
   } catch {
@@ -202,23 +264,57 @@ async function getCourtPriceMatrix(): Promise<CourtPriceMatrix> {
 
   for (const item of demoComponentPrices) {
     if (item.componentType === "court" && item.currency === "KZT") {
+      if (!base[item.sport]) {
+        base[item.sport] = { morning: 0, day: 0, evening_weekend: 0 };
+      }
       if (item.tier !== "day") {
         base[item.sport][item.tier] = item.amount;
       }
+      base[item.sport].day = base[item.sport].morning;
     }
   }
-  base.padel.day = base.padel.morning;
-  base.squash.day = base.squash.morning;
   return base;
 }
 
-export default async function BookPage() {
+export default async function BookPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ location?: string }>;
+}) {
   const session = await auth();
+  const params = await searchParams;
+
+  let selectedLocation: BookLocationOption = {
+    id: "fallback-main",
+    slug: "main",
+    name: siteConfig.name,
+    address: siteConfig.address,
+  };
+  let locationOptions: BookLocationOption[] = [selectedLocation];
+
+  try {
+    const locationSelection = await resolveLocationBySlug(params.location);
+    selectedLocation = {
+      id: locationSelection.selected.id,
+      slug: locationSelection.selected.slug,
+      name: locationSelection.selected.name,
+      address: locationSelection.selected.address,
+    };
+    locationOptions = locationSelection.activeLocations.map((location) => ({
+      id: location.id,
+      slug: location.slug,
+      name: location.name,
+      address: location.address,
+    }));
+  } catch {
+    // Keep booking page available even if location table is not ready.
+  }
+
   const [services, courtNames, instructors, courtPrices, initialCustomer] = await Promise.all([
-    getBookServices(),
-    getBookCourtNames(),
-    getBookInstructors(),
-    getCourtPriceMatrix(),
+    getBookServices(selectedLocation.id),
+    getBookCourtNames(selectedLocation.id),
+    getBookInstructors(selectedLocation.id),
+    getCourtPriceMatrix(selectedLocation.id),
     getInitialCustomerProfile(session?.user?.id),
   ]);
 
@@ -231,6 +327,8 @@ export default async function BookPage() {
       />
 
       <LiveBookingForm
+        locations={locationOptions}
+        selectedLocationSlug={selectedLocation.slug}
         services={services}
         courtNames={courtNames}
         instructors={instructors}

@@ -6,7 +6,6 @@ import {
   deleteScheduleExceptionForResource,
   EXCEPTION_TYPE_LABELS,
   getCourtExceptionsPageData,
-  SPORT_LABELS,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
@@ -55,7 +54,7 @@ export default async function AdminCourtExceptionsPage({
   return (
     <AdminPageShell
       title={`Исключения корта: ${data.court.name}`}
-      description={`Разовые блокировки для ${SPORT_LABELS[data.court.sport]}-корта. Используется в расчете доступности.`}
+      description={`Разовые блокировки для ${data.court.sportName}-корта. Используется в расчете доступности.`}
       breadcrumbs={[
         { label: "Корты", href: "/admin/courts" },
         { label: data.court.name },

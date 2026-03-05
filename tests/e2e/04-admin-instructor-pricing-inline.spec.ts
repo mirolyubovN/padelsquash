@@ -26,9 +26,17 @@ test("admin can edit trainer price inline and booking preview uses updated train
   const ilyaRow = page.locator("tr").filter({ has: page.getByText("Илья Смирнов") }).first();
   await expect(ilyaRow).toBeVisible();
 
+  const ilyaUpdateForm = ilyaRow.locator("form").first();
   await ilyaRow.getByLabel("Ставка за час").fill(String(newPrice));
-  await ilyaRow.getByRole("button", { name: "Сохранить" }).click();
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" && response.url().includes("/admin/instructors"),
+    ),
+    ilyaUpdateForm.evaluate((form) => (form as HTMLFormElement).requestSubmit()),
+  ]);
 
+  await page.reload();
   const refreshedRow = page.locator("tr").filter({ has: page.getByText("Илья Смирнов") }).first();
   await expect(refreshedRow.getByLabel("Ставка за час")).toHaveValue(String(newPrice));
 

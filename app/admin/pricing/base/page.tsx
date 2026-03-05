@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
-import { assertAdmin } from "@/src/lib/auth/guards";
+import { assertSuperAdmin } from "@/src/lib/auth/guards";
 import {
   COURT_BASE_PRICING_PERIOD_LABELS,
   getCourtBasePriceMatrix,
@@ -18,12 +18,12 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 export default async function AdminBasePricingPage() {
-  await assertAdmin();
+  await assertSuperAdmin();
   const matrix = await getCourtBasePriceMatrix();
 
   async function saveAction(formData: FormData) {
     "use server";
-    await assertAdmin();
+    await assertSuperAdmin();
     await saveCourtBasePriceMatrixFromForm(formData);
     revalidatePath("/admin/pricing/base");
     revalidatePath("/prices");

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { getAdminDashboardData } from "@/src/lib/admin/dashboard";
 import { assertAdmin } from "@/src/lib/auth/guards";
-import { adminNavItems } from "@/src/components/admin/admin-nav-config";
+import { getAdminNavItems } from "@/src/components/admin/admin-nav-config";
+import { canViewRevenue } from "@/src/lib/auth/roles";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -13,16 +14,14 @@ export const metadata = buildPageMetadata({
 });
 
 export default async function AdminIndexPage() {
-  await assertAdmin();
+  const session = await assertAdmin();
+  const canSeeRevenue = canViewRevenue(session.user.role);
   const dashboard = await getAdminDashboardData();
-  const adminSections = [
-    ...adminNavItems.filter((item) => item.href !== "/admin"),
-    { href: "/admin/pricing/rules", label: "Периоды цен" },
-  ];
+  const adminSections = getAdminNavItems(session.user.role).filter((item) => item.href !== "/admin");
   return (
     <AdminPageShell
       title="Панель управления"
-      description="Сводка по бронированиям и быстрый доступ к ключевым разделам управления клубом."
+      description="Короткая операционная сводка и быстрые переходы по ключевым задачам."
     >
       <section className="admin-dashboard__stats">
         <article className="admin-dashboard__stat-card">
@@ -39,12 +38,14 @@ export default async function AdminIndexPage() {
             {dashboard.activeCourtsCount} / {dashboard.activeInstructorsCount}
           </p>
         </article>
-        <article className="admin-dashboard__stat-card">
-          <p className="admin-dashboard__stat-label">Выручка за неделю</p>
-          <p className="admin-dashboard__stat-value">
-            {dashboard.weekRevenueKzt.toLocaleString("ru-KZ")} ₸
-          </p>
-        </article>
+        {canSeeRevenue ? (
+          <article className="admin-dashboard__stat-card">
+            <p className="admin-dashboard__stat-label">Выручка за неделю</p>
+            <p className="admin-dashboard__stat-value">
+              {dashboard.weekRevenueKzt.toLocaleString("ru-KZ")} ₸
+            </p>
+          </article>
+        ) : null}
       </section>
 
       <section className="admin-dashboard__row">
@@ -60,9 +61,11 @@ export default async function AdminIndexPage() {
             <Link href="/admin/exceptions" className="admin-link-grid__item">
               Добавить исключение
             </Link>
-            <Link href="/admin/pricing/base" className="admin-link-grid__item">
-              Обновить матрицу цен
-            </Link>
+            {canSeeRevenue ? (
+              <Link href="/admin/pricing/base" className="admin-link-grid__item">
+                Обновить матрицу цен
+              </Link>
+            ) : null}
           </div>
         </div>
 

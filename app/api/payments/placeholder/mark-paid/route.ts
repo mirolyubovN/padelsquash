@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/src/lib/prisma";
+import { canAccessAdminPortal, normalizeRole } from "@/src/lib/auth/roles";
 import { markPlaceholderPaidSchema } from "@/src/lib/validation/booking";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,9 @@ export async function POST(request: Request) {
   const token = request.headers.get("x-admin-token");
   const expectedToken = process.env.PAYMENTS_PLACEHOLDER_ADMIN_TOKEN;
   const session = await auth();
-  const isAdminSession = session?.user?.role === "admin";
+  const isAdminSession = Boolean(
+    session?.user && canAccessAdminPortal(normalizeRole(session.user.role)),
+  );
   const tokenAllowed = Boolean(expectedToken && token === expectedToken);
 
   if (!isAdminSession && !tokenAllowed) {

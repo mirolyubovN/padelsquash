@@ -32,7 +32,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <AdminShellFrame email={session.user.email ?? "admin"} logoutAction={logoutAction}>
+    <AdminShellFrame email={session.user.email ?? "admin"} role={session.user.role} logoutAction={logoutAction}>
       {children}
     </AdminShellFrame>
   );

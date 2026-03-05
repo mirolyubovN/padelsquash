@@ -300,83 +300,6 @@ summary:focus-visible {
   @apply flex flex-col gap-8;
 }
 
-.home-page__top-hero .page-hero {
-  background:
-    radial-gradient(circle at 88% 18%, rgba(211, 94, 44, 0.2), transparent 42%),
-    radial-gradient(circle at 8% 90%, rgba(16, 37, 46, 0.12), transparent 48%),
-    linear-gradient(145deg, rgba(255, 253, 248, 0.95), rgba(244, 233, 215, 0.88));
-}
-
-.home-page__hero-panel {
-  @apply grid gap-4 lg:grid-cols-[1.3fr_0.7fr];
-}
-
-.home-page__hero-copy {
-  @apply rounded-3xl border p-6 md:p-8;
-  border-color: rgba(23, 35, 39, 0.08);
-  background:
-    linear-gradient(145deg, rgba(255, 253, 248, 0.94), rgba(244, 233, 215, 0.8));
-}
-
-.home-page__lead {
-  @apply text-lg leading-8 md:text-xl;
-}
-
-.home-page__actions {
-  @apply mt-6 flex flex-col gap-3 sm:flex-row;
-}
-
-.home-page__primary-button {
-  @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold;
-  background-color: var(--surface-strong);
-  color: #f6efe5;
-}
-
-.home-page__secondary-button {
-  @apply inline-flex items-center justify-center rounded-full border px-5 py-3 text-sm font-semibold;
-  border-color: rgba(16, 37, 46, 0.12);
-  background-color: rgba(255, 255, 255, 0.5);
-}
-
-.home-page__stats {
-  @apply mt-8 grid gap-3 sm:grid-cols-3;
-}
-
-.home-page__stat {
-  @apply flex list-none flex-col rounded-2xl border p-4;
-  border-color: rgba(16, 37, 46, 0.09);
-  background-color: rgba(255, 255, 255, 0.55);
-}
-
-.home-page__stat-value {
-  @apply text-xl font-semibold;
-}
-
-.home-page__stat-label {
-  @apply text-sm;
-  color: var(--muted);
-}
-
-.home-page__hero-card {
-  @apply rounded-3xl p-6 text-sm md:p-8;
-  background-color: var(--surface-strong);
-  color: #e9e1d5;
-}
-
-.home-page__hero-card-title {
-  @apply text-base font-semibold;
-}
-
-.home-page__hero-card-list {
-  @apply mt-4 flex flex-col gap-3;
-}
-
-.home-page__hero-card-item {
-  @apply list-none rounded-xl border px-3 py-2;
-  border-color: rgba(255, 255, 255, 0.09);
-  background-color: rgba(255, 255, 255, 0.03);
-}
-
 .booking-preview {
   @apply grid gap-5 rounded-3xl border p-6 md:grid-cols-[0.95fr_1.05fr] md:p-8;
   border-color: rgba(23, 35, 39, 0.08);
@@ -2073,64 +1996,6 @@ body {
   line-height: 1.55;
 }
 
-.home-page__hero-copy {
-  @apply relative overflow-hidden;
-}
-
-.home-page__hero-ambient {
-  @apply pointer-events-none absolute inset-0;
-}
-
-.home-page__hero-orb {
-  @apply absolute rounded-full blur-2xl;
-}
-
-.home-page__hero-orb--one {
-  top: -1.5rem;
-  right: -1rem;
-  width: 12rem;
-  height: 12rem;
-  background: rgba(211, 94, 44, 0.16);
-}
-
-.home-page__hero-orb--two {
-  bottom: -2.5rem;
-  left: -1rem;
-  width: 10rem;
-  height: 10rem;
-  background: rgba(16, 37, 46, 0.12);
-}
-
-.home-page__hero-grid {
-  @apply absolute inset-0 opacity-35;
-  background-image:
-    linear-gradient(rgba(16, 37, 46, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(16, 37, 46, 0.04) 1px, transparent 1px);
-  background-size: 22px 22px;
-}
-
-.home-page__lead {
-  @apply relative;
-}
-
-.home-page__primary-button {
-  @apply px-6 py-3.5 text-base;
-  box-shadow: 0 10px 30px rgba(16, 37, 46, 0.12);
-}
-
-.home-page__sticky-cta {
-  @apply fixed inset-x-0 bottom-0 z-30 border-t p-3 md:hidden;
-  border-color: rgba(16, 37, 46, 0.08);
-  background-color: rgba(244, 241, 234, 0.92);
-  backdrop-filter: blur(10px);
-}
-
-.home-page__sticky-cta-button {
-  @apply flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold;
-  background-color: var(--accent);
-  color: #fff8f2;
-}
-
 .card-grid__item {
   @apply transition-all;
 }
@@ -2780,10 +2645,6 @@ body {
 
 @media (min-width: 768px) {
   .site-header__mobile-overlay {
-    @apply hidden;
-  }
-
-  .home-page__sticky-cta {
     @apply hidden;
   }
 

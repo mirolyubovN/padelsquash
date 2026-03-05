@@ -1,5 +1,106 @@
 # Session Todo (2026-02-23)
 
+## Plan (2026-03-05 - simplification baseline + role split super-admin/admin/trainer)
+
+- [x] Analyze `bookingcourts.ru/courts` interaction pattern and capture simplification principles for this project.
+- [x] Add role/capability foundation (`super_admin`, `trainer`) across auth/session/domain typing and guards.
+- [x] Add trainer self-service route for own timetable editing (`/trainer/schedule`) with server-side ownership checks.
+- [x] Restrict pricing-sensitive admin surfaces (prices/sports edits, pricing UI) to super-admin role only.
+- [x] Hide revenue-sensitive UI for regular admin users (dashboard revenue card and booking amount breakdowns).
+- [x] Apply DB migration + regenerate Prisma client + verify (`tsc`, `lint`, `build`).
+
+## Review (2026-03-05 - simplification baseline + role split super-admin/admin/trainer)
+
+- Captured bookingcourts baseline and simplification principles in `tasks/bookingcourts-analysis.md`.
+- Added role/capability foundation in `src/lib/auth/roles.ts` and updated auth/session typing:
+  - new app roles: `customer`, `trainer`, `admin`, `super_admin`
+  - legacy `coach` tokens are normalized to `trainer`
+- Added schema migration for role expansion and trainer linkage:
+  - `prisma/migrations/20260305130000_role_super_admin_trainer/migration.sql`
+  - `User.role` enum expanded; `User.instructorId` -> `Instructor.id` relation added
+- Updated seed for practical role testing:
+  - seeded `super_admin`, normal `admin`, and `trainer` users
+  - trainer user is linked to an instructor profile
+  - added safe email de-duplication when env overrides collide
+- Added trainer self-service timetable route:
+  - `/trainer/schedule` with own-scope schedule/exception actions only
+- Simplified/secured admin access:
+  - pricing + sports pages are now super-admin only
+  - regular admin no longer sees revenue card on dashboard
+  - regular admin no longer sees booking sums/pricing breakdown in admin bookings table
+  - admin sidebar items are role-aware
+- Verification:
+  - `npx prisma generate` ✅
+  - `npx prisma migrate deploy` ✅
+  - `npm run db:seed` ✅
+  - `npx tsc --noEmit` ✅
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - `npm run test:unit` ✅
+  - `npm run test:integration` ✅
+  - `npm run test:e2e` ✅
+
+## Plan (2026-03-05 - redesign Part A QA fixes execution)
+
+- [x] Complete A.1 placeholder/public-copy cleanup across forgot-password, homepage, coaches, legal pages, admin descriptions, admin badge, and booking fallback names.
+- [x] Complete A.2 functional fixes: account booking service label, coaches booking prefill query, homepage heading duplication, and WhatsApp placeholder replacement.
+- [x] Complete A.3 orphaned cleanup: remove `.home-page__*` legacy CSS blocks and delete unused `serviceItems` + contact-form text fields from site content.
+- [x] Complete A.4 minor fixes: add pricing/rules page to admin nav, hide prices trainer example when no trainers, and add missing `role="status"` on success messages.
+- [x] Mark completed Part A checkboxes in `tasks/redesign-plan.md`.
+- [x] Run phase verification commands separately: `npm run lint`, `npm run build`, `npm run test:e2e`.
+
+## Review (2026-03-05 - redesign Part A QA fixes execution)
+
+- Completed Part A implementation and marked all Part A checkboxes in `tasks/redesign-plan.md`.
+- `npm run lint` ✅
+- `npm run build` ✅ (build logs include Prisma DB connection warning during pre-render fallback, but build completed successfully)
+- `npm run test:e2e` ✅ (after Docker/Postgres was started)
+- E2E follow-up fix: adjusted one strict-mode ambiguous selector in `tests/e2e/05-admin-resources-config.spec.ts` (`getByText("Периоды цен")` -> `getByRole("heading", { name: "Периоды цен" })`).
+
+## Plan (2026-03-05 - redesign Part G dynamic sport types)
+
+- [x] Audit all Sport enum dependencies across schema, seed, domain types, booking/pricing/availability engines, admin pages, and public pages.
+- [x] Update Prisma schema: add `Sport` model + `InstructorSport` join and transitional nullable `sportId` fields alongside existing enum fields.
+- [x] Create migration and data backfill for `Sport` rows (`padel`, `squash`) and map old enum values to `sportId` (including instructor migration).
+- [x] Finalize schema swap: make `sportId` required, remove old enum columns (`sport`, `sports`) and `Instructor.pricePerHour`, drop `Sport` enum.
+- [x] Refactor application code to consume DB-backed sports/instructor-sport data and remove hardcoded sport content dependencies.
+- [x] Add `/admin/sports` CRUD and include it in admin navigation.
+- [x] Verify Phase 2 with `npm run lint`, `npm run build`, `npm run test:e2e`.
+
+## Review (2026-03-05 - redesign Part G dynamic sport types)
+
+- Part G completed end-to-end: schema/migrations finalized to `Sport` + `InstructorSport`, runtime code migrated to `sportId`/relation-backed reads, and legacy enum fields removed from application logic.
+- `prisma/seed.ts` updated to seed sports first and use `sportId`/`InstructorSport` relationships for courts, services, prices, and instructors.
+- Added admin sport management:
+  - new page [`app/admin/sports/page.tsx`](/D:/Websites/padelsquash/app/admin/sports/page.tsx)
+  - new resource actions in [`src/lib/admin/resources.ts`](/D:/Websites/padelsquash/src/lib/admin/resources.ts)
+  - nav wiring in [`src/components/admin/admin-nav-config.ts`](/D:/Websites/padelsquash/src/components/admin/admin-nav-config.ts)
+- Updated e2e specs for new schema/UI behavior:
+  - trainer inline pricing persistence submit sync
+  - DB-backed sport select values in admin resource flow
+  - added `/admin/sports` CRUD/toggle/delete coverage in admin resources e2e scenario
+- Verification:
+  - `npx tsc --noEmit` ✅
+  - `npm run lint` ✅
+  - `npm run build` ✅ (requires elevated/network-enabled execution for Google Fonts fetch in this environment)
+- `npm run test:integration` ✅
+- `npm run test:e2e` ✅
+
+## Plan (2026-03-05 - redesign Part F multi-location support)
+
+- [ ] Add `Location` + `InstructorLocation` models and location relations/constraints in Prisma schema (Court, OpeningHour, ComponentPrice, ScheduleException, Booking, optional Service).
+- [ ] Create/apply migration + data backfill to seed default location from site config and populate `locationId` on existing rows, then make required fields non-null where needed.
+- [ ] Update `prisma/seed.ts` to create location first and link courts/opening hours/component prices/bookings-related entities through `locationId`.
+- [ ] Refactor availability/booking/persistence layers to require and filter by location (`locationId` + instructor-location compatibility).
+- [ ] Refactor booking page/form to add conditional location step (only shown if >1 active location) and persist `location` in query params.
+- [ ] Add admin locations CRUD page and wire admin nav; add location scoping filters to affected admin pages/services.
+- [ ] Update homepage/contact/public data loaders to support multi-location display and booking deep-links (`/book?location=<slug>`).
+- [ ] Update integration/e2e tests for location-aware behavior and run full verification (`tsc`, `lint`, `build`, `test:integration`, `test:e2e`).
+
+## Review (2026-03-05 - redesign Part F multi-location support)
+
+- In progress
+
 ## Plan (2026-02-25 - trainer model refactor completion and verification)
 
 - [x] Verify Prisma schema/runtime alignment for trainer multi-sport + single-price model (including migration SQL sanity).

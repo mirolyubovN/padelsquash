@@ -5,10 +5,10 @@ interface ResourceLockKey {
   resourceId: string;
 }
 
-interface CreateBookingWithLockArgs {
+interface CreateBookingWithLockArgs<T> {
   prisma: PrismaClient;
   resourceLocks: ResourceLockKey[];
-  run: (tx: unknown) => Promise<unknown>;
+  run: (tx: unknown) => Promise<T>;
 }
 
 function stableHashToInt32(input: string): number {
@@ -19,7 +19,7 @@ function stableHashToInt32(input: string): number {
   return hash;
 }
 
-export async function withBookingConcurrencyGuard(args: CreateBookingWithLockArgs) {
+export async function withBookingConcurrencyGuard<T>(args: CreateBookingWithLockArgs<T>): Promise<T> {
   const maxAttempts = 3;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

@@ -99,7 +99,7 @@ export default async function Home() {
         </div>
         <div className="home-overview__rules-grid">
           <article className="rule-list">
-            <h3 className="rule-list__title">{homePageContent.rulesTitle}</h3>
+            <h3 className="rule-list__title">Условия бронирования</h3>
             <ul className="rule-list__items">
               {homePageContent.bookingRules.map((item) => (
                 <li key={item} className="rule-list__item">
@@ -144,9 +144,7 @@ export default async function Home() {
                     <div className="home-overview__gallery-photo" aria-hidden="true" />
                     <div className="home-overview__gallery-caption">
                       <span className="home-overview__gallery-title">{court.name}</span>
-                      <span className="home-overview__gallery-sub">
-                        {court.notes?.trim() || "Фото и описание будут добавлены позже"}
-                      </span>
+                      {court.notes?.trim() ? <span className="home-overview__gallery-sub">{court.notes}</span> : null}
                     </div>
                   </div>
                 ))}

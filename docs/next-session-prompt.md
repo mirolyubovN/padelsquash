@@ -1,50 +1,118 @@
 # Next Session Prompt (Copy/Paste)
 
-Use the following prompt to continue development in a new session.
+Use the following prompt to start the redesign execution in a new agent session.
 
 ```text
 Continue development on D:\\Websites\\padelsquash.
 
-First, read:
-- tasks/todo.md
-- tasks/lessons.md
-- tasks/ux-overhaul-plan.md
-- docs/next-session-handoff.md
-- docs/devops-postgres.md
+## Read these files first (mandatory)
 
-Current state (important):
-- UX overhaul Phases 1-6 are complete.
-- Phase 7 is mostly complete:
-  - 7.1 password reset MVP page exists (`/forgot-password`)
-  - 7.2 booking state persistence across auth is complete (including selected slot `time` query params)
-  - 7.3 SEO/metadata is complete (OG/Twitter metadata, JSON-LD, robots, sitemap, unique metadata on all pages)
-  - 7.4 accessibility foundations are complete (skip link, focus-visible, icon button labels)
-- Remaining open Phase 7 items:
-  1) full email-based password reset token flow
-  2) WCAG AA color-contrast audit and fixes
+- tasks/redesign-plan.md — THE master plan. Contains Parts A through G with every task itemized.
+- tasks/lessons.md — accumulated lessons and patterns to follow
+- docs/next-session-handoff.md — prior session state summary
+- docs/devops-postgres.md — Docker/Postgres setup
+- prisma/schema.prisma — current DB schema (you'll be modifying this heavily)
 
-Priority for next session:
-1) Implement full password reset token flow (email-based reset)
-2) Run a focused color-contrast audit and patch failing combinations
-3) Keep all current booking/admin UX behavior intact
-4) Update `tasks/todo.md` and `tasks/ux-overhaul-plan.md`
-5) Run verification and report exact results
+## What to do this session
 
-Important behavior to preserve:
-- Auth required for booking
-- 60-minute slots only
-- Training flow is trainer-first, then date/time
-- Multi-slot booking with auto-assigned court
-- Booking state survives login/register via `/book` query params (`sport/service/date/instructor/time`)
+Execute the redesign plan in strict priority order. Each phase must pass verification before moving to the next.
 
-Verification expectations (minimum):
-- `npm run lint`
-- `npm run build`
-- `npm run test:e2e` (if booking/auth/admin UI touched)
+### Phase 1: Part A — QA fixes (quick pass)
 
-Important local caveat:
-- Run `npm run lint` separately from `npm run test:e2e` in this repo.
-  Playwright and ESLint can race on `test-results/` if executed in parallel.
+Do ALL items in A.1 (placeholder text removal), A.2 (functional bugs), A.3 (orphaned code cleanup), A.4 (minor fixes). These are small targeted edits. Mark each checkbox in redesign-plan.md as you complete it.
+
+Important context for A.2:
+- The contact form was intentionally removed — do NOT re-add it.
+- Courts and prices pages were intentionally removed from nav — do NOT re-add nav items.
+- The WhatsApp number `77000000000` is a placeholder — replace with the siteConfig phone or leave a clear TODO comment.
+
+### Phase 2: Part G — Dynamic sport types (schema migration)
+
+This replaces the hardcoded `Sport` Prisma enum with a `Sport` database table. Follow G.1–G.6 exactly:
+
+1. Create the `Sport` model and `InstructorSport` join table in prisma/schema.prisma
+2. Add `sportId` columns alongside existing `sport` enum fields (nullable at first)
+3. Write a migration + seed script that:
+   - Creates `Sport` rows for "padel" (slug: "padel", name: "Падел") and "squash" (slug: "squash", name: "Сквош")
+   - Backfills `sportId` on Court, Service, ComponentPrice from the enum values
+   - Migrates `Instructor.sports[]` + `Instructor.pricePerHour` into `InstructorSport` rows
+4. Make `sportId` required, drop old `sport` enum columns and `Instructor.pricePerHour`/`Instructor.sports`
+5. Drop the `Sport` Prisma enum (rename to avoid collision — the model takes the name)
+6. Update ALL code references:
+   - `src/lib/domain/types.ts` — remove Sport type alias referencing enum
+   - `src/lib/content/site-content.ts` — remove `courtItems`, `sharedCourtSpecs` hardcoded padel/squash
+   - Booking form: sport selection from DB, not hardcoded
+   - Pricing engine: fetch by `sportId`
+   - Availability engine: filter courts by `sportId`
+   - Admin pages: sport dropdowns from DB
+   - Coaches page: sport tags from `InstructorSport`
+   - Homepage: sport sections from DB
+7. Create `/admin/sports` CRUD page
+8. Update `db:seed` to seed sports first, then reference them
+
+### Phase 3: Part F — Multi-location support (schema migration)
+
+This adds the `Location` model and scopes all resources. Follow F.1–F.8:
+
+1. Create `Location` model and `InstructorLocation` join table
+2. Add `locationId` to: Court, OpeningHour, ComponentPrice, ScheduleException, Booking, Service (nullable)
+3. Update unique constraints (OpeningHour, ComponentPrice)
+4. Migration script:
+   - Create one default Location from siteConfig data (name: "Padel & Squash KZ", slug: "main", address from siteConfig)
+   - Backfill `locationId` on all existing rows
+   - Make `locationId` required
+5. Update availability engine to accept and filter by `locationId`
+6. Update booking flow: add location step (conditional — only if >1 active location)
+7. Update admin: location selector in header, `/admin/locations` CRUD, all pages filter by location
+8. Update public pages: contact page shows per-location data, homepage shows location cards if >1
+
+## Rules you MUST follow
+
+- **BEM class naming** in all CSS. No Tailwind utility classes in JSX — use `@apply` in CSS files only.
+- **Russian-only UI**. All user-facing text in Russian.
+- **Prisma migrations**: Use `npx prisma migrate dev --name <descriptive-name>` for each schema change. Do NOT use `db push`.
+- **Seed script**: After schema changes, update `prisma/seed.ts` so `npm run db:seed` works from scratch.
+- **No inline styles**. No `style={{}}` in JSX.
+- **Preserve existing booking behavior**: auth required, 60-min slots, trainer-first training flow, multi-slot selection, court auto-assignment, query param persistence across auth redirects.
+- Track progress by checking off items in `tasks/redesign-plan.md`.
+- Update `tasks/lessons.md` if you learn something that should persist.
+
+## Verification (after each phase)
+
+Run these SEPARATELY (not in parallel — they race on test-results/):
+
+```bash
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+All three must pass before moving to the next phase. If e2e tests fail due to schema changes, update the tests to match the new schema.
+
+## Important local setup
+
+- Postgres runs in Docker: `docker compose ps` to check, `docker compose up -d` to start
+- Generate Prisma client after schema changes: `npx prisma generate`
+- Reset DB if needed: `npx prisma migrate reset` (runs seed automatically)
+- Run lint and e2e separately (race condition on test-results/)
+
+## Current Prisma schema (key models being changed)
+
+- `Sport` — currently an ENUM (`padel | squash`). Being replaced with a model table (Part G).
+- `Court` — has `sport Sport` enum field. Gets `sportId` + `locationId`.
+- `Instructor` — has `sports Sport[]` array + flat `pricePerHour`. Replaced by `InstructorSport` join table.
+- `Service` — has `sport Sport` enum. Gets `sportId` + optional `locationId`.
+- `ComponentPrice` — has `sport Sport` enum. Gets `sportId` + `locationId`.
+- `OpeningHour` — currently unique on `dayOfWeek`. Gets `locationId`, unique on `[locationId, dayOfWeek]`.
+- `Booking` — gets `locationId` (denormalized for reporting).
+
+## What NOT to do
+
+- Do NOT start Part B (design overhaul) yet — schema must stabilize first.
+- Do NOT start Parts C/D (booking system / admin rebuild) — depends on G+F schema.
+- Do NOT add i18n or English translations.
+- Do NOT change the auth system (Auth.js / NextAuth with Credentials).
+- Do NOT modify Docker/Postgres configuration.
 ```
 
 ## Quick Context Snapshot
@@ -52,14 +120,17 @@ Important local caveat:
 - Stack: Next.js 16 App Router, Prisma, Postgres (Docker), Auth.js Credentials, Vitest, Playwright
 - Locale: Kazakhstan, `KZT`, `Asia/Almaty`, Russian UI
 - Booking UX: progressive disclosure, trainer-first training flow, multi-slot selection, auto-court assignment
-- Admin UX: sidebar + mobile drawer, breadcrumbs, dashboard stats, improved bookings filters/search/pagination, safer resource CRUD
-- SEO: page metadata coverage complete, `robots.txt` + `sitemap.xml` generated, LocalBusiness JSON-LD in root layout
+- Admin UX: sidebar + mobile drawer, breadcrumbs, dashboard stats, bookings filters/search/pagination
+- CSS: BEM naming, Tailwind v4 with `@apply` only (no utility classes in JSX)
+- Schema changes this session: Sport enum → Sport table, add Location model, scope all resources
 
 ## Useful Recovery Commands
 
 ```powershell
 docker compose ps
+docker compose up -d
 npx prisma generate
+npx prisma migrate dev
 npm run db:seed
 npm run lint
 npm run build

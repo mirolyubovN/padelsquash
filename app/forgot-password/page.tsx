@@ -40,7 +40,7 @@ export default async function ForgotPasswordPage({
             Восстановление пароля
           </h2>
           <p className="auth-panel__hint">
-            Для MVP используйте форму ниже, и мы направим вас к администратору клуба.
+            Используйте форму ниже, и мы направим вас к администратору клуба.
           </p>
 
           <ForgotPasswordForm />

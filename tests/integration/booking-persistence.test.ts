@@ -22,6 +22,7 @@ describe("booking persistence (DB integration)", () => {
 
     const first = await createBookingInDb({
       serviceCode: "padel-rental",
+      locationId: courtA.locationId,
       date,
       startTime: "09:00",
       durationMin: 60,
@@ -40,6 +41,7 @@ describe("booking persistence (DB integration)", () => {
     await expect(
       createBookingInDb({
         serviceCode: "padel-rental",
+        locationId: courtA.locationId,
         date,
         startTime: "09:00",
         durationMin: 60,
@@ -54,6 +56,7 @@ describe("booking persistence (DB integration)", () => {
 
     const otherCourt = await createBookingInDb({
       serviceCode: "padel-rental",
+      locationId: courtB.locationId,
       date,
       startTime: "09:00",
       durationMin: 60,
@@ -78,6 +81,7 @@ describe("booking persistence (DB integration)", () => {
 
     const morningA = await createBookingInDb({
       serviceCode: "padel-coaching",
+      locationId: courtA.locationId,
       date,
       startTime: "09:00",
       durationMin: 60,
@@ -92,6 +96,7 @@ describe("booking persistence (DB integration)", () => {
 
     const morningB = await createBookingInDb({
       serviceCode: "padel-coaching",
+      locationId: courtB.locationId,
       date,
       startTime: "10:00",
       durationMin: 60,
@@ -119,6 +124,7 @@ describe("booking persistence (DB integration)", () => {
     const attempts = await Promise.allSettled([
       createBookingInDb({
         serviceCode: "padel-rental",
+        locationId: courtA.locationId,
         date,
         startTime: "11:00",
         durationMin: 60,
@@ -131,6 +137,7 @@ describe("booking persistence (DB integration)", () => {
       }),
       createBookingInDb({
         serviceCode: "padel-rental",
+        locationId: courtA.locationId,
         date,
         startTime: "11:00",
         durationMin: 60,

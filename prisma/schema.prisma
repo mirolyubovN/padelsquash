@@ -9,13 +9,9 @@ datasource db {
 
 enum UserRole {
   customer
-  coach
+  trainer
   admin
-}
-
-enum Sport {
-  padel
-  squash
+  super_admin
 }
 
 enum BookingStatus {
@@ -74,56 +70,115 @@ model User {
   phone        String
   passwordHash String
   role         UserRole @default(customer)
+  instructorId String?  @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  bookings Booking[] @relation("CustomerBookings")
+  bookings   Booking[]    @relation("CustomerBookings")
+  instructor Instructor? @relation("TrainerUser", fields: [instructorId], references: [id], onDelete: SetNull)
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  address   String
+  phone     String?
+  email     String?
+  timezone  String   @default("Asia/Almaty")
+  mapUrl    String?
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courts              Court[]
+  openingHours        OpeningHour[]
+  componentPrices     ComponentPrice[]
+  bookings            Booking[]
+  services            Service[]
+  scheduleExceptions  ScheduleException[]
+  instructorLocations InstructorLocation[]
+}
+
+model Sport {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  icon      String?
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courts           Court[]
+  services         Service[]
+  instructorSports InstructorSport[]
+  componentPrices  ComponentPrice[]
 }
 
 model Court {
   id        String   @id @default(cuid())
   name      String
-  sport     Sport
+  sportId   String
+  locationId String
   active    Boolean  @default(true)
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  sport    Sport    @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([locationId, active])
+  @@index([locationId, sportId, active])
 }
 
 model Instructor {
-  id          String   @id @default(cuid())
-  name        String
-  sports      Sport[]
-  bio         String?
-  pricePerHour Decimal @db.Decimal(10, 2)
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  bio       String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  instructorSports    InstructorSport[]
+  instructorLocations InstructorLocation[]
+  trainerUser         User?               @relation("TrainerUser")
 }
 
 model Service {
   id                 String   @id @default(cuid())
   code               String   @unique
   name               String
-  sport              Sport
+  sportId            String
+  locationId         String?
   requiresCourt      Boolean  @default(true)
   requiresInstructor Boolean  @default(false)
   active             Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  sport    Sport     @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   bookings Booking[]
+
+  @@index([locationId, active])
+  @@index([locationId, sportId, active])
 }
 
 model OpeningHour {
   id        String   @id @default(cuid())
+  locationId String
   dayOfWeek Int
   openTime  String
   closeTime String
   active    Boolean  @default(true)
 
-  @@unique([dayOfWeek])
-  @@index([active])
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, dayOfWeek])
+  @@index([locationId, active])
 }
 
 model ResourceSchedule {
@@ -141,6 +196,7 @@ model ResourceSchedule {
 
 model ScheduleException {
   id           String                @id @default(cuid())
+  locationId   String?
   resourceType ScheduleResourceType
   resourceId   String?
   date         DateTime
@@ -149,7 +205,10 @@ model ScheduleException {
   type         ScheduleExceptionType
   note         String?
 
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
   @@index([resourceType, resourceId, date])
+  @@index([locationId, date])
   @@index([date])
 }
 
@@ -157,6 +216,7 @@ model Booking {
   id                   String        @id @default(cuid())
   customerId           String
   serviceId            String
+  locationId           String
   startAt              DateTime
   endAt                DateTime
   status               BookingStatus
@@ -168,12 +228,14 @@ model Booking {
 
   customer  User              @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Restrict)
   service   Service           @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  location  Location          @relation(fields: [locationId], references: [id], onDelete: Restrict)
   resources BookingResource[]
   payment   Payment?
 
   @@index([startAt, endAt, status])
   @@index([customerId, createdAt])
   @@index([serviceId, startAt])
+  @@index([locationId, startAt])
 }
 
 model BookingResource {
@@ -190,7 +252,8 @@ model BookingResource {
 
 model ComponentPrice {
   id            String            @id @default(cuid())
-  sport         Sport
+  locationId    String
+  sportId       String
   componentType PriceComponentType
   period        PricingPeriod
   currency      String            @default("KZT")
@@ -198,8 +261,36 @@ model ComponentPrice {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
-  @@unique([sport, componentType, period, currency])
-  @@index([sport, period])
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  sport    Sport    @relation(fields: [sportId], references: [id], onDelete: Restrict)
+
+  @@unique([locationId, sportId, componentType, period, currency])
+  @@index([locationId, sportId, period])
+}
+
+model InstructorSport {
+  id           String  @id @default(cuid())
+  instructorId String
+  sportId      String
+  pricePerHour Decimal @db.Decimal(10, 2)
+
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  sport      Sport      @relation(fields: [sportId], references: [id], onDelete: Cascade)
+
+  @@unique([instructorId, sportId])
+}
+
+model InstructorLocation {
+  id           String  @id @default(cuid())
+  instructorId String
+  locationId   String
+  active       Boolean @default(true)
+
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([instructorId, locationId])
+  @@index([locationId, active])
 }
 
 model Payment {

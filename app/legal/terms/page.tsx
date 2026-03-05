@@ -13,7 +13,7 @@ export default function TermsPage() {
       <PageHero
         eyebrow="Документы"
         title="Условия использования"
-        description="Временная страница с базовыми условиями бронирования. Полная версия условий будет опубликована отдельно."
+        description="Базовые условия бронирования и использования сайта клуба."
       />
 
       <section className="booking-flow" aria-labelledby="terms-content-title">

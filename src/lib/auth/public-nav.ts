@@ -1,3 +1,5 @@
+import { canAccessAdminPortal, canAccessTrainerPortal, normalizeRole } from "@/src/lib/auth/roles";
+
 type SessionLike = {
   user?: {
     role?: string | null;
@@ -12,10 +14,19 @@ export function getPublicPortalLink(session: SessionLike): { href: string; label
     };
   }
 
-  if (session.user.role === "admin") {
+  const role = normalizeRole(session.user.role);
+
+  if (canAccessAdminPortal(role)) {
     return {
       href: "/admin",
       label: "Админ-панель",
+    };
+  }
+
+  if (canAccessTrainerPortal(role)) {
+    return {
+      href: "/trainer/schedule",
+      label: "Кабинет тренера",
     };
   }
 

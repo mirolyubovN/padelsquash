@@ -1,4 +1,5 @@
 import { prisma } from "@/src/lib/prisma";
+import { resolveLocationBySlug } from "@/src/lib/locations/service";
 import type {
   ExistingBookingRecord,
   OpeningHourRecord,
@@ -10,6 +11,11 @@ import { toVenueIsoDate, venueDateRangeUtc } from "@/src/lib/time/venue-timezone
 
 export interface AvailabilityDbContext {
   service: ServiceRecord;
+  location: {
+    id: string;
+    slug: string;
+    name: string;
+  };
   courtIds: string[];
   instructorIds: string[];
   openingHours: OpeningHourRecord[];
@@ -21,35 +27,75 @@ export interface AvailabilityDbContext {
 export async function getAvailabilityContextFromDb(args: {
   serviceCode: string;
   date: string;
+  locationSlug?: string;
 }): Promise<AvailabilityDbContext | null> {
+  const locationSelection = await resolveLocationBySlug(args.locationSlug);
+  const selectedLocation = locationSelection.selected;
+
   const service = await prisma.service.findUnique({
     where: { code: args.serviceCode },
+    include: {
+      sport: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+      location: {
+        select: {
+          id: true,
+          slug: true,
+        },
+      },
+    },
   });
 
   if (!service || !service.active) {
     return null;
   }
+  if (service.locationId && service.locationId !== selectedLocation.id) {
+    return null;
+  }
 
   const { startUtc, endUtc } = venueDateRangeUtc(args.date);
 
-  const [openingHours, courts, instructors, instructorSchedules, exceptions, bookings] = await Promise.all([
-    prisma.openingHour.findMany({ orderBy: { dayOfWeek: "asc" } }),
+  const [openingHours, courts, instructors, exceptions, bookings] = await Promise.all([
+    prisma.openingHour.findMany({
+      where: { locationId: selectedLocation.id },
+      orderBy: { dayOfWeek: "asc" },
+    }),
     prisma.court.findMany({
-      where: { active: true, sport: service.sport },
+      where: {
+        active: true,
+        locationId: selectedLocation.id,
+        sportId: service.sportId,
+      },
       select: { id: true },
     }),
     prisma.instructor.findMany({
-      where: { active: true, sports: { has: service.sport } },
+      where: {
+        active: true,
+        instructorSports: {
+          some: { sportId: service.sportId },
+        },
+        instructorLocations: {
+          some: {
+            locationId: selectedLocation.id,
+            active: true,
+          },
+        },
+      },
       select: { id: true },
     }),
-    prisma.resourceSchedule.findMany({
-      where: { active: true, resourceType: "instructor" },
-    }),
     prisma.scheduleException.findMany({
-      where: { date: { gte: startUtc, lt: endUtc } },
+      where: {
+        date: { gte: startUtc, lt: endUtc },
+        OR: [{ locationId: selectedLocation.id }, { locationId: null }],
+      },
     }),
     prisma.booking.findMany({
       where: {
+        locationId: selectedLocation.id,
         status: { in: ["pending_payment", "confirmed"] },
         startAt: { lt: endUtc },
         endAt: { gt: startUtc },
@@ -58,17 +104,34 @@ export async function getAvailabilityContextFromDb(args: {
     }),
   ]);
 
+  const instructorIds = instructors.map((row: { id: string }) => row.id);
+  const instructorSchedules =
+    instructorIds.length > 0
+      ? await prisma.resourceSchedule.findMany({
+          where: {
+            active: true,
+            resourceType: "instructor",
+            resourceId: { in: instructorIds },
+          },
+        })
+      : [];
+
   return {
     service: {
       id: service.code,
       name: service.name,
-      sport: service.sport,
+      sport: service.sport.slug,
       requiresCourt: service.requiresCourt,
       requiresInstructor: service.requiresInstructor,
       active: service.active,
     },
+    location: {
+      id: selectedLocation.id,
+      slug: selectedLocation.slug,
+      name: selectedLocation.name,
+    },
     courtIds: courts.map((row: { id: string }) => row.id),
-    instructorIds: instructors.map((row: { id: string }) => row.id),
+    instructorIds,
     openingHours: openingHours.map((row: { dayOfWeek: number; openTime: string; closeTime: string; active: boolean }) => ({
       dayOfWeek: row.dayOfWeek as OpeningHourRecord["dayOfWeek"],
       openTime: row.openTime,

@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { resolvePricingTier } from "@/src/lib/pricing/engine";
 
-type Sport = "padel" | "squash";
 type ServiceKind = "court" | "training";
 type PricingTier = "morning" | "day" | "evening_weekend";
 
 interface ServiceOption {
   id: string;
   name: string;
-  sport: Sport;
+  sport: string;
+  sportName?: string;
   requiresCourt: boolean;
   requiresInstructor: boolean;
 }
@@ -19,11 +19,11 @@ interface ServiceOption {
 interface InstructorOption {
   id: string;
   name: string;
-  sports: Sport[];
-  pricePerHour: number;
+  sports: string[];
+  sportPrices: Record<string, number>;
 }
 
-type CourtPriceMatrix = Record<Sport, Record<PricingTier, number>>;
+type CourtPriceMatrix = Record<string, Record<PricingTier, number>>;
 
 interface SlotOption {
   startTime: string;
@@ -40,7 +40,7 @@ interface AvailabilityPayload {
   service: {
     id: string;
     name: string;
-    sport: Sport;
+    sport: string;
     requiresCourt: boolean;
     requiresInstructor: boolean;
   };
@@ -71,7 +71,7 @@ interface BookingApiSuccessPayload {
 }
 
 interface BookingSuccessSessionSummary {
-  sport: Sport;
+  sport: string;
   serviceKind: ServiceKind;
   date: string;
   startTime: string;
@@ -89,6 +89,13 @@ interface BookingSuccessSummary {
 }
 
 interface LiveBookingFormProps {
+  locations: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    address: string;
+  }>;
+  selectedLocationSlug: string;
   services: ServiceOption[];
   courtNames: Record<string, string>;
   instructors: InstructorOption[];
@@ -124,8 +131,10 @@ function detectServiceKind(service: ServiceOption): ServiceKind {
   return service.requiresInstructor ? "training" : "court";
 }
 
-function getSportLabel(sport: Sport): string {
-  return sport === "padel" ? "Падел" : "Сквош";
+function getSportLabel(slug: string): string {
+  if (slug === "padel") return "Падел";
+  if (slug === "squash") return "Сквош";
+  return slug;
 }
 
 function getServiceKindLabel(kind: ServiceKind): string {
@@ -151,11 +160,13 @@ function getSlotKey(slot: Pick<SlotOption, "startTime" | "endTime">): string {
 }
 
 async function fetchAvailability(
+  location: string,
   serviceId: string,
   date: string,
   instructorId?: string,
 ): Promise<AvailabilityPayload> {
   const params = new URLSearchParams({
+    location,
     serviceId,
     date,
     durationMin: "60",
@@ -186,6 +197,8 @@ async function fetchAvailability(
 }
 
 export function LiveBookingForm({
+  locations,
+  selectedLocationSlug,
   services,
   courtNames,
   instructors,
@@ -198,12 +211,12 @@ export function LiveBookingForm({
   const pendingTrainerIdFromUrlRef = useRef<string | null>(null);
   const pendingSlotTimesFromUrlRef = useRef<string[] | null>(null);
   const serviceMatrix = useMemo(() => {
-    const result: Record<Sport, Partial<Record<ServiceKind, ServiceOption>>> = {
-      padel: {},
-      squash: {},
-    };
+    const result: Record<string, Partial<Record<ServiceKind, ServiceOption>>> = {};
     for (const service of services) {
       const kind = detectServiceKind(service);
+      if (!result[service.sport]) {
+        result[service.sport] = {};
+      }
       if (!result[service.sport][kind]) {
         result[service.sport][kind] = service;
       }
@@ -211,10 +224,31 @@ export function LiveBookingForm({
     return result;
   }, [services]);
 
-  const initialSport: Sport = serviceMatrix.padel.court || serviceMatrix.padel.training ? "padel" : "squash";
-  const initialKind: ServiceKind = serviceMatrix[initialSport].court ? "court" : "training";
+  const sportOptions = useMemo(
+    () =>
+      Object.entries(serviceMatrix).map(([slug, kinds]) => ({
+        slug,
+        label: kinds.court?.sportName ?? kinds.training?.sportName ?? getSportLabel(slug),
+      })),
+    [serviceMatrix],
+  );
+  const sportLabelsBySlug = useMemo(
+    () => Object.fromEntries(sportOptions.map((option) => [option.slug, option.label])),
+    [sportOptions],
+  );
 
-  const [sport, setSport] = useState<Sport>(initialSport);
+  const firstSportSlug = sportOptions[0]?.slug ?? services[0]?.sport ?? "padel";
+  const initialSport =
+    serviceMatrix[firstSportSlug]?.court || serviceMatrix[firstSportSlug]?.training
+      ? firstSportSlug
+      : Object.keys(serviceMatrix)[0] ?? firstSportSlug;
+  const initialKind: ServiceKind = serviceMatrix[initialSport]?.court
+    ? "court"
+    : serviceMatrix[initialSport]?.training
+      ? "training"
+      : "court";
+
+  const [sport, setSport] = useState<string>(initialSport);
   const [serviceKind, setServiceKind] = useState<ServiceKind>(initialKind);
   const [date, setDate] = useState<string>(getTodayDate);
   const [availability, setAvailability] = useState<AvailabilityPayload | null>(null);
@@ -242,16 +276,31 @@ export function LiveBookingForm({
   const [submitSuccessSummary, setSubmitSuccessSummary] = useState<BookingSuccessSummary | null>(null);
   const [editingStepId, setEditingStepId] = useState<EditableStepId | null>(null);
 
-  const resolvedService = serviceMatrix[sport][serviceKind] ?? null;
-  const availableKindsForSport = serviceMatrix[sport];
+  const hasLocationStep = locations.length > 1;
+  const selectedLocation =
+    locations.find((location) => location.slug === selectedLocationSlug) ?? locations[0] ?? null;
+
+  const resolvedService = serviceMatrix[sport]?.[serviceKind] ?? null;
+  const availableKindsForSport = useMemo(() => serviceMatrix[sport] ?? {}, [serviceMatrix, sport]);
   const instructorsById = useMemo(
     () => Object.fromEntries(instructors.map((instructor) => [instructor.id, instructor])),
     [instructors],
   );
+  const getSportDisplayLabel = (slug: string) => sportLabelsBySlug[slug] ?? getSportLabel(slug);
   const trainersForSport = useMemo(
     () => instructors.filter((instructor) => instructor.sports.includes(sport)),
     [instructors, sport],
   );
+
+  useEffect(() => {
+    if (serviceMatrix[sport]) {
+      return;
+    }
+    const nextSport = Object.keys(serviceMatrix)[0];
+    if (nextSport) {
+      setSport(nextSport);
+    }
+  }, [serviceMatrix, sport]);
 
   useEffect(() => {
     if (!resolvedService) {
@@ -277,7 +326,7 @@ export function LiveBookingForm({
     const timeParams = params.getAll("time");
     const timesParam = params.get("times");
 
-    if (sportParam === "padel" || sportParam === "squash") {
+    if (sportParam && serviceMatrix[sportParam]) {
       setSport(sportParam);
     }
     if (serviceParam === "court" || serviceParam === "training") {
@@ -298,7 +347,7 @@ export function LiveBookingForm({
     if (restoredTimes.length > 0) {
       pendingSlotTimesFromUrlRef.current = Array.from(new Set(restoredTimes));
     }
-  }, []);
+  }, [serviceMatrix]);
 
   useEffect(() => {
     setSelectedSlotKeys([]);
@@ -342,7 +391,12 @@ export function LiveBookingForm({
       setAvailabilityLoading(true);
       setAvailabilityError(null);
       try {
-        const payload = await fetchAvailability(service.id, date, service.requiresInstructor ? selectedInstructorId : undefined);
+        const payload = await fetchAvailability(
+          selectedLocationSlug,
+          service.id,
+          date,
+          service.requiresInstructor ? selectedInstructorId : undefined,
+        );
         if (!cancelled) {
           setAvailability(payload);
         }
@@ -362,7 +416,7 @@ export function LiveBookingForm({
     return () => {
       cancelled = true;
     };
-  }, [resolvedService, date, reloadKey, selectedInstructorId]);
+  }, [resolvedService, date, reloadKey, selectedInstructorId, selectedLocationSlug]);
 
   useEffect(() => {
     const pendingTimes = pendingSlotTimesFromUrlRef.current;
@@ -410,6 +464,7 @@ export function LiveBookingForm({
         const nextDate = addDays(date, i);
         try {
           const nextAvailability = await fetchAvailability(
+            selectedLocationSlug,
             service.id,
             nextDate,
             service.requiresInstructor ? selectedInstructorId : undefined,
@@ -433,7 +488,16 @@ export function LiveBookingForm({
     return () => {
       cancelled = true;
     };
-  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey, selectedInstructorId]);
+  }, [
+    resolvedService,
+    availabilityLoading,
+    availabilityError,
+    availability,
+    date,
+    autoSearchKey,
+    selectedInstructorId,
+    selectedLocationSlug,
+  ]);
 
   const availableTimeSlots = useMemo(() => {
     if (!availability) return [];
@@ -477,15 +541,22 @@ export function LiveBookingForm({
   }, [serviceKind, trainersForSport, selectedInstructorId]);
 
   const selectedTrainer = selectedInstructorId ? instructorsById[selectedInstructorId] ?? null : null;
-  const dateStepNumber = serviceKind === "training" ? 4 : 3;
-  const timeStepNumber = serviceKind === "training" ? 5 : 4;
-  const accountStepNumber = serviceKind === "training" ? 6 : 5;
-  const reviewStepNumber = serviceKind === "training" ? 7 : 6;
+  const selectedTrainerPricePerHour = selectedTrainer ? selectedTrainer.sportPrices[sport] ?? 0 : 0;
+  const sportStepNumber = hasLocationStep ? 2 : 1;
+  const serviceStepNumber = sportStepNumber + 1;
+  const trainerStepNumber = serviceStepNumber + 1;
+  const dateStepNumber = serviceKind === "training" ? trainerStepNumber + 1 : serviceStepNumber + 1;
+  const timeStepNumber = dateStepNumber + 1;
+  const accountStepNumber = timeStepNumber + 1;
+  const reviewStepNumber = accountStepNumber + 1;
   const requiresAccountForBooking = true;
   const bookingReturnToPath = useMemo(() => {
     const trainerIdForUrl =
       serviceKind === "training" ? selectedInstructorId || pendingTrainerIdFromUrlRef.current || "" : "";
     const params = new URLSearchParams();
+    if (selectedLocationSlug) {
+      params.set("location", selectedLocationSlug);
+    }
     params.set("sport", sport);
     params.set("service", serviceKind);
     params.set("date", date);
@@ -499,12 +570,12 @@ export function LiveBookingForm({
       }
     }
     return `/book?${params.toString()}`;
-  }, [sport, serviceKind, date, selectedInstructorId, selectedSlots]);
+  }, [selectedLocationSlug, sport, serviceKind, date, selectedInstructorId, selectedSlots]);
 
   const stepperItems = useMemo(() => {
     const slotChosen = selectedSlotKeys.length > 0;
     const dateChosen = Boolean(date);
-    const items =
+    const baseItems =
       serviceKind === "training"
         ? [
             { id: "sport", label: "Спорт", ready: true },
@@ -523,6 +594,9 @@ export function LiveBookingForm({
             { id: "account", label: "Аккаунт", ready: slotChosen && isAuthenticated },
             { id: "confirm", label: "Подтверждение", ready: Boolean(submitSuccess) },
           ];
+    const items = hasLocationStep
+      ? [{ id: "location", label: "Локация", ready: Boolean(selectedLocation) }, ...baseItems]
+      : baseItems;
 
     const currentIndex = items.findIndex((item) => !item.ready);
     const activeIndex = currentIndex === -1 ? items.length - 1 : currentIndex;
@@ -532,7 +606,17 @@ export function LiveBookingForm({
       state: index < activeIndex ? ("completed" as const) : index === activeIndex ? ("current" as const) : ("pending" as const),
       stepNumber: index + 1,
     }));
-  }, [serviceKind, resolvedService, selectedInstructorId, selectedSlotKeys.length, isAuthenticated, submitSuccess, date]);
+  }, [
+    hasLocationStep,
+    selectedLocation,
+    serviceKind,
+    resolvedService,
+    selectedInstructorId,
+    selectedSlotKeys.length,
+    isAuthenticated,
+    submitSuccess,
+    date,
+  ]);
 
   useEffect(() => {
     if (!hasRestoredFromUrlRef.current || typeof window === "undefined") {
@@ -546,6 +630,11 @@ export function LiveBookingForm({
     const params = new URLSearchParams(window.location.search);
     const trainerIdForUrl =
       serviceKind === "training" ? selectedInstructorId || pendingTrainerIdFromUrlRef.current || "" : "";
+    if (selectedLocationSlug) {
+      params.set("location", selectedLocationSlug);
+    } else {
+      params.delete("location");
+    }
     params.set("sport", sport);
     params.set("service", serviceKind);
     params.set("date", date);
@@ -566,7 +655,7 @@ export function LiveBookingForm({
     if (nextUrl !== currentUrl) {
       window.history.replaceState(window.history.state, "", nextUrl);
     }
-  }, [sport, serviceKind, date, selectedInstructorId, selectedSlots]);
+  }, [selectedLocationSlug, sport, serviceKind, date, selectedInstructorId, selectedSlots]);
 
   const pricePreview = useMemo(() => {
     if (!resolvedService || selectedSlots.length === 0) return null;
@@ -574,7 +663,7 @@ export function LiveBookingForm({
     const slotLines = selectedSlots.map((slot) => {
       const tier = resolvePricingTier(date, slot.startTime);
       const courtPrice = courtPrices[sport]?.[tier] ?? 0;
-      const instructorPrice = serviceKind === "training" && selectedTrainer ? selectedTrainer.pricePerHour : 0;
+      const instructorPrice = serviceKind === "training" ? selectedTrainerPricePerHour : 0;
       return {
         key: getSlotKey(slot),
         startTime: slot.startTime,
@@ -591,7 +680,7 @@ export function LiveBookingForm({
       total: slotLines.reduce((sum, line) => sum + line.total, 0),
       selectedCount: slotLines.length,
     };
-  }, [resolvedService, selectedSlots, date, courtPrices, sport, serviceKind, selectedTrainer]);
+  }, [resolvedService, selectedSlots, date, courtPrices, sport, serviceKind, selectedTrainerPricePerHour]);
 
   function openCustomerEditor() {
     setCustomerEditorName(customerName);
@@ -668,6 +757,7 @@ export function LiveBookingForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             serviceId: resolvedService.id,
+            location: selectedLocationSlug,
             date,
             startTime: slot.startTime,
             durationMin: 60,
@@ -752,7 +842,7 @@ export function LiveBookingForm({
   const showTrainerEditor =
     serviceKind === "training" && (!collapseCompletedSteps || editingStepId === "trainer");
   const showDateTimeEditor = canShowDateTimeStep && (!collapseCompletedSteps || editingStepId === "datetime");
-  const selectedSportLabel = getSportLabel(sport);
+  const selectedSportLabel = getSportDisplayLabel(sport);
   const selectedDateTimeSummary = hasSelectedSlot
     ? `${date} · ${selectedSlots.map((slot) => `${slot.startTime} - ${slot.endTime}`).join(", ")}`
     : date;
@@ -795,21 +885,39 @@ export function LiveBookingForm({
           </div>
         ) : null}
 
+        {hasLocationStep && selectedLocation ? (
+          <div className="booking-live__step booking-live__step--animated">
+            <p className="booking-live__step-title">1. Выберите локацию</p>
+            <div className="booking-live__choice-list">
+              {locations.map((location) => (
+                <Link
+                  key={location.id}
+                  href={`/book?location=${encodeURIComponent(location.slug)}`}
+                  className={`booking-live__choice-button${selectedLocationSlug === location.slug ? " booking-live__choice-button--active" : ""}`}
+                >
+                  {location.name}
+                </Link>
+              ))}
+            </div>
+            <p className="booking-live__helper">{selectedLocation.address}</p>
+          </div>
+        ) : null}
+
         {showSportEditor ? (
           <div className="booking-live__step booking-live__step--animated">
-            <p className="booking-live__step-title">1. Выберите спорт</p>
+            <p className="booking-live__step-title">{sportStepNumber}. Выберите спорт</p>
             <div className="booking-live__choice-list">
-              {(["padel", "squash"] as const).map((item) => (
+              {sportOptions.map((item) => (
                 <button
-                  key={item}
+                  key={item.slug}
                   type="button"
-                  className={`booking-live__choice-button${sport === item ? " booking-live__choice-button--active" : ""}`}
+                  className={`booking-live__choice-button${sport === item.slug ? " booking-live__choice-button--active" : ""}`}
                   onClick={() => {
                     setEditingStepId(null);
-                    setSport(item);
+                    setSport(item.slug);
                   }}
                 >
-                  {getSportLabel(item)}
+                  {item.label}
                 </button>
               ))}
             </div>
@@ -817,7 +925,7 @@ export function LiveBookingForm({
         ) : (
           <div className="booking-live__step-summary booking-live__step--animated">
             <div className="booking-live__step-summary-content">
-              <p className="booking-live__step-summary-title">1. Спорт</p>
+              <p className="booking-live__step-summary-title">{sportStepNumber}. Спорт</p>
               <p className="booking-live__step-summary-value">{selectedSportLabel}</p>
             </div>
             <button
@@ -832,10 +940,10 @@ export function LiveBookingForm({
 
         {showServiceEditor ? (
           <div className="booking-live__step booking-live__step--animated">
-            <p className="booking-live__step-title">2. Выберите услугу</p>
+            <p className="booking-live__step-title">{serviceStepNumber}. Выберите услугу</p>
             <div className="booking-live__choice-list">
               {(["court", "training"] as const).map((kind) => {
-                const available = Boolean(serviceMatrix[sport][kind]);
+                const available = Boolean(serviceMatrix[sport]?.[kind]);
                 return (
                   <button
                     key={kind}
@@ -861,7 +969,7 @@ export function LiveBookingForm({
         ) : (
           <div className="booking-live__step-summary booking-live__step--animated">
             <div className="booking-live__step-summary-content">
-              <p className="booking-live__step-summary-title">2. Услуга</p>
+              <p className="booking-live__step-summary-title">{serviceStepNumber}. Услуга</p>
               <p className="booking-live__step-summary-value">{getServiceKindLabel(serviceKind)}</p>
               {resolvedService ? (
                 <p className="booking-live__step-summary-sub">{resolvedService.name}</p>
@@ -880,7 +988,7 @@ export function LiveBookingForm({
         {serviceKind === "training" ? (
           showTrainerEditor ? (
             <div className="booking-live__step booking-live__step--animated">
-              <p className="booking-live__step-title">3. Выберите тренера</p>
+              <p className="booking-live__step-title">{trainerStepNumber}. Выберите тренера</p>
               {trainersForSport.length === 0 ? (
                 <div className="booking-live__empty">Для выбранного спорта пока нет доступных тренеров.</div>
               ) : (
@@ -909,14 +1017,14 @@ export function LiveBookingForm({
                           <span className="booking-live__trainer-tags">
                             {trainer.sports.map((trainerSport) => (
                               <span key={`${trainer.id}-${trainerSport}`} className="booking-live__trainer-tag">
-                                {getSportLabel(trainerSport)}
+                                {getSportDisplayLabel(trainerSport)}
                               </span>
                             ))}
                           </span>
                         </span>
                       </span>
                       <span className="booking-live__trainer-price">
-                        {formatMoneyKzt(trainer.pricePerHour)} / час
+                        {formatMoneyKzt(trainer.sportPrices[sport] ?? 0)} / час
                       </span>
                     </button>
                   ))}
@@ -926,13 +1034,13 @@ export function LiveBookingForm({
           ) : (
             <div className="booking-live__step-summary booking-live__step--animated">
               <div className="booking-live__step-summary-content">
-                <p className="booking-live__step-summary-title">3. Тренер</p>
+                <p className="booking-live__step-summary-title">{trainerStepNumber}. Тренер</p>
                 <p className="booking-live__step-summary-value">
                   {selectedTrainer ? selectedTrainer.name : "Не выбран"}
                 </p>
                 {selectedTrainer ? (
                   <p className="booking-live__step-summary-sub">
-                    {formatMoneyKzt(selectedTrainer.pricePerHour)} / час
+                    {formatMoneyKzt(selectedTrainerPricePerHour)} / час
                   </p>
                 ) : null}
               </div>
@@ -1039,8 +1147,7 @@ export function LiveBookingForm({
                         const isSelected = selectedSlotKeys.includes(slotKey);
                         const tier = resolvePricingTier(date, slot.startTime);
                         const courtPrice = courtPrices[sport]?.[tier] ?? 0;
-                        const trainerPrice =
-                          serviceKind === "training" && selectedTrainer ? selectedTrainer.pricePerHour : 0;
+                        const trainerPrice = serviceKind === "training" ? selectedTrainerPricePerHour : 0;
                         const slotTotal = courtPrice + trainerPrice;
 
                         return (
@@ -1158,7 +1265,7 @@ export function LiveBookingForm({
           <div className="booking-live__summary">
             <p className="booking-live__section-title">{reviewStepNumber}. Проверка и подтверждение</p>
             <p className="booking-live__summary-line">
-              {getSportLabel(sport)} / {getServiceKindLabel(serviceKind)} / {date}
+              {getSportDisplayLabel(sport)} / {getServiceKindLabel(serviceKind)} / {date}
             </p>
             <p className="booking-live__summary-sub">
               Выбрано слотов: {pricePreview.selectedCount}. Корт назначается автоматически при создании каждой брони.
@@ -1222,11 +1329,11 @@ export function LiveBookingForm({
         ) : null}
 
         {submitSuccess && submitSuccessSummary ? (
-          <div className="booking-live__message booking-live__message--success">
+          <div className="booking-live__message booking-live__message--success" role="status">
             <p className="booking-live__result-title">Бронирование создано</p>
             <p className="booking-live__result-line">
               <strong>
-                {getSportLabel(sport)} / {getServiceKindLabel(serviceKind)}
+                {getSportDisplayLabel(sport)} / {getServiceKindLabel(serviceKind)}
               </strong>
             </p>
             <div className="booking-live__price-breakdown">

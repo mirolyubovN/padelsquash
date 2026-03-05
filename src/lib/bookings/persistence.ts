@@ -7,6 +7,7 @@ import { venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 
 interface CreateBookingPersistentInput {
   serviceCode: string;
+  locationId: string;
   date: string;
   startTime: string;
   durationMin: number;
@@ -30,10 +31,21 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
 
   const service = await prisma.service.findUnique({
     where: { code: input.serviceCode },
+    include: {
+      sport: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
   });
 
   if (!service || !service.active) {
     throw new Error("Услуга не найдена");
+  }
+  if (service.locationId && service.locationId !== input.locationId) {
+    throw new Error("Услуга недоступна для выбранной локации");
   }
 
   if (service.requiresCourt && !input.courtId) {
@@ -43,6 +55,31 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
     throw new Error("Для выбранной услуги требуется instructorId");
   }
 
+  const selectedCourt =
+    input.courtId
+      ? await prisma.court.findUnique({
+          where: { id: input.courtId },
+          select: {
+            id: true,
+            active: true,
+            sportId: true,
+            locationId: true,
+          },
+        })
+      : null;
+
+  if (service.requiresCourt) {
+    if (!selectedCourt || !selectedCourt.active) {
+      throw new Error("Корт не найден");
+    }
+    if (selectedCourt.sportId !== service.sportId) {
+      throw new Error("Корт не подходит для выбранной услуги");
+    }
+    if (selectedCourt.locationId !== input.locationId) {
+      throw new Error("Корт не принадлежит выбранной локации");
+    }
+  }
+
   const instructorForPricing =
     service.requiresInstructor && input.instructorId
       ? await prisma.instructor.findUnique({
@@ -50,8 +87,18 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
           select: {
             id: true,
             active: true,
-            sports: true,
-            pricePerHour: true,
+            instructorSports: {
+              where: { sportId: service.sportId },
+              select: {
+                pricePerHour: true,
+              },
+            },
+            instructorLocations: {
+              where: { locationId: input.locationId, active: true },
+              select: {
+                id: true,
+              },
+            },
           },
         })
       : null;
@@ -60,8 +107,11 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
     if (!instructorForPricing || !instructorForPricing.active) {
       throw new Error("Тренер не найден");
     }
-    if (!instructorForPricing.sports.includes(service.sport)) {
+    if (instructorForPricing.instructorSports.length === 0) {
       throw new Error("Тренер не подходит для выбранного спорта");
+    }
+    if (instructorForPricing.instructorLocations.length === 0) {
+      throw new Error("Тренер не доступен в выбранной локации");
     }
   }
 
@@ -127,24 +177,25 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
 
       const dbComponentPrices = await tx.componentPrice.findMany({
         where: {
-          sport: service.sport,
+          locationId: input.locationId,
+          sportId: service.sportId,
           currency: "KZT",
           componentType: {
             in: ["court", "instructor"],
           },
         },
+        include: {
+          sport: {
+            select: {
+              slug: true,
+            },
+          },
+        },
       });
 
-      const componentPrices: ComponentPriceRecord[] = dbComponentPrices.map((item: {
-        id: string;
-        sport: "padel" | "squash";
-        componentType: "court" | "instructor";
-        period: "morning" | "day" | "evening_weekend";
-        currency: string;
-        amount: unknown;
-      }) => ({
+      const componentPrices: ComponentPriceRecord[] = dbComponentPrices.map((item) => ({
         id: item.id,
-        sport: item.sport,
+        sport: item.sport.slug,
         componentType: item.componentType,
         tier: item.period,
         currency: item.currency,
@@ -154,7 +205,7 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
       const serviceRecord: ServiceRecord = {
         id: service.code,
         name: service.name,
-        sport: service.sport,
+        sport: service.sport.slug,
         requiresCourt: service.requiresCourt,
         requiresInstructor: service.requiresInstructor,
         active: service.active,
@@ -162,7 +213,7 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
 
       const instructorPriceOverrideAmount =
         service.requiresInstructor && instructorForPricing
-          ? Number(instructorForPricing.pricePerHour)
+          ? Number(instructorForPricing.instructorSports[0]?.pricePerHour ?? 0)
           : undefined;
 
       const pricing = evaluatePricing({
@@ -188,6 +239,7 @@ export async function createBookingInDb(input: CreateBookingPersistentInput) {
         data: {
           customerId: customerUser.id,
           serviceId: service.id,
+          locationId: input.locationId,
           startAt,
           endAt,
           status: paymentPreview.bookingStatus,

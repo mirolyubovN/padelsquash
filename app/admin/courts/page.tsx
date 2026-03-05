@@ -8,8 +8,8 @@ import {
   createCourtFromForm,
   deleteCourt,
   getAdminCourts,
+  getAdminSportOptions,
   setCourtActive,
-  SPORT_LABELS,
   updateCourtFromForm,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
@@ -30,7 +30,8 @@ export default async function AdminCourtsPage({
 }) {
   await assertAdmin();
   const params = await searchParams;
-  const courts = await getAdminCourts();
+  const [courts, sportOptions] = await Promise.all([getAdminCourts(), getAdminSportOptions()]);
+  const defaultSportId = sportOptions[0]?.id ?? "";
   const errorMessage =
     params.error === "delete_blocked"
       ? "Корт нельзя удалить: он уже используется в истории бронирований."
@@ -97,7 +98,7 @@ export default async function AdminCourtsPage({
   return (
     <AdminPageShell
       title="Корты"
-      description="Список кортов в БД, включение/выключение и ссылки на разовые исключения по каждому корту."
+      description="Список кортов клуба, включение/выключение и ссылки на разовые исключения."
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">
@@ -105,7 +106,9 @@ export default async function AdminCourtsPage({
         </p>
       ) : null}
       {successMessage ? (
-        <p className="account-history__message account-history__message--success">{successMessage}</p>
+        <p className="account-history__message account-history__message--success" role="status">
+          {successMessage}
+        </p>
       ) : null}
 
       <section className="admin-section">
@@ -131,9 +134,12 @@ export default async function AdminCourtsPage({
               <label className="admin-form__label" htmlFor="court-sport">
                 Спорт
               </label>
-              <select id="court-sport" name="sport" className="admin-form__field" defaultValue="padel">
-                <option value="padel">Падел</option>
-                <option value="squash">Сквош</option>
+              <select id="court-sport" name="sportId" className="admin-form__field" defaultValue={defaultSportId} required>
+                {sportOptions.map((sport) => (
+                  <option key={sport.id} value={sport.id}>
+                    {sport.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="admin-form__group">
@@ -195,7 +201,7 @@ export default async function AdminCourtsPage({
                       <div className="admin-bookings__cell-sub">{court.id}</div>
                     </form>
                   </td>
-                  <td className="admin-table__cell">{SPORT_LABELS[court.sport]}</td>
+                  <td className="admin-table__cell">{court.sportName}</td>
                   <td className="admin-table__cell">
                     <span className={`admin-status-badge ${court.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
                       <span className="admin-status-badge__dot" aria-hidden="true" />

@@ -3,6 +3,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { prisma } from "@/src/lib/prisma";
+import { normalizeRole } from "@/src/lib/auth/roles";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -54,7 +55,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: normalizeRole(user.role),
+          instructorId: user.instructorId ?? null,
         };
       },
     }),
@@ -63,15 +65,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.userId = user.id;
-        token.role = (user as { role?: string }).role ?? "customer";
+        token.role = normalizeRole((user as { role?: string }).role);
+        token.instructorId = (user as { instructorId?: string | null }).instructorId ?? null;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = typeof token.userId === "string" ? token.userId : "";
-        session.user.role =
-          typeof token.role === "string" ? (token.role as "customer" | "coach" | "admin") : "customer";
+        session.user.role = typeof token.role === "string" ? normalizeRole(token.role) : "customer";
+        session.user.instructorId = typeof token.instructorId === "string" ? token.instructorId : null;
       }
       return session;
     },

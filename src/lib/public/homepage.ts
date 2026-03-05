@@ -1,7 +1,6 @@
 import { prisma } from "@/src/lib/prisma";
 import { getComponentPriceMatrix } from "@/src/lib/settings/service";
 
-type SportKey = "padel" | "squash";
 type PricingTier = "morning" | "evening_weekend";
 
 export interface HomePriceBucket {
@@ -12,14 +11,16 @@ export interface HomePriceBucket {
 }
 
 export interface HomeSportSection {
-  sport: SportKey;
+  sport: string;
+  sportName: string;
   title: string;
   subtitle: string;
   prices: HomePriceBucket[];
 }
 
 export interface HomeClubGroup {
-  sport: SportKey;
+  sport: string;
+  sportName: string;
   title: string;
   description: string;
   count: number;
@@ -41,17 +42,20 @@ export async function getHomepageData(): Promise<{
       select: {
         id: true,
         name: true,
-        sport: true,
+        sportId: true,
+        sport: {
+          select: {
+            slug: true,
+            name: true,
+          },
+        },
         notes: true,
       },
-      orderBy: [{ sport: "asc" }, { name: "asc" }],
+      orderBy: [{ sport: { sortOrder: "asc" } }, { name: "asc" }],
     }),
   ]);
 
-  const courtMatrixBySport = {
-    padel: matrix.find((row) => row.sport === "padel" && row.componentType === "court"),
-    squash: matrix.find((row) => row.sport === "squash" && row.componentType === "court"),
-  };
+  const courtRows = matrix.filter((row) => row.componentType === "court");
 
   const buckets = [
     { code: "weekday_day" as const, label: "Будни", timeRange: "08:00-17:00", tier: "morning" as PricingTier },
@@ -64,18 +68,17 @@ export async function getHomepageData(): Promise<{
     { code: "weekend" as const, label: "Выходные", timeRange: "08:00-23:00", tier: "evening_weekend" as PricingTier },
   ];
 
-  const sports: HomeSportSection[] = ([
-    { sport: "padel" as const, title: "Падел", subtitle: "Аренда корта и тренировки" },
-    { sport: "squash" as const, title: "Сквош", subtitle: "Аренда корта и тренировки" },
-  ] as const).map((config) => {
-    const courtRow = courtMatrixBySport[config.sport];
+  const sports: HomeSportSection[] = courtRows.map((courtRow) => {
     const courtByTier: Record<PricingTier, number> = {
       morning: courtRow?.values.morning ?? 0,
       evening_weekend: courtRow?.values.evening_weekend ?? 0,
     };
 
     return {
-      ...config,
+      sport: courtRow.sport,
+      sportName: courtRow.sportName,
+      title: courtRow.sportName,
+      subtitle: "Аренда корта и тренировки",
       prices: buckets.map((bucket) => {
         return {
           code: bucket.code,
@@ -87,24 +90,29 @@ export async function getHomepageData(): Promise<{
     };
   });
 
-  const clubGroups: HomeClubGroup[] = (["padel", "squash"] as const).map((sport) => {
-    const items = courts.filter((court) => court.sport === sport);
+  const clubGroupMap = new Map<
+    string,
+    { sport: string; sportName: string; courts: Array<{ id: string; name: string; notes: string | null }> }
+  >();
+  for (const court of courts) {
+    const key = court.sport.slug;
+    const current = clubGroupMap.get(key) ?? { sport: court.sport.slug, sportName: court.sport.name, courts: [] };
+    current.courts.push({ id: court.id, name: court.name, notes: court.notes });
+    clubGroupMap.set(key, current);
+  }
+
+  const clubGroups: HomeClubGroup[] = Array.from(clubGroupMap.values()).map((group) => {
+    const items = group.courts;
     const notes = items.map((item) => item.notes?.trim()).filter((value): value is string => Boolean(value));
-    const baseDescription =
-      sport === "padel"
-        ? `В клубе ${items.length} активных падел-кортов.`
-        : `В клубе ${items.length} активных сквош-кортов.`;
+    const baseDescription = `В клубе ${items.length} активных кортов для спорта «${group.sportName}».`;
 
     return {
-      sport,
-      title: sport === "padel" ? "Падел-корты" : "Сквош-корты",
-      description: notes[0] ? `${baseDescription} ${notes[0]}` : `${baseDescription} Фото и подробные описания добавим позже.`,
+      sport: group.sport,
+      sportName: group.sportName,
+      title: `${group.sportName}-корты`,
+      description: notes[0] ? `${baseDescription} ${notes[0]}` : baseDescription,
       count: items.length,
-      courts: items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        notes: item.notes,
-      })),
+      courts: items,
     };
   });
 

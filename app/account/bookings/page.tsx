@@ -92,7 +92,9 @@ export default async function AccountBookingsPage({
           </p>
         ) : null}
         {successMessage ? (
-          <p className="account-history__message account-history__message--success">{successMessage}</p>
+          <p className="account-history__message account-history__message--success" role="status">
+            {successMessage}
+          </p>
         ) : null}
 
         {bookings.length === 0 ? (
@@ -118,7 +120,6 @@ export default async function AccountBookingsPage({
                         <div className="account-history__card-head">
                           <div>
                             <p className="account-history__card-title">{row.serviceName}</p>
-                            <p className="account-history__card-sub">{row.serviceCode}</p>
                           </div>
                           <p className="account-history__card-price">{row.amountKzt}</p>
                         </div>

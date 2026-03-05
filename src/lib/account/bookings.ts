@@ -11,7 +11,6 @@ const CANCELLATION_WINDOW_MS = FREE_CANCELLATION_HOURS * 60 * 60 * 1000;
 export interface AccountBookingRow {
   id: string;
   serviceName: string;
-  serviceCode: string;
   date: string;
   timeRange: string;
   status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
@@ -31,7 +30,7 @@ export interface AccountDashboardData {
     name: string;
     email: string;
     phone: string;
-    role: "customer" | "coach" | "admin";
+    role: "customer" | "trainer" | "admin" | "super_admin";
   };
   totals: {
     upcoming: number;
@@ -154,7 +153,7 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
       endAt: Date;
       status: AccountBookingRow["status"];
       priceTotal: unknown;
-      service: { name: string; code: string };
+      service: { name: string };
       payment: null | { status: "unpaid" | "paid" | "failed" | "refunded" };
     }) => {
       const startParts = isoToVenueTimezoneParts(row.startAt);
@@ -165,7 +164,6 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
       return {
         id: row.id,
         serviceName: row.service.name,
-        serviceCode: row.service.code,
         date: startParts.date,
         timeRange: `${startParts.time} - ${endParts.time}`,
         status: row.status,

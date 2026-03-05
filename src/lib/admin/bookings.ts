@@ -25,7 +25,7 @@ export interface AdminBookingFilters {
   pageSize: number;
   q?: string;
   status?: AdminBookingStatus;
-  sport?: "padel" | "squash";
+  sport?: string;
   dateFrom?: string;
   dateTo?: string;
 }
@@ -37,7 +37,8 @@ export interface AdminBookingRow {
   customerPhone: string;
   serviceName: string;
   serviceCode: string;
-  serviceSport: "padel" | "squash";
+  serviceSport: string;
+  serviceSportName: string;
   date: string;
   time: string;
   startAtIso: string;
@@ -107,7 +108,7 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
   }
 
   if (filters.sport) {
-    where.service = { is: { sport: filters.sport } };
+    where.service = { is: { sport: { is: { slug: filters.sport } } } };
   }
 
   if (filters.q) {
@@ -147,7 +148,16 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
       orderBy: [{ startAt: "desc" }],
       include: {
         customer: true,
-        service: true,
+        service: {
+          include: {
+            sport: {
+              select: {
+                slug: true,
+                name: true,
+              },
+            },
+          },
+        },
         payment: true,
         resources: true,
       },
@@ -202,7 +212,8 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
       customerPhone: row.customer.phone,
       serviceName: row.service.name,
       serviceCode: row.service.code,
-      serviceSport: row.service.sport,
+      serviceSport: row.service.sport.slug,
+      serviceSportName: row.service.sport.name,
       date: whenStart.date,
       time: `${whenStart.time} - ${whenEnd.time}`,
       startAtIso: row.startAt.toISOString(),

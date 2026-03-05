@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { prisma } from "@/src/lib/prisma";
 import { demoComponentPrices, demoOpeningHours } from "@/src/lib/demo/hardcoded-data";
-import type { ComponentPriceRecord, OpeningHourRecord, PricingTier } from "@/src/lib/domain/types";
+import type { OpeningHourRecord, PricingTier } from "@/src/lib/domain/types";
+import { getDefaultLocation } from "@/src/lib/locations/service";
 
 export const WEEKDAY_LABELS = [
   "Воскресенье",
@@ -26,14 +27,50 @@ export const COURT_BASE_PRICING_PERIOD_LABELS = {
 
 const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "Формат времени должен быть HH:MM");
 
-export async function ensureOpeningHoursDefaults() {
-  const count = await prisma.openingHour.count();
+const DEFAULT_SPORTS = [
+  { slug: "padel", name: "Падел", sortOrder: 0 },
+  { slug: "squash", name: "Сквош", sortOrder: 1 },
+] as const;
+
+async function ensureSportDefaults() {
+  await Promise.all(
+    DEFAULT_SPORTS.map((sport) =>
+      prisma.sport.upsert({
+        where: { slug: sport.slug },
+        create: {
+          slug: sport.slug,
+          name: sport.name,
+          active: true,
+          sortOrder: sport.sortOrder,
+        },
+        update: {
+          name: sport.name,
+          active: true,
+          sortOrder: sport.sortOrder,
+        },
+      }),
+    ),
+  );
+}
+
+async function resolveLocationId(locationId?: string): Promise<string> {
+  if (locationId) {
+    return locationId;
+  }
+  const location = await getDefaultLocation();
+  return location.id;
+}
+
+export async function ensureOpeningHoursDefaults(locationId?: string) {
+  const effectiveLocationId = await resolveLocationId(locationId);
+  const count = await prisma.openingHour.count({ where: { locationId: effectiveLocationId } });
   if (count > 0) {
     return;
   }
 
   await prisma.openingHour.createMany({
     data: demoOpeningHours.map((item: OpeningHourRecord) => ({
+      locationId: effectiveLocationId,
       dayOfWeek: item.dayOfWeek,
       openTime: item.openTime,
       closeTime: item.closeTime,
@@ -42,26 +79,48 @@ export async function ensureOpeningHoursDefaults() {
   });
 }
 
-export async function ensureComponentPriceDefaults() {
-  const count = await prisma.componentPrice.count();
+export async function ensureComponentPriceDefaults(locationId?: string) {
+  const effectiveLocationId = await resolveLocationId(locationId);
+  await ensureSportDefaults();
+
+  const count = await prisma.componentPrice.count({ where: { locationId: effectiveLocationId } });
   if (count > 0) {
     return;
   }
 
+  const sports = await prisma.sport.findMany({
+    where: { slug: { in: Array.from(new Set(demoComponentPrices.map((item) => item.sport))) } },
+    select: { id: true, slug: true },
+  });
+  const sportBySlug = new Map(sports.map((sport) => [sport.slug, sport.id]));
+
   await prisma.componentPrice.createMany({
-    data: demoComponentPrices.map((item: ComponentPriceRecord) => ({
-      sport: item.sport,
-      componentType: item.componentType,
-      period: item.tier,
-      currency: item.currency,
-      amount: item.amount,
-    })),
+    data: demoComponentPrices
+      .map((item) => {
+        const sportId = sportBySlug.get(item.sport);
+        if (!sportId) {
+          return null;
+        }
+        return {
+          locationId: effectiveLocationId,
+          sportId,
+          componentType: item.componentType,
+          period: item.tier,
+          currency: item.currency,
+          amount: item.amount,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item)),
   });
 }
 
-export async function getOpeningHours(): Promise<OpeningHourRecord[]> {
-  await ensureOpeningHoursDefaults();
-  const rows = await prisma.openingHour.findMany({ orderBy: { dayOfWeek: "asc" } });
+export async function getOpeningHours(locationId?: string): Promise<OpeningHourRecord[]> {
+  const effectiveLocationId = await resolveLocationId(locationId);
+  await ensureOpeningHoursDefaults(effectiveLocationId);
+  const rows = await prisma.openingHour.findMany({
+    where: { locationId: effectiveLocationId },
+    orderBy: { dayOfWeek: "asc" },
+  });
   return rows.map((row: { dayOfWeek: number; openTime: string; closeTime: string; active: boolean }) => ({
     dayOfWeek: row.dayOfWeek as OpeningHourRecord["dayOfWeek"],
     openTime: row.openTime,
@@ -70,7 +129,8 @@ export async function getOpeningHours(): Promise<OpeningHourRecord[]> {
   }));
 }
 
-export async function saveOpeningHoursFromForm(formData: FormData) {
+export async function saveOpeningHoursFromForm(formData: FormData, locationId?: string) {
+  const effectiveLocationId = await resolveLocationId(locationId);
   const rows = Array.from({ length: 7 }, (_, dayOfWeek) => {
     const parsed = z
       .object({
@@ -97,8 +157,16 @@ export async function saveOpeningHoursFromForm(formData: FormData) {
   await prisma.$transaction(
     rows.map((row: { dayOfWeek: number; openTime: string; closeTime: string; active: boolean }) =>
       prisma.openingHour.upsert({
-        where: { dayOfWeek: row.dayOfWeek },
-        create: row,
+        where: {
+          locationId_dayOfWeek: {
+            locationId: effectiveLocationId,
+            dayOfWeek: row.dayOfWeek,
+          },
+        },
+        create: {
+          ...row,
+          locationId: effectiveLocationId,
+        },
         update: row,
       }),
     ),
@@ -106,14 +174,18 @@ export async function saveOpeningHoursFromForm(formData: FormData) {
 }
 
 export interface ComponentPriceMatrixRow {
-  sport: "padel" | "squash";
+  sportId: string;
+  sport: string;
+  sportName: string;
   componentType: "court" | "instructor";
   label: string;
   values: Record<PricingTier, number>;
 }
 
 export interface CourtBasePriceAdminRow {
-  sport: "padel" | "squash";
+  sportId: string;
+  sport: string;
+  sportName: string;
   label: string;
   values: {
     morning: number;
@@ -121,57 +193,62 @@ export interface CourtBasePriceAdminRow {
   };
 }
 
-export async function getComponentPriceMatrix(): Promise<ComponentPriceMatrixRow[]> {
-  await ensureComponentPriceDefaults();
+export async function getComponentPriceMatrix(locationId?: string): Promise<ComponentPriceMatrixRow[]> {
+  const effectiveLocationId = await resolveLocationId(locationId);
+  await ensureComponentPriceDefaults(effectiveLocationId);
   const rows = await prisma.componentPrice.findMany({
-    orderBy: [{ sport: "asc" }, { componentType: "asc" }, { period: "asc" }],
+    where: { locationId: effectiveLocationId },
+    include: {
+      sport: {
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          sortOrder: true,
+        },
+      },
+    },
+    orderBy: [
+      { sport: { sortOrder: "asc" } },
+      { sport: { name: "asc" } },
+      { componentType: "asc" },
+      { period: "asc" },
+    ],
   });
 
-  const keyMap = new Map<string, ComponentPriceRecord>();
-  for (const row of rows as Array<{
-    id: string;
-    sport: "padel" | "squash";
-    componentType: "court" | "instructor";
-    period: PricingTier;
-    currency: string;
-    amount: unknown;
-  }>) {
-    const record: ComponentPriceRecord = {
-      id: row.id,
-      sport: row.sport,
-      componentType: row.componentType,
-      tier: row.period,
-      currency: row.currency,
-      amount: Number(row.amount),
-    };
-    keyMap.set(`${record.sport}:${record.componentType}:${record.tier}`, record);
+  const grouped = new Map<string, ComponentPriceMatrixRow>();
+  for (const row of rows) {
+    const key = `${row.sport.slug}:${row.componentType}`;
+    const current =
+      grouped.get(key) ??
+      {
+        sportId: row.sport.id,
+        sport: row.sport.slug,
+        sportName: row.sport.name,
+        componentType: row.componentType as "court" | "instructor",
+        label: `${row.sport.name}: ${row.componentType === "court" ? "корт" : "тренер"}`,
+        values: {
+          morning: 0,
+          day: 0,
+          evening_weekend: 0,
+        },
+      };
+
+    current.values[row.period as PricingTier] = Number(row.amount);
+    grouped.set(key, current);
   }
 
-  const combos: Array<{ sport: "padel" | "squash"; componentType: "court" | "instructor"; label: string }> =
-    [
-      { sport: "padel", componentType: "court", label: "Падел: корт" },
-      { sport: "padel", componentType: "instructor", label: "Падел: тренер" },
-      { sport: "squash", componentType: "court", label: "Сквош: корт" },
-      { sport: "squash", componentType: "instructor", label: "Сквош: тренер" },
-    ];
-
-  return combos.map((combo) => ({
-    ...combo,
-    values: {
-      morning: keyMap.get(`${combo.sport}:${combo.componentType}:morning`)?.amount ?? 0,
-      day: keyMap.get(`${combo.sport}:${combo.componentType}:day`)?.amount ?? 0,
-      evening_weekend:
-        keyMap.get(`${combo.sport}:${combo.componentType}:evening_weekend`)?.amount ?? 0,
-    },
-  }));
+  return Array.from(grouped.values());
 }
 
-export async function getCourtBasePriceMatrix(): Promise<CourtBasePriceAdminRow[]> {
-  const matrix = await getComponentPriceMatrix();
+export async function getCourtBasePriceMatrix(locationId?: string): Promise<CourtBasePriceAdminRow[]> {
+  const matrix = await getComponentPriceMatrix(locationId);
   return matrix
     .filter((row) => row.componentType === "court")
     .map((row) => ({
+      sportId: row.sportId,
       sport: row.sport,
+      sportName: row.sportName,
       label: row.label,
       values: {
         morning: row.values.morning,
@@ -180,15 +257,20 @@ export async function getCourtBasePriceMatrix(): Promise<CourtBasePriceAdminRow[
     }));
 }
 
-export async function saveComponentPriceMatrixFromForm(formData: FormData) {
-  await ensureComponentPriceDefaults();
+export async function saveComponentPriceMatrixFromForm(formData: FormData, locationId?: string) {
+  const effectiveLocationId = await resolveLocationId(locationId);
+  await ensureComponentPriceDefaults(effectiveLocationId);
 
-  const sports = ["padel", "squash"] as const;
+  const sports = await prisma.sport.findMany({
+    where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, slug: true },
+  });
   const components = ["court", "instructor"] as const;
   const periods = ["morning", "day", "evening_weekend"] as const;
 
   const updates: Array<{
-    sport: (typeof sports)[number];
+    sportId: string;
     componentType: (typeof components)[number];
     period: (typeof periods)[number];
     amount: number;
@@ -197,34 +279,31 @@ export async function saveComponentPriceMatrixFromForm(formData: FormData) {
   for (const sport of sports) {
     for (const componentType of components) {
       for (const period of periods) {
-        const field = `${sport}_${componentType}_${period}`;
+        const field = `${sport.slug}_${componentType}_${period}`;
         const parsed = z.coerce.number().int().nonnegative().safeParse(formData.get(field));
         if (!parsed.success) {
           throw new Error(`Некорректная цена в поле ${field}`);
         }
-        updates.push({ sport, componentType, period, amount: parsed.data });
+        updates.push({ sportId: sport.id, componentType, period, amount: parsed.data });
       }
     }
   }
 
   await prisma.$transaction(
-    updates.map((item: {
-      sport: "padel" | "squash";
-      componentType: "court" | "instructor";
-      period: "morning" | "day" | "evening_weekend";
-      amount: number;
-    }) =>
+    updates.map((item) =>
       prisma.componentPrice.upsert({
         where: {
-          sport_componentType_period_currency: {
-            sport: item.sport,
+          locationId_sportId_componentType_period_currency: {
+            locationId: effectiveLocationId,
+            sportId: item.sportId,
             componentType: item.componentType,
             period: item.period,
             currency: "KZT",
           },
         },
         create: {
-          sport: item.sport,
+          locationId: effectiveLocationId,
+          sportId: item.sportId,
           componentType: item.componentType,
           period: item.period,
           currency: "KZT",
@@ -238,19 +317,24 @@ export async function saveComponentPriceMatrixFromForm(formData: FormData) {
   );
 }
 
-export async function saveCourtBasePriceMatrixFromForm(formData: FormData) {
-  await ensureComponentPriceDefaults();
+export async function saveCourtBasePriceMatrixFromForm(formData: FormData, locationId?: string) {
+  const effectiveLocationId = await resolveLocationId(locationId);
+  await ensureComponentPriceDefaults(effectiveLocationId);
 
-  const sports = ["padel", "squash"] as const;
+  const sports = await prisma.sport.findMany({
+    where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, slug: true },
+  });
   const updates: Array<{
-    sport: (typeof sports)[number];
+    sportId: string;
     period: "morning" | "day" | "evening_weekend";
     amount: number;
   }> = [];
 
   for (const sport of sports) {
-    const morningField = `${sport}_court_morning`;
-    const eveningField = `${sport}_court_evening_weekend`;
+    const morningField = `${sport.slug}_court_morning`;
+    const eveningField = `${sport.slug}_court_evening_weekend`;
 
     const morningParsed = z.coerce.number().int().nonnegative().safeParse(formData.get(morningField));
     if (!morningParsed.success) {
@@ -263,11 +347,9 @@ export async function saveCourtBasePriceMatrixFromForm(formData: FormData) {
     }
 
     updates.push(
-      { sport, period: "morning", amount: morningParsed.data },
-      // Keep legacy "day" period synchronized with morning to preserve booking/UI compatibility
-      // while the system transitions to the court-only two-tier pricing model.
-      { sport, period: "day", amount: morningParsed.data },
-      { sport, period: "evening_weekend", amount: eveningParsed.data },
+      { sportId: sport.id, period: "morning", amount: morningParsed.data },
+      { sportId: sport.id, period: "day", amount: morningParsed.data },
+      { sportId: sport.id, period: "evening_weekend", amount: eveningParsed.data },
     );
   }
 
@@ -275,15 +357,17 @@ export async function saveCourtBasePriceMatrixFromForm(formData: FormData) {
     updates.map((item) =>
       prisma.componentPrice.upsert({
         where: {
-          sport_componentType_period_currency: {
-            sport: item.sport,
+          locationId_sportId_componentType_period_currency: {
+            locationId: effectiveLocationId,
+            sportId: item.sportId,
             componentType: "court",
             period: item.period,
             currency: "KZT",
           },
         },
         create: {
-          sport: item.sport,
+          locationId: effectiveLocationId,
+          sportId: item.sportId,
           componentType: "court",
           period: item.period,
           currency: "KZT",

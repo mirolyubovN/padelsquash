@@ -44,7 +44,7 @@ export async function getSeededPadelTrainingService() {
 
 export async function getSeededPadelCourts(limit = 2) {
   const courts = await prisma.court.findMany({
-    where: { active: true, sport: "padel" },
+    where: { active: true, sport: { slug: "padel" } },
     orderBy: { name: "asc" },
     take: limit,
   });
@@ -56,12 +56,32 @@ export async function getSeededPadelCourts(limit = 2) {
 
 export async function getSeededPadelInstructors(limit = 2) {
   const instructors = await prisma.instructor.findMany({
-    where: { active: true, sports: { has: "padel" } },
+    where: {
+      active: true,
+      instructorSports: {
+        some: {
+          sport: { slug: "padel" },
+        },
+      },
+    },
     orderBy: { name: "asc" },
     take: limit,
+    select: {
+      id: true,
+      name: true,
+      instructorSports: {
+        where: { sport: { slug: "padel" } },
+        select: { pricePerHour: true },
+        take: 1,
+      },
+    },
   });
   if (instructors.length < limit) {
     throw new Error(`Ожидалось минимум ${limit} падел-тренера в seed`);
   }
-  return instructors;
+  return instructors.map((instructor) => ({
+    id: instructor.id,
+    name: instructor.name,
+    pricePerHour: Number(instructor.instructorSports[0]?.pricePerHour ?? 0),
+  }));
 }

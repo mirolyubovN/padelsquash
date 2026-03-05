@@ -16,3 +16,4 @@
 - When the user replaces a design direction after a phase implementation, treat it as a product-spec override (not an incremental tweak): update the master plan checklist immediately and remove superseded homepage sections instead of layering new sections on top.
 - Pricing ownership must be explicit before building admin/public pricing UX: court base prices and trainer-specific prices are different sources, and admin base pricing must not duplicate trainer pricing controls.
 - Before adding admin UX on top of a resource, confirm the underlying domain cardinality (single vs multi-sport trainer, single vs tiered trainer price) and migrate the schema first; UI patches on a wrong model create cascading rework.
+- When the user says the app/admin is overcomplicated, prioritize scope reduction first: hide non-essential sections by role and remove financial controls from operational roles before adding new features.

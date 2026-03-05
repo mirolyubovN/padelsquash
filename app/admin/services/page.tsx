@@ -7,9 +7,9 @@ import {
   createServiceFromForm,
   deleteService,
   getAdminServices,
+  getAdminSportOptions,
   getServiceResourceDescription,
   setServiceActive,
-  SPORT_LABELS,
   updateServiceFromForm,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
@@ -30,7 +30,8 @@ export default async function AdminServicesPage({
 }) {
   await assertAdmin();
   const params = await searchParams;
-  const services = await getAdminServices();
+  const [services, sportOptions] = await Promise.all([getAdminServices(), getAdminSportOptions()]);
+  const defaultSportId = sportOptions[0]?.id ?? "";
   const errorMessage =
     params.error === "delete_blocked"
       ? "Услугу нельзя удалить: по ней уже есть бронирования."
@@ -98,7 +99,7 @@ export default async function AdminServicesPage({
   return (
     <AdminPageShell
       title="Услуги"
-      description="Упрощенная модель услуг: фиксированные сессии 60 минут. Тренировка = корт + тренер."
+      description="Фиксированные сессии 60 минут. Тренировка считается как корт + тренер."
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">
@@ -106,7 +107,9 @@ export default async function AdminServicesPage({
         </p>
       ) : null}
       {successMessage ? (
-        <p className="account-history__message account-history__message--success">{successMessage}</p>
+        <p className="account-history__message account-history__message--success" role="status">
+          {successMessage}
+        </p>
       ) : null}
 
       <section className="admin-section">
@@ -145,9 +148,12 @@ export default async function AdminServicesPage({
               <label className="admin-form__label" htmlFor="service-sport">
                 Спорт
               </label>
-              <select id="service-sport" name="sport" className="admin-form__field" defaultValue="padel">
-                <option value="padel">Падел</option>
-                <option value="squash">Сквош</option>
+              <select id="service-sport" name="sportId" className="admin-form__field" defaultValue={defaultSportId} required>
+                {sportOptions.map((sport) => (
+                  <option key={sport.id} value={sport.id}>
+                    {sport.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="admin-form__group">
@@ -217,7 +223,7 @@ export default async function AdminServicesPage({
                       </button>
                     </form>
                   </td>
-                  <td className="admin-table__cell">{SPORT_LABELS[service.sport]}</td>
+                  <td className="admin-table__cell">{service.sportName}</td>
                   <td className="admin-table__cell">
                     {service.requiresInstructor ? "Тренировка" : "Аренда"}
                   </td>

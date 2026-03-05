@@ -104,6 +104,8 @@ async function waitForAdminTableRowCountContainingText(
 
 test("admin can manage config and resource CRUD/toggle flows", async ({ page }) => {
   const uniqueSuffix = `${Date.now()}`;
+  const sportName = `Тест спорт ${uniqueSuffix}`;
+  const sportSlug = `test-sport-${uniqueSuffix}`;
   const courtName = `Тест корт ${uniqueSuffix}`;
   const instructorName = `Тест тренер ${uniqueSuffix}`;
   const serviceCode = `test-rental-${uniqueSuffix}`;
@@ -129,13 +131,32 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
   await expect(page.getByRole("button", { name: "Сохранить матрицу цен" })).toBeVisible();
 
   await page.goto("/admin/pricing/rules");
-  await expect(page.getByText("Периоды цен")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Периоды цен" })).toBeVisible();
   await expect(page.getByText("Вечер / выходные")).toBeVisible();
+
+  await page.goto("/admin/sports");
+  const createSportSection = page
+    .locator(".admin-section")
+    .filter({ has: page.getByRole("button", { name: "Добавить вид спорта" }) })
+    .first();
+  await createSportSection.getByLabel("Название").fill(sportName);
+  await createSportSection.getByLabel("Slug").fill(sportSlug);
+  await createSportSection.getByLabel("Иконка (опционально)").fill("🏓");
+  await createSportSection.getByLabel("Порядок").fill("950");
+  await createSportSection.getByRole("button", { name: "Добавить вид спорта" }).click();
+  let sportRow = await waitForAdminTableRowByNameValue(page, sportName);
+  await expect(sportRow).toBeVisible({ timeout: 20000 });
+  await sportRow.getByRole("button", { name: "Выключить" }).click();
+  sportRow = await waitForAdminTableRowByNameValue(page, sportName);
+  await expect(sportRow.getByText("Неактивен")).toBeVisible();
+  await sportRow.getByRole("button", { name: "Удалить" }).click();
+  await page.getByRole("button", { name: "Удалить вид спорта" }).click();
+  await waitForAdminTableRowCountByNameValue(page, sportName, 0);
 
   await page.goto("/admin/courts");
   const createCourtSection = page.locator(".admin-section").filter({ has: page.getByRole("button", { name: "Добавить корт" }) }).first();
   await createCourtSection.getByLabel("Название").fill(courtName);
-  await createCourtSection.getByLabel("Спорт").selectOption("padel");
+  await createCourtSection.getByLabel("Спорт").selectOption({ label: "Падел" });
   await createCourtSection.getByLabel("Примечание (опционально)").fill("E2E court");
   await createCourtSection.getByRole("button", { name: "Добавить корт" }).click();
   let courtRow = await waitForAdminTableRowByNameValue(page, courtName);
@@ -171,7 +192,7 @@ test("admin can manage config and resource CRUD/toggle flows", async ({ page }) 
   const createServiceSection = page.locator(".admin-section").filter({ has: page.getByRole("button", { name: "Добавить услугу" }) }).first();
   await createServiceSection.getByLabel("Код").fill(serviceCode);
   await createServiceSection.getByLabel("Название").fill(serviceName);
-  await createServiceSection.getByLabel("Спорт").selectOption("squash");
+  await createServiceSection.getByLabel("Спорт").selectOption({ label: "Сквош" });
   await createServiceSection.getByRole("checkbox", { name: "Это тренировка (добавляет тренера к цене)" }).check();
   await createServiceSection.getByRole("button", { name: "Добавить услугу" }).click();
   let serviceRow = await waitForAdminTableRowByNameValue(page, serviceName);

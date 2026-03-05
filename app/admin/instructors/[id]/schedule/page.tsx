@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin } from "@/src/lib/auth/guards";
+import { canViewRevenue } from "@/src/lib/auth/roles";
 import {
   addInstructorScheduleFromForm,
   createInstructorExceptionFromForm,
@@ -9,7 +10,6 @@ import {
   EXCEPTION_TYPE_LABELS,
   getInstructorSchedulePageData,
   getScheduleWeekdayLabel,
-  SPORT_LABELS,
   setInstructorScheduleActive,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
@@ -36,7 +36,8 @@ export default async function AdminInstructorSchedulePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await assertAdmin();
+  const session = await assertAdmin();
+  const canSeeRevenue = canViewRevenue(session.user.role);
   const { id } = await params;
   const data = await getInstructorSchedulePageData(id);
 
@@ -97,7 +98,11 @@ export default async function AdminInstructorSchedulePage({
   return (
     <AdminPageShell
       title={`График тренера: ${data.instructor.name}`}
-      description="Недельные интервалы доступности, разовые исключения и последние сессии тренера."
+      description={
+        canSeeRevenue
+          ? "Недельные интервалы доступности, разовые исключения и последние сессии тренера."
+          : "Недельные интервалы доступности и разовые исключения тренера."
+      }
       breadcrumbs={[
         { label: "Тренеры", href: "/admin/instructors" },
         { label: data.instructor.name },
@@ -109,13 +114,12 @@ export default async function AdminInstructorSchedulePage({
           <tbody>
             <tr className="admin-table__row">
               <td className="admin-table__cell">
-                <strong>Виды спорта:</strong>{" "}
+                <strong>Виды спорта и ставки:</strong>{" "}
                 {data.instructor.sports.length > 0
-                  ? data.instructor.sports.map((sport) => SPORT_LABELS[sport]).join(", ")
+                  ? data.instructor.sports
+                      .map((sport) => `${sport.name}: ${Number(sport.pricePerHour).toLocaleString("ru-KZ")} ₸ / час`)
+                      .join(", ")
                   : "—"}
-              </td>
-              <td className="admin-table__cell">
-                <strong>Ставка:</strong> {Number(data.instructor.pricePerHour).toLocaleString("ru-KZ")} ₸ / час
               </td>
               <td className="admin-table__cell">
                 <strong>Описание:</strong> {data.instructor.bio ?? "—"}
@@ -357,13 +361,13 @@ export default async function AdminInstructorSchedulePage({
               <th className="admin-table__cell admin-table__cell--head">Клиент</th>
               <th className="admin-table__cell admin-table__cell--head">Корт</th>
               <th className="admin-table__cell admin-table__cell--head">Статус</th>
-              <th className="admin-table__cell admin-table__cell--head">Сумма</th>
+              {canSeeRevenue ? <th className="admin-table__cell admin-table__cell--head">Сумма</th> : null}
             </tr>
           </thead>
           <tbody>
             {data.sessions.length === 0 ? (
               <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={7}>
+                <td className="admin-table__cell" colSpan={canSeeRevenue ? 7 : 6}>
                   Сессий по этому тренеру пока нет.
                 </td>
               </tr>
@@ -379,7 +383,9 @@ export default async function AdminInstructorSchedulePage({
                   </td>
                   <td className="admin-table__cell">{session.courtLabel ?? "—"}</td>
                   <td className="admin-table__cell">{BOOKING_STATUS_LABELS[session.status]}</td>
-                  <td className="admin-table__cell">{session.priceTotal.toLocaleString("ru-KZ")} ₸</td>
+                  {canSeeRevenue ? (
+                    <td className="admin-table__cell">{session.priceTotal.toLocaleString("ru-KZ")} ₸</td>
+                  ) : null}
                 </tr>
               ))
             )}

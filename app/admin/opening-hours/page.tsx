@@ -27,7 +27,7 @@ export default async function AdminOpeningHoursPage() {
   return (
     <AdminPageShell
       title="Часы работы площадки"
-      description="Недельный шаблон часов работы клуба. Изменения сохраняются в БД через Server Action."
+      description="Недельный шаблон часов работы клуба для расчета доступности слотов."
     >
       <form action={saveAction} className="admin-form">
         <div className="admin-table">

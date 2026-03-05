@@ -1,5 +1,6 @@
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { AdminTable } from "@/src/components/admin/admin-table";
+import { assertSuperAdmin } from "@/src/lib/auth/guards";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -9,7 +10,10 @@ export const metadata = buildPageMetadata({
   noIndex: true,
 });
 
-export default function AdminPricingRulesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AdminPricingRulesPage() {
+  await assertSuperAdmin();
   return (
     <AdminPageShell
       title="Периоды цен"

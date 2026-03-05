@@ -1,6 +1,4 @@
-export type UserRole = "customer" | "coach" | "admin";
-
-export type Sport = "padel" | "squash";
+export type UserRole = "customer" | "trainer" | "admin" | "super_admin";
 
 export type BookingStatus =
   | "pending_payment"
@@ -22,7 +20,7 @@ export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export interface ServiceRecord {
   id: string;
   name: string;
-  sport: Sport;
+  sport: string;
   requiresCourt: boolean;
   requiresInstructor: boolean;
   active: boolean;
@@ -67,7 +65,7 @@ export interface ExistingBookingRecord {
 
 export interface ComponentPriceRecord {
   id: string;
-  sport: Sport;
+  sport: string;
   componentType: PriceComponentType;
   tier: PricingTier;
   currency: string;

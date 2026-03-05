@@ -85,7 +85,19 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     }),
     prisma.instructor.findMany({
       where: { active: true },
-      select: { id: true, name: true, sports: true },
+      select: {
+        id: true,
+        name: true,
+        instructorSports: {
+          select: {
+            sport: {
+              select: {
+                slug: true,
+              },
+            },
+          },
+        },
+      },
     }),
     prisma.resourceSchedule.findMany({
       where: {
@@ -99,10 +111,14 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
   const scheduledInstructorIds = new Set(tomorrowSchedules.map((row) => row.resourceId));
   const padelTomorrowCount = activeInstructors.filter(
-    (row) => row.sports.includes("padel") && scheduledInstructorIds.has(row.id),
+    (row) =>
+      row.instructorSports.some((item) => item.sport.slug === "padel") &&
+      scheduledInstructorIds.has(row.id),
   ).length;
   const squashTomorrowCount = activeInstructors.filter(
-    (row) => row.sports.includes("squash") && scheduledInstructorIds.has(row.id),
+    (row) =>
+      row.instructorSports.some((item) => item.sport.slug === "squash") &&
+      scheduledInstructorIds.has(row.id),
   ).length;
 
   const alerts: string[] = [];

@@ -3,17 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { adminNavItems } from "@/src/components/admin/admin-nav-config";
+import { getAdminNavItems } from "@/src/components/admin/admin-nav-config";
+import { getRoleLabel, type AppRole } from "@/src/lib/auth/roles";
 
 interface AdminShellFrameProps {
   email: string;
+  role: AppRole;
   logoutAction: (formData: FormData) => void | Promise<void>;
   children: React.ReactNode;
 }
 
-export function AdminShellFrame({ email, logoutAction, children }: AdminShellFrameProps) {
+export function AdminShellFrame({ email, role, logoutAction, children }: AdminShellFrameProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navItems = getAdminNavItems(role);
 
   return (
     <div className="admin-shell">
@@ -29,7 +32,7 @@ export function AdminShellFrame({ email, logoutAction, children }: AdminShellFra
           >
             Меню
           </button>
-          <span className="admin-shell__badge">admin</span>
+          <span className="admin-shell__badge">{getRoleLabel(role)}</span>
           <span className="admin-shell__email">{email}</span>
         </div>
         <form action={logoutAction}>
@@ -58,7 +61,7 @@ export function AdminShellFrame({ email, logoutAction, children }: AdminShellFra
             <p className="admin-shell__sidebar-subtitle">Разделы управления клубом</p>
           </div>
           <nav className="admin-shell__nav" aria-label="Разделы админ-панели">
-            {adminNavItems.map((item) => {
+            {navItems.map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));

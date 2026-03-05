@@ -6,6 +6,7 @@ import { demoServices } from "@/src/lib/availability/demo";
 import { demoComponentPrices } from "@/src/lib/pricing/demo";
 import { prisma } from "@/src/lib/prisma";
 import { createBookingSchema } from "@/src/lib/validation/booking";
+import { resolveLocationBySlug } from "@/src/lib/locations/service";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
         code: true,
         name: true,
         sport: true,
+        locationId: true,
         requiresCourt: true,
         requiresInstructor: true,
         active: true,
@@ -52,6 +54,9 @@ export async function POST(request: Request) {
     );
   }
 
+  const locationSelection = await resolveLocationBySlug(parsed.data.location);
+  const selectedLocation = locationSelection.selected;
+
   const accountCustomer =
     session?.user?.id
       ? await prisma.user
@@ -65,6 +70,7 @@ export async function POST(request: Request) {
   try {
     const result = await createBookingInDb({
       serviceCode: parsed.data.serviceId,
+      locationId: selectedLocation.id,
       date: parsed.data.date,
       startTime: parsed.data.startTime,
       durationMin: parsed.data.durationMin,

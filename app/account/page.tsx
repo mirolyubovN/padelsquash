@@ -6,6 +6,7 @@ import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
 import { getAccountDashboardData } from "@/src/lib/account/bookings";
 import { getSafeCustomerFreeCancellationHours } from "@/src/lib/bookings/policy";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { getRoleLabel } from "@/src/lib/auth/roles";
 
 export const metadata = buildPageMetadata({
   title: "Личный кабинет | Padel & Squash KZ",
@@ -25,8 +26,7 @@ export default async function AccountPage({
   const session = await requireAuthenticatedUser("/account");
   const params = await searchParams;
   const data = await getAccountDashboardData(session.user.id);
-  const roleLabel =
-    data.user.role === "admin" ? "Администратор" : data.user.role === "coach" ? "Тренер" : "Клиент";
+  const roleLabel = getRoleLabel(data.user.role);
   const successMessage = params.success === "profile_saved" ? "Профиль обновлен." : null;
   const errorMessage = params.error === "profile_invalid" ? "Проверьте имя и телефон." : null;
 

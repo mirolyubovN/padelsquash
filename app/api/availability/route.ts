@@ -19,6 +19,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const parsed = availabilityQuerySchema.safeParse({
     serviceId: url.searchParams.get("serviceId"),
+    location: url.searchParams.get("location") ?? undefined,
     date: url.searchParams.get("date"),
     durationMin: url.searchParams.get("durationMin"),
     instructorId: url.searchParams.get("instructorId") ?? undefined,
@@ -53,6 +54,7 @@ export async function GET(request: Request) {
     const dbContext = await getAvailabilityContextFromDb({
       serviceCode: parsed.data.serviceId,
       date: parsed.data.date,
+      locationSlug: parsed.data.location,
     });
 
     if (dbContext) {
@@ -76,6 +78,7 @@ export async function GET(request: Request) {
           slotGranularityMin: 60,
           durationMin: parsed.data.durationMin,
           sessionPolicy: "fixed_60_min",
+          location: dbContext.location,
         },
         service: dbContext.service,
         date: parsed.data.date,

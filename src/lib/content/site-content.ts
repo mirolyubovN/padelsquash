@@ -14,7 +14,7 @@ export const siteConfig = {
   shortDescription: "Падел и сквош в Алматы: корты, тренировки и онлайн-запись за пару минут.",
   socialLinks: [
     { label: "Instagram", href: "https://instagram.com/padelsquashkz" },
-    { label: "WhatsApp", href: "https://wa.me/77000000000" },
+    { label: "WhatsApp", href: "https://wa.me/77273557700" },
     { label: "Telegram", href: "https://t.me/padelsquashkz" },
   ],
   legalLinks: [
@@ -55,33 +55,6 @@ export const courtItems = [
   description: sharedCourtSpecs[sportKey].description,
   features: [...sharedCourtSpecs[sportKey].features],
 }));
-
-export const serviceItems = [
-  {
-    id: "padel-rental",
-    name: "Аренда корта (падел)",
-    durations: "60 минут",
-    note: "Для самостоятельной игры. При необходимости добавьте тренировку с тренером.",
-  },
-  {
-    id: "padel-coaching",
-    name: "Тренировка с тренером (падел)",
-    durations: "60 минут",
-    note: "Стоимость = аренда корта + выбранный тренер.",
-  },
-  {
-    id: "squash-rental",
-    name: "Аренда корта (сквош)",
-    durations: "60 минут",
-    note: "Подходит для одиночной игры и спарринга.",
-  },
-  {
-    id: "squash-coaching",
-    name: "Тренировка с тренером (сквош)",
-    durations: "60 минут",
-    note: "Стоимость = аренда корта + выбранный тренер.",
-  },
-];
 
 export const pricingTierRows = [
   {
@@ -245,8 +218,6 @@ export const contactPageContent = {
     "Если едете впервые, откройте ссылку на Google Maps заранее и ориентируйтесь на адрес: ул. Абая, 120.",
     "На тренировку и первую игру удобно приезжать за 10-15 минут до начала.",
   ],
-  formTitle: "Оставить заявку",
-  formDescription: "Напишите нам, и администратор свяжется с вами для уточнения деталей.",
 } as const;
 
 export const bookPageContent = {

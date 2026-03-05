@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
       <PageHero
         eyebrow="Документы"
         title="Политика конфиденциальности"
-        description="Краткая версия политики для сайта клуба. Полная редакция будет опубликована после юридического согласования."
+        description="Краткая версия политики для сайта клуба с правилами обработки данных при бронировании."
       />
 
       <section className="booking-flow" aria-labelledby="privacy-content-title">

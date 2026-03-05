@@ -9,7 +9,9 @@ import {
   getAdminBookings,
   setBookingStatus,
 } from "@/src/lib/admin/bookings";
+import { getAdminSportOptions } from "@/src/lib/admin/resources";
 import { assertAdmin } from "@/src/lib/auth/guards";
+import { canViewRevenue } from "@/src/lib/auth/roles";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -33,7 +35,7 @@ function normalizeSearchParams(params: {
 }): {
   q?: string;
   status?: AdminBookingStatus;
-  sport?: "padel" | "squash";
+  sport?: string;
   dateFrom?: string;
   dateTo?: string;
   page: number;
@@ -48,7 +50,7 @@ function normalizeSearchParams(params: {
     params.status === "no_show"
       ? params.status
       : undefined;
-  const sport = params.sport === "padel" || params.sport === "squash" ? params.sport : undefined;
+  const sport = params.sport?.trim() || undefined;
 
   return {
     q: params.q?.trim() || undefined,
@@ -91,17 +93,21 @@ export default async function AdminBookingsPage({
     page?: string;
   }>;
 }) {
-  await assertAdmin();
+  const session = await assertAdmin();
+  const canSeeRevenue = canViewRevenue(session.user.role);
   const params = normalizeSearchParams(await searchParams);
-  const bookings = await getAdminBookings({
-    page: params.page,
-    pageSize: 20,
-    q: params.q,
-    status: params.status,
-    sport: params.sport,
-    dateFrom: params.dateFrom,
-    dateTo: params.dateTo,
-  });
+  const [bookings, sportOptions] = await Promise.all([
+    getAdminBookings({
+      page: params.page,
+      pageSize: 20,
+      q: params.q,
+      status: params.status,
+      sport: params.sport,
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
+    }),
+    getAdminSportOptions(),
+  ]);
 
   async function bookingAction(formData: FormData) {
     "use server";
@@ -128,7 +134,11 @@ export default async function AdminBookingsPage({
   return (
     <AdminPageShell
       title="Бронирования"
-      description="Поиск, фильтры, пагинация и действия по бронированиям с деталями клиентов, ресурсов и цены."
+      description={
+        canSeeRevenue
+          ? "Поиск, фильтры, пагинация и действия по бронированиям с деталями клиентов, ресурсов и цены."
+          : "Поиск, фильтры, пагинация и действия по бронированиям."
+      }
     >
       <form method="get" className="admin-filters">
         <div className="admin-filters__grid">
@@ -173,8 +183,11 @@ export default async function AdminBookingsPage({
               defaultValue={params.sport ?? ""}
             >
               <option value="">Все</option>
-              <option value="padel">Падел</option>
-              <option value="squash">Сквош</option>
+              {sportOptions.map((sport) => (
+                <option key={sport.id} value={sport.slug}>
+                  {sport.name}
+                </option>
+              ))}
             </select>
           </div>
           <div className="admin-form__group">
@@ -227,7 +240,7 @@ export default async function AdminBookingsPage({
               <th className="admin-table__cell admin-table__cell--head">Дата / время</th>
               <th className="admin-table__cell admin-table__cell--head">Статус</th>
               <th className="admin-table__cell admin-table__cell--head">Оплата</th>
-              <th className="admin-table__cell admin-table__cell--head">Сумма</th>
+              {canSeeRevenue ? <th className="admin-table__cell admin-table__cell--head">Сумма</th> : null}
               <th className="admin-table__cell admin-table__cell--head">Детали</th>
               <th className="admin-table__cell admin-table__cell--head">Действия</th>
             </tr>
@@ -235,7 +248,7 @@ export default async function AdminBookingsPage({
           <tbody>
             {bookings.rows.length === 0 ? (
               <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={8}>
+                <td className="admin-table__cell" colSpan={canSeeRevenue ? 8 : 7}>
                   Бронирований пока нет.
                 </td>
               </tr>
@@ -250,7 +263,7 @@ export default async function AdminBookingsPage({
                   <td className="admin-table__cell">
                     <div className="admin-bookings__cell-title">{row.serviceName}</div>
                     <div className="admin-bookings__cell-sub">
-                      {row.serviceCode} · {row.serviceSport === "padel" ? "Падел" : "Сквош"}
+                      {row.serviceCode} · {row.serviceSportName}
                     </div>
                   </td>
                   <td className="admin-table__cell">
@@ -269,7 +282,7 @@ export default async function AdminBookingsPage({
                       {row.paymentStatusLabel}
                     </span>
                   </td>
-                  <td className="admin-table__cell">{row.amountKzt}</td>
+                  {canSeeRevenue ? <td className="admin-table__cell">{row.amountKzt}</td> : null}
                   <td className="admin-table__cell">
                     <details className="admin-bookings__details">
                       <summary className="admin-bookings__details-summary">Показать</summary>
@@ -286,7 +299,7 @@ export default async function AdminBookingsPage({
                           <span>Оплата</span>
                           <span>{ADMIN_PAYMENT_STATUS_LABELS[row.paymentStatus]} · {row.paymentProvider}</span>
                         </div>
-                        {row.pricingBreakdownLines.length > 0 ? (
+                        {canSeeRevenue && row.pricingBreakdownLines.length > 0 ? (
                           <div className="admin-bookings__details-breakdown">
                             {row.pricingBreakdownLines.map((line) => (
                               <div key={`${row.id}-${line}`} className="admin-bookings__cell-sub">

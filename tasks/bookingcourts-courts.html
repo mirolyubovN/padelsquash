@@ -1,0 +1,18 @@
+
+
+
+
+    <h1>Выберите клуб для бронирования:</h1>
+
+    <div id="sport">
+        <div class="icon" ng-repeat="section in SECTIONS" ng-click="progress();">
+            <a  href="{{section.URL}}">
+                <img ng-if="section.PICTURE" ng-src="{{section.PICTURE}}" title="{{section.NAME}}" alt="{{section.NAME}}"/>
+          
+            </a>
+
+        </div>
+    </div>
+
+
+

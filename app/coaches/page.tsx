@@ -17,13 +17,26 @@ export default async function CoachesPage() {
       id: true,
       name: true,
       bio: true,
-      sports: true,
-      pricePerHour: true,
+      instructorSports: {
+        orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
+        select: {
+          pricePerHour: true,
+          sport: {
+            select: {
+              slug: true,
+              name: true,
+            },
+          },
+        },
+      },
     },
     orderBy: [{ name: "asc" }],
   });
-  const sportLabel: Record<"padel" | "squash", string> = { padel: "Падел", squash: "Сквош" };
   const formatMoneyKzt = (amount: number) => `${amount.toLocaleString("ru-KZ")} ₸`;
+  const getCoachBookingHref = (sports: Array<{ slug: string }>) => {
+    const preferredSport = sports[0]?.slug ?? "padel";
+    return `/book?sport=${preferredSport}&service=training`;
+  };
 
   return (
     <div className="listing-page">
@@ -40,7 +53,7 @@ export default async function CoachesPage() {
               Информация о тренерах скоро появится.
             </p>
             <div className="card-grid__actions">
-              <Link href="/book" className="card-grid__button">
+              <Link href="/book?sport=padel&service=training" className="card-grid__button">
                 {coachesPageContent.bookingLabel}
               </Link>
             </div>
@@ -49,7 +62,7 @@ export default async function CoachesPage() {
           dbInstructors.map((coach) => (
             <article key={coach.id} className="coach-card">
               <div
-                className={`coach-card__avatar coach-card__avatar--${coach.sports.includes("squash") && !coach.sports.includes("padel") ? "squash" : "padel"}`}
+                className={`coach-card__avatar coach-card__avatar--${coach.instructorSports.some((item) => item.sport.slug === "squash") && !coach.instructorSports.some((item) => item.sport.slug === "padel") ? "squash" : "padel"}`}
                 aria-hidden="true"
               >
                 {coach.name
@@ -59,23 +72,25 @@ export default async function CoachesPage() {
                   .join("")}
               </div>
               <div className="tag-list" aria-label="Виды спорта">
-                {coach.sports.map((sport) => (
-                  <span key={`${coach.id}-${sport}`} className="card-grid__badge">
-                    {sportLabel[sport]}
+                {coach.instructorSports.map((item) => (
+                  <span key={`${coach.id}-${item.sport.slug}`} className="card-grid__badge">
+                    {item.sport.name}
                   </span>
                 ))}
               </div>
               <div className="coach-card__head">
                 <h2 className="card-grid__title">{coach.name}</h2>
               </div>
-              <p className="card-grid__text">
-                {coach.bio?.trim() || "Описание тренера будет добавлено позже."}
-              </p>
+              {coach.bio?.trim() ? <p className="card-grid__text">{coach.bio}</p> : null}
               <p className="coach-card__price">
-                {`от ${formatMoneyKzt(Number(coach.pricePerHour))} / час`}
+                {coach.instructorSports.length > 0
+                  ? `от ${formatMoneyKzt(
+                      Math.min(...coach.instructorSports.map((item) => Number(item.pricePerHour))),
+                    )} / час`
+                  : "Цена уточняется"}
               </p>
               <div className="card-grid__actions">
-                <Link href="/book" className="card-grid__button">
+                <Link href={getCoachBookingHref(coach.instructorSports.map((item) => item.sport))} className="card-grid__button">
                   {coachesPageContent.bookingLabel}
                 </Link>
               </div>

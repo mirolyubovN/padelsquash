@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/src/lib/prisma";
+import { getDefaultLocation } from "@/src/lib/locations/service";
 import { WEEKDAY_LABELS } from "@/src/lib/settings/service";
 import {
   formatDateInVenueTimezone,
@@ -10,7 +11,6 @@ import {
 
 const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "Время должно быть в формате HH:MM");
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Дата должна быть в формате YYYY-MM-DD");
-const sportSchema = z.enum(["padel", "squash"]);
 const exceptionTypeSchema = z.enum(["closed", "maintenance"]);
 const resourceTypeSchema = z.enum(["venue", "court", "instructor"]);
 
@@ -28,7 +28,16 @@ const optionalTrimmedString = z
     return trimmed ? trimmed : undefined;
   });
 
-export const SPORT_LABELS: Record<"padel" | "squash", string> = {
+const sportIdSchema = nonEmptyString("sportId");
+const sportSlugSchema = nonEmptyString("Slug")
+  .transform((value) => value.toLowerCase())
+  .pipe(z.string().regex(/^[a-z0-9-]+$/, "Slug может содержать только a-z, 0-9 и дефис"));
+
+function resolveSportLabel(slug: string, name?: string | null): string {
+  return name?.trim() || SPORT_LABELS[slug] || slug;
+}
+
+export const SPORT_LABELS: Record<string, string> = {
   padel: "Падел",
   squash: "Сквош",
 };
@@ -47,7 +56,9 @@ export const RESOURCE_TYPE_LABELS: Record<"venue" | "court" | "instructor", stri
 export interface AdminCourtRow {
   id: string;
   name: string;
-  sport: "padel" | "squash";
+  sportId: string;
+  sportSlug: string;
+  sportName: string;
   active: boolean;
   notes?: string;
 }
@@ -55,7 +66,7 @@ export interface AdminCourtRow {
 export interface AdminInstructorRow {
   id: string;
   name: string;
-  sports: Array<"padel" | "squash">;
+  sports: Array<{ sportId: string; slug: string; name: string; pricePerHour: number }>;
   bio?: string;
   pricePerHour: number;
   active: boolean;
@@ -65,10 +76,24 @@ export interface AdminServiceRow {
   id: string;
   code: string;
   name: string;
-  sport: "padel" | "squash";
+  sportId: string;
+  sportSlug: string;
+  sportName: string;
   requiresCourt: boolean;
   requiresInstructor: boolean;
   active: boolean;
+}
+
+export interface AdminSportOption {
+  id: string;
+  slug: string;
+  name: string;
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface AdminSportRow extends AdminSportOption {
+  icon?: string;
 }
 
 export interface AdminScheduleRow {
@@ -117,7 +142,20 @@ function assertTimeRange(startTime: string, endTime: string) {
 async function ensureCourtExists(courtId: string) {
   const court = await prisma.court.findUnique({
     where: { id: courtId },
-    select: { id: true, name: true, sport: true, active: true, notes: true },
+    select: {
+      id: true,
+      name: true,
+      sportId: true,
+      active: true,
+      notes: true,
+      sport: {
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+        },
+      },
+    },
   });
   if (!court) {
     throw new Error("Корт не найден");
@@ -128,12 +166,204 @@ async function ensureCourtExists(courtId: string) {
 async function ensureInstructorExists(instructorId: string) {
   const instructor = await prisma.instructor.findUnique({
     where: { id: instructorId },
-    select: { id: true, name: true, bio: true, active: true, sports: true, pricePerHour: true },
+    select: {
+      id: true,
+      name: true,
+      bio: true,
+      active: true,
+      instructorSports: {
+        orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
+        select: {
+          sportId: true,
+          pricePerHour: true,
+          sport: {
+            select: {
+              slug: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
   });
   if (!instructor) {
     throw new Error("Тренер не найден");
   }
   return instructor;
+}
+
+export async function getAdminSportOptions(includeInactive = false): Promise<AdminSportOption[]> {
+  const rows = await prisma.sport.findMany({
+    where: includeInactive ? undefined : { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      active: true,
+      sortOrder: true,
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: resolveSportLabel(row.slug, row.name),
+    active: row.active,
+    sortOrder: row.sortOrder,
+  }));
+}
+
+export async function getAdminSports(): Promise<AdminSportRow[]> {
+  const rows = await prisma.sport.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      icon: true,
+      active: true,
+      sortOrder: true,
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: resolveSportLabel(row.slug, row.name),
+    icon: row.icon ?? undefined,
+    active: row.active,
+    sortOrder: row.sortOrder,
+  }));
+}
+
+export async function createSportFromForm(formData: FormData) {
+  const parsed = z
+    .object({
+      name: nonEmptyString("Название"),
+      slug: sportSlugSchema,
+      icon: optionalTrimmedString,
+      sortOrder: z.coerce.number().int(),
+      active: z.boolean(),
+    })
+    .safeParse({
+      name: formData.get("name"),
+      slug: formData.get("slug"),
+      icon: formData.get("icon") ?? undefined,
+      sortOrder: formData.get("sortOrder") ?? "0",
+      active: String(formData.get("active") ?? "") === "on",
+    });
+
+  if (!parsed.success) {
+    throw new Error("Некорректные данные вида спорта");
+  }
+
+  try {
+    await prisma.sport.create({
+      data: {
+        name: parsed.data.name,
+        slug: parsed.data.slug,
+        icon: parsed.data.icon ?? null,
+        sortOrder: parsed.data.sortOrder,
+        active: parsed.data.active,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("Unique constraint failed") && message.toLowerCase().includes("slug")) {
+      throw new Error("Вид спорта с таким slug уже существует");
+    }
+    throw error;
+  }
+}
+
+export async function updateSportFromForm(formData: FormData) {
+  const parsed = z
+    .object({
+      sportId: nonEmptyString("sportId"),
+      name: nonEmptyString("Название"),
+      slug: sportSlugSchema,
+      icon: optionalTrimmedString,
+      sortOrder: z.coerce.number().int(),
+    })
+    .safeParse({
+      sportId: formData.get("sportId"),
+      name: formData.get("name"),
+      slug: formData.get("slug"),
+      icon: formData.get("icon") ?? undefined,
+      sortOrder: formData.get("sortOrder") ?? "0",
+    });
+
+  if (!parsed.success) {
+    throw new Error("Некорректные данные вида спорта");
+  }
+
+  try {
+    await prisma.sport.update({
+      where: { id: parsed.data.sportId },
+      data: {
+        name: parsed.data.name,
+        slug: parsed.data.slug,
+        icon: parsed.data.icon ?? null,
+        sortOrder: parsed.data.sortOrder,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("Unique constraint failed") && message.toLowerCase().includes("slug")) {
+      throw new Error("Вид спорта с таким slug уже существует");
+    }
+    throw error;
+  }
+}
+
+export async function setSportActive(args: { sportId: string; active: boolean }) {
+  await prisma.sport.update({
+    where: { id: args.sportId },
+    data: { active: args.active },
+  });
+}
+
+export async function deleteSport(sportId: string) {
+  const sport = await prisma.sport.findUnique({
+    where: { id: sportId },
+    select: { id: true },
+  });
+  if (!sport) {
+    throw new Error("Вид спорта не найден");
+  }
+
+  const [courtUsageCount, serviceUsageCount, instructorUsageCount, priceUsageCount] = await Promise.all([
+    prisma.court.count({ where: { sportId } }),
+    prisma.service.count({ where: { sportId } }),
+    prisma.instructorSport.count({ where: { sportId } }),
+    prisma.componentPrice.count({ where: { sportId } }),
+  ]);
+
+  if (courtUsageCount + serviceUsageCount + instructorUsageCount + priceUsageCount > 0) {
+    throw new Error("Нельзя удалить вид спорта: он уже используется в данных");
+  }
+
+  await prisma.sport.delete({
+    where: { id: sportId },
+  });
+}
+
+async function ensureSportsExist(sportIds: string[]) {
+  const uniqueIds = Array.from(new Set(sportIds));
+  if (uniqueIds.length === 0) {
+    return [];
+  }
+
+  const sports = await prisma.sport.findMany({
+    where: { id: { in: uniqueIds } },
+    select: { id: true, slug: true, name: true, active: true },
+  });
+  if (sports.length !== uniqueIds.length) {
+    throw new Error("Выбран неизвестный вид спорта");
+  }
+
+  return sports;
 }
 
 function formatResourceLabel(args: {
@@ -190,13 +420,28 @@ function mapExceptionRows(
 
 export async function getAdminCourts(): Promise<AdminCourtRow[]> {
   const rows = await prisma.court.findMany({
-    orderBy: [{ sport: "asc" }, { name: "asc" }],
+    orderBy: [{ sport: { sortOrder: "asc" } }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      active: true,
+      notes: true,
+      sportId: true,
+      sport: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
   });
 
-  return rows.map((row: { id: string; name: string; sport: "padel" | "squash"; active: boolean; notes: string | null }) => ({
+  return rows.map((row) => ({
     id: row.id,
     name: row.name,
-    sport: row.sport,
+    sportId: row.sportId,
+    sportSlug: row.sport.slug,
+    sportName: resolveSportLabel(row.sport.slug, row.sport.name),
     active: row.active,
     notes: row.notes ?? undefined,
   }));
@@ -206,12 +451,12 @@ export async function createCourtFromForm(formData: FormData) {
   const parsed = z
     .object({
       name: nonEmptyString("Название"),
-      sport: sportSchema,
+      sportId: sportIdSchema,
       notes: optionalTrimmedString,
     })
     .safeParse({
       name: formData.get("name"),
-      sport: formData.get("sport"),
+      sportId: formData.get("sportId"),
       notes: formData.get("notes") ?? undefined,
     });
 
@@ -219,10 +464,14 @@ export async function createCourtFromForm(formData: FormData) {
     throw new Error("Некорректные данные корта");
   }
 
+  await ensureSportsExist([parsed.data.sportId]);
+  const defaultLocation = await getDefaultLocation();
+
   await prisma.court.create({
     data: {
       name: parsed.data.name,
-      sport: parsed.data.sport,
+      sportId: parsed.data.sportId,
+      locationId: defaultLocation.id,
       active: true,
       notes: parsed.data.notes ?? null,
     },
@@ -289,21 +538,41 @@ export async function deleteCourt(courtId: string) {
 export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
   const rows = await prisma.instructor.findMany({
     orderBy: [{ name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      bio: true,
+      active: true,
+      instructorSports: {
+        orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
+        select: {
+          sportId: true,
+          pricePerHour: true,
+          sport: {
+            select: {
+              slug: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
   });
 
-  return rows.map((row: {
-    id: string;
-    name: string;
-    sports: Array<"padel" | "squash">;
-    bio: string | null;
-    pricePerHour: unknown;
-    active: boolean;
-  }) => ({
+  return rows.map((row) => ({
     id: row.id,
     name: row.name,
-    sports: row.sports,
+    sports: row.instructorSports.map((item) => ({
+      sportId: item.sportId,
+      slug: item.sport.slug,
+      name: resolveSportLabel(item.sport.slug, item.sport.name),
+      pricePerHour: Number(item.pricePerHour),
+    })),
     bio: row.bio ?? undefined,
-    pricePerHour: Number(row.pricePerHour),
+    pricePerHour:
+      row.instructorSports.length > 0
+        ? Number(row.instructorSports[0].pricePerHour)
+        : 0,
     active: row.active,
   }));
 }
@@ -312,13 +581,13 @@ export async function createInstructorFromForm(formData: FormData) {
   const parsed = z
     .object({
       name: nonEmptyString("Имя"),
-      sports: z.array(sportSchema).min(1, "Выберите хотя бы один вид спорта"),
+      sportIds: z.array(sportIdSchema).min(1, "Выберите хотя бы один вид спорта"),
       bio: optionalTrimmedString,
       pricePerHour: z.coerce.number().int().nonnegative(),
     })
     .safeParse({
       name: formData.get("name"),
-      sports: formData.getAll("sports"),
+      sportIds: formData.getAll("sportIds"),
       bio: formData.get("bio") ?? undefined,
       pricePerHour: formData.get("pricePerHour"),
     });
@@ -327,14 +596,26 @@ export async function createInstructorFromForm(formData: FormData) {
     throw new Error("Некорректные данные тренера");
   }
 
-  await prisma.instructor.create({
-    data: {
-      name: parsed.data.name,
-      sports: parsed.data.sports,
-      bio: parsed.data.bio ?? null,
-      pricePerHour: parsed.data.pricePerHour,
-      active: true,
-    },
+  await ensureSportsExist(parsed.data.sportIds);
+
+  await prisma.$transaction(async (tx) => {
+    const instructor = await tx.instructor.create({
+      data: {
+        name: parsed.data.name,
+        bio: parsed.data.bio ?? null,
+        active: true,
+      },
+      select: { id: true },
+    });
+
+    await tx.instructorSport.createMany({
+      data: parsed.data.sportIds.map((sportId) => ({
+        instructorId: instructor.id,
+        sportId,
+        pricePerHour: parsed.data.pricePerHour,
+      })),
+      skipDuplicates: true,
+    });
   });
 }
 
@@ -376,13 +657,13 @@ export async function updateInstructorFromForm(formData: FormData) {
   const parsed = z
     .object({
       instructorId: nonEmptyString("instructorId"),
-      sports: z.array(sportSchema).min(1, "Выберите хотя бы один вид спорта"),
+      sportIds: z.array(sportIdSchema).min(1, "Выберите хотя бы один вид спорта"),
       bio: optionalTrimmedString,
       pricePerHour: z.coerce.number().int().nonnegative(),
     })
     .safeParse({
       instructorId: formData.get("instructorId"),
-      sports: formData.getAll("sports"),
+      sportIds: formData.getAll("sportIds"),
       bio: formData.get("bio") ?? undefined,
       pricePerHour: formData.get("pricePerHour"),
     });
@@ -391,35 +672,72 @@ export async function updateInstructorFromForm(formData: FormData) {
     throw new Error("Некорректные данные тренера");
   }
 
-  await prisma.instructor.update({
-    where: { id: parsed.data.instructorId },
-    data: {
-      sports: parsed.data.sports,
-      bio: parsed.data.bio ?? null,
-      pricePerHour: parsed.data.pricePerHour,
-    },
+  await ensureSportsExist(parsed.data.sportIds);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.instructor.update({
+      where: { id: parsed.data.instructorId },
+      data: {
+        bio: parsed.data.bio ?? null,
+      },
+    });
+
+    await tx.instructorSport.deleteMany({
+      where: {
+        instructorId: parsed.data.instructorId,
+        sportId: { notIn: parsed.data.sportIds },
+      },
+    });
+
+    for (const sportId of parsed.data.sportIds) {
+      await tx.instructorSport.upsert({
+        where: {
+          instructorId_sportId: {
+            instructorId: parsed.data.instructorId,
+            sportId,
+          },
+        },
+        create: {
+          instructorId: parsed.data.instructorId,
+          sportId,
+          pricePerHour: parsed.data.pricePerHour,
+        },
+        update: {
+          pricePerHour: parsed.data.pricePerHour,
+        },
+      });
+    }
   });
 }
 
 export async function getAdminServices(): Promise<AdminServiceRow[]> {
   const rows = await prisma.service.findMany({
-    orderBy: [{ sport: "asc" }, { name: "asc" }],
+    orderBy: [{ sport: { sortOrder: "asc" } }, { name: "asc" }],
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      sportId: true,
+      requiresCourt: true,
+      requiresInstructor: true,
+      active: true,
+      sport: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
   });
 
   return rows.map(
-    (row: {
-      id: string;
-      code: string;
-      name: string;
-      sport: "padel" | "squash";
-      requiresCourt: boolean;
-      requiresInstructor: boolean;
-      active: boolean;
-    }) => ({
+    (row) => ({
       id: row.id,
       code: row.code,
       name: row.name,
-      sport: row.sport,
+      sportId: row.sportId,
+      sportSlug: row.sport.slug,
+      sportName: resolveSportLabel(row.sport.slug, row.sport.name),
       requiresCourt: row.requiresCourt,
       requiresInstructor: row.requiresInstructor,
       active: row.active,
@@ -435,13 +753,13 @@ export async function createServiceFromForm(formData: FormData) {
         .transform((value) => value.trim().toLowerCase())
         .pipe(z.string().regex(/^[a-z0-9-]{3,64}$/, "code: только a-z, 0-9 и -")),
       name: nonEmptyString("Название"),
-      sport: sportSchema,
+      sportId: sportIdSchema,
       includesInstructor: z.boolean(),
     })
     .safeParse({
       code: formData.get("code"),
       name: formData.get("name"),
-      sport: formData.get("sport"),
+      sportId: formData.get("sportId"),
       includesInstructor: formData.get("includesInstructor") === "on",
     });
 
@@ -449,11 +767,13 @@ export async function createServiceFromForm(formData: FormData) {
     throw new Error("Некорректные данные услуги");
   }
 
+  await ensureSportsExist([parsed.data.sportId]);
+
   await prisma.service.create({
     data: {
       code: parsed.data.code,
       name: parsed.data.name,
-      sport: parsed.data.sport,
+      sportId: parsed.data.sportId,
       requiresCourt: true,
       requiresInstructor: parsed.data.includesInstructor,
       active: true,
@@ -591,9 +911,13 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       id: instructor.id,
       name: instructor.name,
       active: instructor.active,
-      sports: instructor.sports,
       bio: instructor.bio ?? undefined,
-      pricePerHour: Number(instructor.pricePerHour),
+      sports: instructor.instructorSports.map((item) => ({
+        sportId: item.sportId,
+        slug: item.sport.slug,
+        name: resolveSportLabel(item.sport.slug, item.sport.name),
+        pricePerHour: Number(item.pricePerHour),
+      })),
     },
     schedules: scheduleRows.map(
       (row: { id: string; dayOfWeek: number; startTime: string; endTime: string; active: boolean }) => ({
@@ -801,7 +1125,9 @@ export async function getCourtExceptionsPageData(courtId: string) {
     court: {
       id: court.id,
       name: court.name,
-      sport: court.sport,
+      sportId: court.sportId,
+      sportSlug: court.sport.slug,
+      sportName: resolveSportLabel(court.sport.slug, court.sport.name),
       active: court.active,
       notes: court.notes ?? undefined,
     },
@@ -869,7 +1195,7 @@ export async function getExceptionTargetOptions(): Promise<ExceptionTargetOption
   const [courts, instructors] = await Promise.all([
     prisma.court.findMany({
       where: { active: true },
-      orderBy: [{ sport: "asc" }, { name: "asc" }],
+      orderBy: [{ sport: { sortOrder: "asc" } }, { name: "asc" }],
       select: { id: true, name: true },
     }),
     prisma.instructor.findMany({

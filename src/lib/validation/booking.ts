@@ -7,6 +7,7 @@ const fixedOneHourDurationSchema = z.coerce
 
 export const availabilityQuerySchema = z.object({
   serviceId: z.string().min(1, "serviceId обязателен"),
+  location: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date должен быть в формате YYYY-MM-DD"),
   durationMin: fixedOneHourDurationSchema.optional().default(60),
   instructorId: z.string().min(1).optional(),
@@ -15,6 +16,7 @@ export const availabilityQuerySchema = z.object({
 export const createBookingSchema = z.object({
   customerId: z.string().min(1).optional(),
   serviceId: z.string().min(1),
+  location: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z
     .string()

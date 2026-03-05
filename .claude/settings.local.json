@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:padel74.ru)",
+      "WebSearch",
+      "WebFetch(domain:playtomic.io)",
+      "WebFetch(domain:www.courtreserve.com)",
+      "WebFetch(domain:matchi.com)",
+      "WebFetch(domain:playtomic.com)",
+      "WebFetch(domain:www.matchi.se)",
+      "WebFetch(domain:www.clubspark.com)",
+      "WebFetch(domain:courtreserve.com)",
+      "WebFetch(domain:www.smashapp.com)",
+      "WebFetch(domain:www.playtomic.com)",
+      "WebFetch(domain:www.halbooking.com)",
+      "WebFetch(domain:sportsbooking.io)",
+      "WebFetch(domain:www.bookteq.com)",
+      "WebFetch(domain:bookingcourts.ru)"
+    ]
+  }
+}
