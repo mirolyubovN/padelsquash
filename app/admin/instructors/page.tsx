@@ -142,18 +142,29 @@ export default async function AdminInstructorsPage({
                 />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label">Виды спорта</label>
-                <div className="admin-inline-checkboxes">
+                <label className="admin-form__label">Виды спорта и ставка за час (₸)</label>
+                <div className="admin-inline-sport-prices">
                   {sportOptions.map((sport) => (
-                    <label key={sport.id} className="admin-form__checkbox">
+                    <div key={sport.id} className="admin-inline-sport-price-row">
+                      <label className="admin-form__checkbox">
+                        <input
+                          name="sportIds"
+                          type="checkbox"
+                          value={sport.id}
+                          defaultChecked={sport.id === defaultSportId}
+                        />
+                        <span>{sport.name}</span>
+                      </label>
                       <input
-                        name="sportIds"
-                        type="checkbox"
-                        value={sport.id}
-                        defaultChecked={sport.id === defaultSportId}
+                        name={`price_${sport.id}`}
+                        type="number"
+                        min="0"
+                        step="1"
+                        className="admin-form__field admin-form__field--narrow"
+                        defaultValue={10000}
+                        placeholder="₸ / час"
                       />
-                      <span>{sport.name}</span>
-                    </label>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -169,18 +180,15 @@ export default async function AdminInstructorsPage({
                 />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label" htmlFor="instructor-price-hour">
-                  Ставка за час (₸)
+                <label className="admin-form__label" htmlFor="instructor-photo-url">
+                  Фото (URL изображения)
                 </label>
                 <input
-                  id="instructor-price-hour"
-                  name="pricePerHour"
-                  type="number"
-                  min="0"
-                  step="1"
+                  id="instructor-photo-url"
+                  name="photoUrl"
+                  type="url"
                   className="admin-form__field"
-                  defaultValue={10000}
-                  required
+                  placeholder="https://..."
                 />
               </div>
             </div>
@@ -240,19 +248,33 @@ export default async function AdminInstructorsPage({
                       <form action={updatePricingAction} className="admin-bookings__actions">
                         <input type="hidden" name="instructorId" value={instructor.id} />
                         <div className="admin-inline-edit">
-                          <label className="admin-form__label">Виды спорта</label>
-                          <div className="admin-inline-checkboxes">
-                            {sportOptions.map((sport) => (
-                              <label key={`${instructor.id}-${sport.id}`} className="admin-form__checkbox">
-                                <input
-                                  name="sportIds"
-                                  type="checkbox"
-                                  value={sport.id}
-                                  defaultChecked={instructor.sports.some((item) => item.sportId === sport.id)}
-                                />
-                                <span>{sport.name}</span>
-                              </label>
-                            ))}
+                          <label className="admin-form__label">Виды спорта и ставка (₸ / час)</label>
+                          <div className="admin-inline-sport-prices">
+                            {sportOptions.map((sport) => {
+                              const existingSport = instructor.sports.find((s) => s.sportId === sport.id);
+                              return (
+                                <div key={`${instructor.id}-${sport.id}`} className="admin-inline-sport-price-row">
+                                  <label className="admin-form__checkbox">
+                                    <input
+                                      name="sportIds"
+                                      type="checkbox"
+                                      value={sport.id}
+                                      defaultChecked={Boolean(existingSport)}
+                                    />
+                                    <span>{sport.name}</span>
+                                  </label>
+                                  <input
+                                    name={`price_${sport.id}`}
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    className="admin-form__field admin-form__field--narrow"
+                                    defaultValue={existingSport?.pricePerHour ?? 10000}
+                                    placeholder="₸ / час"
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                         <div className="admin-inline-edit">
@@ -268,18 +290,16 @@ export default async function AdminInstructorsPage({
                           />
                         </div>
                         <div className="admin-inline-edit">
-                          <label className="admin-form__label" htmlFor={`pph-${instructor.id}`}>
-                            Ставка за час
+                          <label className="admin-form__label" htmlFor={`photo-${instructor.id}`}>
+                            Фото (URL)
                           </label>
                           <input
-                            id={`pph-${instructor.id}`}
-                            name="pricePerHour"
-                            type="number"
-                            min="0"
-                            step="1"
+                            id={`photo-${instructor.id}`}
+                            name="photoUrl"
+                            type="url"
                             className="admin-form__field"
-                            defaultValue={instructor.pricePerHour}
-                            required
+                            defaultValue={instructor.photoUrl ?? ""}
+                            placeholder="https://..."
                           />
                         </div>
                         <button type="submit" className="admin-bookings__action-button">

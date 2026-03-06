@@ -1,5 +1,4 @@
 import { auth } from "@/auth";
-import { PageHero } from "@/src/components/page-hero";
 import { LiveBookingForm } from "@/src/components/booking/live-booking-form";
 import { demoServices } from "@/src/lib/availability/demo";
 import { demoComponentPrices } from "@/src/lib/pricing/demo";
@@ -320,12 +319,6 @@ export default async function BookPage({
 
   return (
     <div className="booking-page">
-      <PageHero
-        eyebrow={bookPageContent.hero.eyebrow}
-        title={bookPageContent.hero.title}
-        description={bookPageContent.hero.description}
-      />
-
       <LiveBookingForm
         locations={locationOptions}
         selectedLocationSlug={selectedLocation.slug}
@@ -341,11 +334,11 @@ export default async function BookPage({
         <h2 id="booking-notes-title" className="booking-flow__title">
           {bookPageContent.notesTitle}
         </h2>
-        <div className="booking-flow__panel">
+        <div className="booking-flow__section">
           {bookPageContent.notices.map((notice) => (
-            <div key={notice} className="booking-flow__notice">
+            <p key={notice} className="booking-flow__notice">
               {notice}
-            </div>
+            </p>
           ))}
         </div>
       </section>

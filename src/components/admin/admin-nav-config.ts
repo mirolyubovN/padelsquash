@@ -7,16 +7,17 @@ export interface AdminNavItem {
 }
 
 const ALL_ADMIN_NAV_ITEMS: AdminNavItem[] = [
-  { href: "/admin", label: "Панель" },
+  { href: "/admin/calendar", label: "Расписание" },
   { href: "/admin/bookings", label: "Бронирования" },
-  { href: "/admin/courts", label: "Корты" },
-  { href: "/admin/sports", label: "Виды спорта", pricingSensitive: true },
+  { href: "/admin/bookings/create", label: "+ Создать бронь" },
   { href: "/admin/instructors", label: "Тренеры" },
-  { href: "/admin/services", label: "Услуги" },
-  { href: "/admin/opening-hours", label: "Часы работы" },
-  { href: "/admin/pricing/base", label: "Цены (матрица)", pricingSensitive: true },
-  { href: "/admin/pricing/rules", label: "Периоды цен", pricingSensitive: true },
+  { href: "/admin/courts", label: "Корты" },
   { href: "/admin/exceptions", label: "Исключения" },
+  { href: "/admin", label: "Дашборд" },
+  { href: "/admin/pricing/base", label: "Цены", pricingSensitive: true },
+  { href: "/admin/opening-hours", label: "Часы работы", pricingSensitive: true },
+  { href: "/admin/sports", label: "Виды спорта", pricingSensitive: true },
+  { href: "/admin/services", label: "Услуги", pricingSensitive: true },
 ];
 
 export function getAdminNavItems(role: AppRole): AdminNavItem[] {

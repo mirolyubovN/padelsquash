@@ -17,6 +17,7 @@ export default async function CoachesPage() {
       id: true,
       name: true,
       bio: true,
+      photoUrl: true,
       instructorSports: {
         orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
         select: {
@@ -61,16 +62,23 @@ export default async function CoachesPage() {
         ) : (
           dbInstructors.map((coach) => (
             <article key={coach.id} className="coach-card">
-              <div
-                className={`coach-card__avatar coach-card__avatar--${coach.instructorSports.some((item) => item.sport.slug === "squash") && !coach.instructorSports.some((item) => item.sport.slug === "padel") ? "squash" : "padel"}`}
-                aria-hidden="true"
-              >
-                {coach.name
-                  .split(" ")
-                  .map((part) => part[0])
-                  .slice(0, 2)
-                  .join("")}
-              </div>
+              {coach.photoUrl ? (
+                <div className="coach-card__avatar coach-card__avatar--photo" aria-hidden="true">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={coach.photoUrl} alt="" className="coach-card__avatar-img" />
+                </div>
+              ) : (
+                <div
+                  className={`coach-card__avatar coach-card__avatar--${coach.instructorSports.some((item) => item.sport.slug === "squash") && !coach.instructorSports.some((item) => item.sport.slug === "padel") ? "squash" : "padel"}`}
+                  aria-hidden="true"
+                >
+                  {coach.name
+                    .split(" ")
+                    .map((part) => part[0])
+                    .slice(0, 2)
+                    .join("")}
+                </div>
+              )}
               <div className="tag-list" aria-label="Виды спорта">
                 {coach.instructorSports.map((item) => (
                   <span key={`${coach.id}-${item.sport.slug}`} className="card-grid__badge">

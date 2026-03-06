@@ -68,7 +68,7 @@ export interface AdminInstructorRow {
   name: string;
   sports: Array<{ sportId: string; slug: string; name: string; pricePerHour: number }>;
   bio?: string;
-  pricePerHour: number;
+  photoUrl?: string;
   active: boolean;
 }
 
@@ -102,6 +102,8 @@ export interface AdminScheduleRow {
   startTime: string;
   endTime: string;
   active: boolean;
+  sportId?: string;
+  sportName?: string;
 }
 
 export interface AdminExceptionRow {
@@ -170,6 +172,7 @@ async function ensureInstructorExists(instructorId: string) {
       id: true,
       name: true,
       bio: true,
+      photoUrl: true,
       active: true,
       instructorSports: {
         orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
@@ -542,6 +545,7 @@ export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
       id: true,
       name: true,
       bio: true,
+      photoUrl: true,
       active: true,
       instructorSports: {
         orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
@@ -569,10 +573,7 @@ export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
       pricePerHour: Number(item.pricePerHour),
     })),
     bio: row.bio ?? undefined,
-    pricePerHour:
-      row.instructorSports.length > 0
-        ? Number(row.instructorSports[0].pricePerHour)
-        : 0,
+    photoUrl: row.photoUrl ?? undefined,
     active: row.active,
   }));
 }
@@ -583,13 +584,13 @@ export async function createInstructorFromForm(formData: FormData) {
       name: nonEmptyString("Имя"),
       sportIds: z.array(sportIdSchema).min(1, "Выберите хотя бы один вид спорта"),
       bio: optionalTrimmedString,
-      pricePerHour: z.coerce.number().int().nonnegative(),
+      photoUrl: optionalTrimmedString,
     })
     .safeParse({
       name: formData.get("name"),
       sportIds: formData.getAll("sportIds"),
       bio: formData.get("bio") ?? undefined,
-      pricePerHour: formData.get("pricePerHour"),
+      photoUrl: formData.get("photoUrl") ?? undefined,
     });
 
   if (!parsed.success) {
@@ -598,21 +599,28 @@ export async function createInstructorFromForm(formData: FormData) {
 
   await ensureSportsExist(parsed.data.sportIds);
 
+  // Per-sport prices: each sport has an input named `price_<sportId>`
+  const sportPrices = parsed.data.sportIds.map((sportId) => ({
+    sportId,
+    pricePerHour: Math.max(0, Math.round(Number(formData.get(`price_${sportId}`) ?? 10000))),
+  }));
+
   await prisma.$transaction(async (tx) => {
     const instructor = await tx.instructor.create({
       data: {
         name: parsed.data.name,
         bio: parsed.data.bio ?? null,
+        photoUrl: parsed.data.photoUrl ?? null,
         active: true,
       },
       select: { id: true },
     });
 
     await tx.instructorSport.createMany({
-      data: parsed.data.sportIds.map((sportId) => ({
+      data: sportPrices.map(({ sportId, pricePerHour }) => ({
         instructorId: instructor.id,
         sportId,
-        pricePerHour: parsed.data.pricePerHour,
+        pricePerHour,
       })),
       skipDuplicates: true,
     });
@@ -659,13 +667,13 @@ export async function updateInstructorFromForm(formData: FormData) {
       instructorId: nonEmptyString("instructorId"),
       sportIds: z.array(sportIdSchema).min(1, "Выберите хотя бы один вид спорта"),
       bio: optionalTrimmedString,
-      pricePerHour: z.coerce.number().int().nonnegative(),
+      photoUrl: optionalTrimmedString,
     })
     .safeParse({
       instructorId: formData.get("instructorId"),
       sportIds: formData.getAll("sportIds"),
       bio: formData.get("bio") ?? undefined,
-      pricePerHour: formData.get("pricePerHour"),
+      photoUrl: formData.get("photoUrl") ?? undefined,
     });
 
   if (!parsed.success) {
@@ -674,11 +682,18 @@ export async function updateInstructorFromForm(formData: FormData) {
 
   await ensureSportsExist(parsed.data.sportIds);
 
+  // Per-sport prices: each sport has an input named `price_<sportId>`
+  const sportPrices = parsed.data.sportIds.map((sportId) => ({
+    sportId,
+    pricePerHour: Math.max(0, Math.round(Number(formData.get(`price_${sportId}`) ?? 10000))),
+  }));
+
   await prisma.$transaction(async (tx) => {
     await tx.instructor.update({
       where: { id: parsed.data.instructorId },
       data: {
         bio: parsed.data.bio ?? null,
+        photoUrl: parsed.data.photoUrl ?? null,
       },
     });
 
@@ -689,7 +704,7 @@ export async function updateInstructorFromForm(formData: FormData) {
       },
     });
 
-    for (const sportId of parsed.data.sportIds) {
+    for (const { sportId, pricePerHour } of sportPrices) {
       await tx.instructorSport.upsert({
         where: {
           instructorId_sportId: {
@@ -700,10 +715,10 @@ export async function updateInstructorFromForm(formData: FormData) {
         create: {
           instructorId: parsed.data.instructorId,
           sportId,
-          pricePerHour: parsed.data.pricePerHour,
+          pricePerHour,
         },
         update: {
-          pricePerHour: parsed.data.pricePerHour,
+          pricePerHour,
         },
       });
     }
@@ -849,6 +864,11 @@ export async function getInstructorSchedulePageData(instructorId: string) {
         resourceId: instructorId,
       },
       orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+      include: {
+        sport: {
+          select: { slug: true, name: true },
+        },
+      },
     }),
     prisma.scheduleException.findMany({
       where: {
@@ -912,6 +932,7 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       name: instructor.name,
       active: instructor.active,
       bio: instructor.bio ?? undefined,
+      photoUrl: instructor.photoUrl ?? undefined,
       sports: instructor.instructorSports.map((item) => ({
         sportId: item.sportId,
         slug: item.sport.slug,
@@ -920,12 +941,14 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       })),
     },
     schedules: scheduleRows.map(
-      (row: { id: string; dayOfWeek: number; startTime: string; endTime: string; active: boolean }) => ({
+      (row: { id: string; dayOfWeek: number; startTime: string; endTime: string; active: boolean; sportId: string | null; sport: { slug: string; name: string } | null }) => ({
         id: row.id,
         dayOfWeek: row.dayOfWeek,
         startTime: row.startTime,
         endTime: row.endTime,
         active: row.active,
+        sportId: row.sportId ?? undefined,
+        sportName: row.sport ? resolveSportLabel(row.sport.slug, row.sport.name) : undefined,
       }),
     ) satisfies AdminScheduleRow[],
     exceptions: mapExceptionRows(
@@ -964,7 +987,7 @@ export async function addInstructorScheduleFromForm(args: {
   instructorId: string;
   formData: FormData;
 }) {
-  await ensureInstructorExists(args.instructorId);
+  const instructor = await ensureInstructorExists(args.instructorId);
 
   const parsed = z
     .object({
@@ -972,16 +995,26 @@ export async function addInstructorScheduleFromForm(args: {
       startTime: hhmmSchema,
       endTime: hhmmSchema,
       active: z.boolean(),
+      sportId: z.string().nullable(),
     })
     .safeParse({
       dayOfWeek: args.formData.get("dayOfWeek"),
       startTime: args.formData.get("startTime"),
       endTime: args.formData.get("endTime"),
       active: args.formData.get("active") === "on",
+      sportId: args.formData.get("sportId") || null,
     });
 
   if (!parsed.success) {
     throw new Error("Некорректные данные графика");
+  }
+
+  // Validate sportId belongs to this instructor if provided
+  if (parsed.data.sportId) {
+    const validSportIds = instructor.instructorSports.map((item) => item.sportId);
+    if (!validSportIds.includes(parsed.data.sportId)) {
+      throw new Error("Выбранный вид спорта не привязан к этому тренеру");
+    }
   }
 
   assertTimeRange(parsed.data.startTime, parsed.data.endTime);
@@ -994,6 +1027,7 @@ export async function addInstructorScheduleFromForm(args: {
       startTime: parsed.data.startTime,
       endTime: parsed.data.endTime,
       active: parsed.data.active,
+      sportId: parsed.data.sportId,
     },
   });
 }

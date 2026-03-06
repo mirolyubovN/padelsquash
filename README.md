@@ -1,161 +1,27 @@
 # Padel & Squash KZ
 
-Kazakhstan-focused padel/squash center platform built with Next.js (App Router), Prisma, PostgreSQL, and Auth.js.
+Kazakhstan-focused padel/squash center platform. Full-stack web app with public booking, customer accounts, a role-separated admin panel, and a trainer self-service portal.
 
-This repository contains:
+- **Language:** Russian UI, `KZT` currency, `Asia/Almaty` timezone
+- **Location:** Almaty, Kazakhstan
 
-- public website (Russian UI)
-- real booking flow (`sport -> service -> date -> per-court slots`)
-- customer account (booking history + cancellation)
-- admin panel (settings, resources, schedules, exceptions, bookings)
-
-## Current Status
-
-Working and testable in local development:
-
-- DB-backed availability and booking APIs
-- DB-backed admin pages (opening hours, pricing matrix, courts, instructors, services, exceptions, bookings)
-- customer registration/login/account pages
-- booking flow with trainer selection + trainer-specific pricing
-
-Important current policies:
-
-- sessions are fixed to `60 minutes`
-- starts are hour-based only (`09:00`, `10:00`, ...)
-- all bookings require authenticated account
-- customer free cancellation cutoff is `6` hours (configurable)
-- availability/booking demo fallback is disabled by default (`ALLOW_DEMO_FALLBACK=false`)
+---
 
 ## Tech Stack
 
-- `Next.js 16` (App Router) + `React 19` + `TypeScript`
-- `PostgreSQL` + `Prisma ORM`
-- `Auth.js / NextAuth` (Credentials)
-- `Zod` for validation
-- `Tailwind CSS v4` via `@apply` in CSS only (BEM classes in JSX)
-- `Vitest` + `Playwright` for automated tests
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) + React 19 + TypeScript |
+| Database | PostgreSQL 16 (Docker) via Prisma ORM 6 |
+| Auth | Auth.js / NextAuth 5 (Credentials) |
+| Validation | Zod |
+| CSS | Tailwind CSS v4 — `@apply` only, BEM class names in JSX |
+| Testing | Vitest (unit + integration) + Playwright (e2e) |
+| Fonts | Oswald (display/headings, Cyrillic) + Manrope (body) |
 
-## Locale / Business Defaults
+---
 
-- Country: `Kazakhstan`
-- Currency: `KZT`
-- Venue timezone default: `Asia/Almaty`
-- UI language: Russian
-
-## Features (Implemented)
-
-### Public / Customer
-
-- `/book` interactive booking UX:
-  - sport selection
-  - service type selection (`court` / `training`)
-  - date picker with auto-refreshing availability
-  - timeslots grouped by court
-  - trainer selection for training bookings
-  - live price preview (court + selected trainer)
-  - nearest available date auto-shift (up to 14 days lookahead)
-- `/register` customer registration (Credentials auth)
-- `/login` login page
-- `/account` profile + booking summary
-- `/account/bookings` booking history + cancellation action
-
-### Admin
-
-- `/admin/opening-hours` (DB-backed Server Action)
-- `/admin/pricing/base` (DB-backed pricing matrix)
-- `/admin/courts` (create / toggle active / delete with history protection)
-- `/admin/instructors` (create / toggle active / inline trainer price editing / delete with history protection)
-- `/admin/services` (create / toggle active / delete with history protection)
-- `/admin/exceptions` (venue/court/instructor exceptions)
-- `/admin/courts/[id]/exceptions`
-- `/admin/instructors/[id]/schedule`
-- `/admin/bookings` (cancel / completed / no_show / confirm payment)
-
-### Backend / Domain
-
-- DB-first `GET /api/availability`
-- DB-first `POST /api/bookings`
-- `POST /api/payments/placeholder/mark-paid`
-- availability engine (opening hours, schedules, exceptions, overlap checks)
-- pricing engine (period-based with trainer-specific override support)
-- concurrency guard for booking race prevention (`SERIALIZABLE` + advisory locks)
-- placeholder payment provider + provider abstraction (Kaspi/Freedom stubs)
-
-## Project Structure
-
-### Top Level
-
-- `app/` App Router pages and route handlers
-- `src/` application code (components, domain logic, services)
-- `prisma/` Prisma schema, migrations, seed
-- `docs/` project docs / runbooks / handoff docs
-- `tasks/` session notes, lessons, todo tracking
-- `types/` local type augmentations
-- `docker-compose.yml` local Postgres (Docker Desktop)
-- `auth.ts` Auth.js config
-
-### Key Paths
-
-- `app/book/page.tsx`
-  - server-side data wiring for booking page (`services`, `courts`, `trainers`, pricing)
-- `src/components/booking/live-booking-form.tsx`
-  - client-side booking UX and API calls (account-first flow, login/register or account summary + edit modal)
-- `app/api/availability/route.ts`
-  - availability endpoint (DB-first; demo fallback only when enabled)
-- `app/api/bookings/route.ts`
-  - booking creation endpoint (authenticated account required for all booking types)
-- `src/lib/availability/engine.ts`
-  - hour-based slot generation + availability checks
-- `src/lib/bookings/persistence.ts`
-  - DB booking creation + overlap check + pricing + payment row creation
-- `src/lib/bookings/policy.ts`
-  - customer cancellation cutoff policy (`CUSTOMER_FREE_CANCELLATION_HOURS`)
-- `src/lib/account/bookings.ts`
-  - customer account bookings list + cancellation logic
-- `src/lib/pricing/engine.ts`
-  - pricing tier resolution + total calculation
-- `src/lib/content/site-content.ts`
-  - single source of truth for public-site content (heroes, page copy, court/trainer marketing data, pricing notes)
-- `src/lib/demo/hardcoded-data.ts`
-  - demo fallback operational data only (availability/pricing/services), separate from public-site content
-- `src/lib/admin/resources.ts`
-  - DB-backed admin resource CRUD helpers + validation
-- `src/lib/settings/service.ts`
-  - opening hours + component pricing admin settings
-- `src/lib/prisma.ts`
-  - Prisma client wrapper (lazy singleton)
-- `prisma/schema.prisma`
-  - DB schema (services, courts, instructors, schedules, exceptions, bookings, payments)
-- `prisma/seed.ts`
-  - sample courts, instructors, services, opening hours, prices, schedules
-
-### App Route Overview (selected)
-
-- Public:
-  - `/`
-  - `/courts`
-  - `/coaches`
-  - `/prices`
-  - `/contact`
-  - `/book`
-  - `/login`
-  - `/register`
-- Account:
-  - `/account`
-  - `/account/bookings`
-- Admin:
-  - `/admin`
-  - `/admin/bookings`
-  - `/admin/courts`
-  - `/admin/instructors`
-  - `/admin/services`
-  - `/admin/opening-hours`
-  - `/admin/pricing/base`
-  - `/admin/exceptions`
-
-## Quick Start (Recommended: Docker + Postgres)
-
-Detailed runbook: `docs/devops-postgres.md`
+## Quick Start
 
 ### 1. Install dependencies
 
@@ -163,217 +29,329 @@ Detailed runbook: `docs/devops-postgres.md`
 npm install
 ```
 
-### 2. Create local env file
-
-PowerShell:
+### 2. Create local env
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-### 3. Start local PostgreSQL (Docker Desktop)
+Update `DATABASE_URL` to point at the Docker container (see below).
 
-```powershell
+### 3. Start PostgreSQL (Docker)
+
+```bash
 docker compose up -d postgres
+docker compose ps   # wait for "healthy"
 ```
 
-### 4. Apply migrations
+Container: `padelsquash-postgres` · Port: `55432` (host) → `5432` (container)
 
-If you are starting from current schema and recent changes:
+### 4. Apply migrations + generate client
 
-```powershell
-npx prisma migrate dev --name trainer_pricing_and_booking_auth
-```
-
-### 5. Generate Prisma client
-
-```powershell
+```bash
+npx prisma migrate deploy
 npx prisma generate
 ```
 
-Windows note:
-- If you get `EPERM` on Prisma engine DLL rename, stop `next dev` / Node processes that may be locking Prisma files and rerun.
+> **Windows note:** `prisma generate` fails with `EPERM` if `next dev` is running and locking the Prisma engine DLL. Stop the dev server first, generate, then restart.
 
-### 6. Seed demo/dev data
+### 5. Seed dev data
 
-```powershell
+```bash
 npm run db:seed
 ```
 
-Seeded admin account (default):
+### 6. Start the app
 
-- Email: `admin@example.com`
-- Password: `Admin123!`
-
-### 7. Start app
-
-```powershell
+```bash
 npm run dev
 ```
 
+App runs at `http://localhost:3000`.
+
+---
+
 ## Environment Variables
 
-See `.env.example`.
+See `.env.example` for the full list.
 
-Key variables:
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | — | Postgres connection string |
+| `NEXTAUTH_SECRET` | — | Auth.js session signing key |
+| `NEXTAUTH_URL` | `http://localhost:3000` | Auth redirect base URL |
+| `APP_TIMEZONE` | `Asia/Almaty` | Venue timezone |
+| `PAYMENTS_ENABLED` | `false` | `false` = all bookings auto-confirm; `true` = placeholder payment flow |
+| `CUSTOMER_FREE_CANCELLATION_HOURS` | `6` | Free cancellation cutoff in hours |
+| `ALLOW_DEMO_FALLBACK` | `false` | Fall back to demo data if DB is unavailable |
+| `SEED_ADMIN_EMAIL` | `admin@example.com` | Seeded super-admin email |
+| `SEED_ADMIN_PASSWORD` | `Admin123!` | Seeded super-admin password |
+| `PAYMENTS_PLACEHOLDER_ADMIN_TOKEN` | — | Token for placeholder payment mark-paid endpoint |
 
-- `DATABASE_URL`
-  - Postgres connection string
-- `NEXTAUTH_SECRET`
-  - required for Auth.js session signing
-- `NEXTAUTH_URL`
-  - local URL (usually `http://localhost:3000`)
-- `APP_TIMEZONE`
-  - default `Asia/Almaty`
-- `PAYMENTS_ENABLED`
-  - `false` = bookings become confirmed/paid in placeholder mode
-  - `true` = placeholder payment creates pending payment flow
-- `CUSTOMER_FREE_CANCELLATION_HOURS`
-  - default `6`
-- `ALLOW_DEMO_FALLBACK`
-  - default `false`
-  - if `true`, availability/booking APIs can fall back to demo behavior when DB path fails
-- `SEED_ADMIN_*`
-  - seeded admin credentials and profile
+---
 
-## Booking Flow Rules (Current)
+## User Roles
 
-### Sessions
+| Role | Access |
+|---|---|
+| `customer` | Self-register, book courts/training, manage own bookings |
+| `trainer` | Self-service timetable at `/trainer/schedule` (own schedule + exceptions only) |
+| `admin` | Full admin panel except pricing/sports editing and revenue fields |
+| `super_admin` | Unrestricted: pricing, sports, revenue, all admin functions |
 
-- Fixed `60 minutes` only
-- Starts on whole hours only (`HH:00`)
+---
 
-### Booking Types
+## Test Credentials (after `npm run db:seed`)
 
-- `court` (rental):
-  - requires authenticated account
-- `training`:
-  - requires authenticated account
-  - requires court + trainer
-  - user selects trainer in booking UI
-  - final price depends on selected trainer
+| Role | Email | Password | Login URL |
+|---|---|---|---|
+| `super_admin` | `admin@example.com` | `Admin123!` | `/login?next=%2Fadmin` |
+| `admin` | `admin+ops@example.com` | `Admin123!` | `/login?next=%2Fadmin` |
+| `trainer` | `trainer@example.com` | `Trainer123!` | `/login?next=%2Ftrainer%2Fschedule` |
+| `customer` | `customer@example.com` | `Customer123!` | `/login?next=%2Faccount` |
 
-### Pricing
+---
 
-- Court price:
-  - fixed by `sport x period`
-- Trainer price:
-  - stored per instructor (`morning`, `day`, `evening_weekend`)
-- Training total:
-  - `court price + selected trainer price`
+## Features
 
-### Cancellation
+### Public
 
-- Customer can cancel no-charge up to configured cutoff (`6h` default)
-- Eligible cancellation marks booking `cancelled`
-- If payment status is `paid`, payment is marked `refunded` (DB status)
+| Route | Description |
+|---|---|
+| `/` | Homepage: hero, pricing overview, FAQ, social links |
+| `/book` | Interactive booking form (see below) |
+| `/coaches` | Trainer listing with photo, bio, sport tags, per-sport pricing |
+| `/prices` | Pricing page |
+| `/courts` | Courts listing |
+| `/contact` | Contact information |
+| `/legal/terms` | Terms of service |
+| `/legal/privacy` | Privacy policy |
 
-## End-to-End Test Flow (Local)
+### Booking Form (`/book`)
 
-### Court Rental (requires account)
+Progressive multi-step form with URL state persistence:
 
-1. Register at `/register`
-2. Login at `/login`
-3. Open `/book`
-4. Select sport + `Аренда корта`
-5. Pick date and slot
-6. Confirm booking
-7. Refresh `/book` and verify the same court/time is no longer available
-8. Open `/account/bookings` and verify booking appears
+1. **Sport** — tab selector (dynamic from DB)
+2. **Service type** — `Аренда корта` (court rental) or `Тренировка с тренером` (training)
+3. **Date** — date picker; auto-advances up to 14 days to find the nearest available date
+4. **Time slots** — multi-select; shows price per slot; slots filtered by sport + service + date
+5. **Court picker** *(court rental only)* — appears after slot selection; shows courts available across **all** selected slots (intersection); supports multi-court selection
+6. **Trainer selector** *(training only)* — shows trainers available for the sport with per-sport price
+7. **Confirm** — price breakdown (courtPrice × numCourts × numSlots), login/register gate for guests
 
-### Training Booking (trainer selection)
+**Multi-court booking:** selecting N courts × M slots creates N×M individual bookings in one submit.
 
-1. Ensure trainers have schedules in admin:
-   - `/admin/instructors/[id]/schedule`
-2. Open `/book`
-3. Select sport + `Тренировка`
-4. Pick slot
-5. Select trainer (price differs by trainer)
-6. Confirm booking
+### Customer Account
+
+| Route | Description |
+|---|---|
+| `/account` | Profile summary |
+| `/account/bookings` | Booking history + free cancellation action |
+| `/register` | New account registration |
+| `/login` | Login |
+| `/forgot-password` | Password reset |
+
+### Trainer Portal
+
+| Route | Description |
+|---|---|
+| `/trainer` | Trainer dashboard |
+| `/trainer/schedule` | Own availability slots + schedule exceptions (scoped to logged-in trainer only) |
+
+### Admin Panel
+
+| Route | Description |
+|---|---|
+| `/admin` | Dashboard: stats, recent bookings |
+| `/admin/bookings` | All bookings: filter, search, pagination, status updates (confirm/cancel/complete/no-show) |
+| `/admin/bookings/create` | Manual booking creation |
+| `/admin/calendar` | Calendar view of bookings |
+| `/admin/courts` | Court CRUD: name, sport, active toggle, delete (history-protected) |
+| `/admin/courts/[id]/exceptions` | Per-court schedule exceptions |
+| `/admin/instructors` | Trainer CRUD: name, per-sport prices, bio, photo URL, sport assignments |
+| `/admin/instructors/[id]/schedule` | Trainer weekly schedule intervals (sport-scoped) + exceptions |
+| `/admin/services` | Service type CRUD (court rental / training per sport) |
+| `/admin/sports` | Sport CRUD: slug, name, icon, sort order |
+| `/admin/opening-hours` | Venue opening hours by day of week |
+| `/admin/pricing/base` | Component pricing matrix (court/instructor price by sport × period) |
+| `/admin/pricing/rules` | Advanced pricing rules |
+| `/admin/exceptions` | Global schedule exceptions (venue / court / instructor) |
+
+---
+
+## Booking Rules
+
+- **Session length:** fixed 60 minutes
+- **Start times:** whole-hour only (`09:00`, `10:00`, …)
+- **Authentication:** required for all booking types
+- **Court rental pricing:** `courtPrice[sport][period] × numCourts`
+- **Training pricing:** `courtPrice[sport][period] + trainerPrice[sport]`
+- **Periods:** `morning`, `day`, `evening_weekend` (resolved from booking time)
+- **Cancellation:** free up to `CUSTOMER_FREE_CANCELLATION_HOURS` hours before start (default 6h)
+- **Concurrency:** `SERIALIZABLE` isolation + PostgreSQL advisory locks prevent double-booking
+
+---
+
+## Database Schema (key models)
+
+| Model | Key Fields |
+|---|---|
+| `User` | id, name, email, phone, passwordHash, role, instructorId? |
+| `Location` | id, slug, name, address, timezone, active |
+| `Sport` | id, slug, name, icon?, active, sortOrder |
+| `Court` | id, name, sportId, locationId, active |
+| `Instructor` | id, name, bio?, **photoUrl?**, active |
+| `InstructorSport` | instructorId + sportId → **pricePerHour** (unique per pair) |
+| `InstructorLocation` | instructorId + locationId → active |
+| `Service` | id, code, name, sportId, locationId?, requiresCourt, requiresInstructor |
+| `ResourceSchedule` | resourceType, resourceId, dayOfWeek, startTime, endTime, **sportId?** |
+| `ScheduleException` | resourceType, resourceId?, date, startTime, endTime, type |
+| `OpeningHour` | locationId + dayOfWeek → openTime/closeTime (unique) |
+| `ComponentPrice` | locationId + sportId + componentType + period + currency → amount (unique) |
+| `Booking` | customerId, serviceId, locationId, startAt, endAt, status, priceTotal |
+| `BookingResource` | bookingId, resourceType (court/instructor), resourceId |
+| `Payment` | bookingId, provider, status, amount |
+
+### Sport-scoped trainer schedules
+
+`ResourceSchedule.sportId` is optional:
+- `null` — interval applies to all sports the trainer teaches
+- set — interval applies to that sport only
+
+The availability engine filters: `WHERE sportId = service.sportId OR sportId IS NULL`
+
+This lets a trainer be available Mon–Wed for padel and Thu–Sat for squash independently.
+
+---
+
+## Project Structure
+
+```
+app/                        Next.js App Router pages + API routes
+  (root pages)/             /, /book, /coaches, /prices, /courts, /contact
+  account/                  /account, /account/bookings
+  admin/                    full admin panel
+  trainer/                  trainer self-service portal
+  api/availability/         GET  /api/availability
+  api/bookings/             POST /api/bookings
+  api/payments/             POST /api/payments/placeholder/mark-paid
+
+src/
+  components/
+    booking/                live-booking-form.tsx (client component)
+    admin/                  AdminPageShell, AdminNav, etc.
+    site-header.tsx
+    site-footer.tsx
+  lib/
+    admin/resources.ts      all admin CRUD + validation
+    availability/
+      db.ts                 fetches DB context for availability engine
+      engine.ts             slot generation + overlap checks
+    bookings/
+      persistence.ts        booking creation (overlap check + pricing + payment)
+      concurrency.ts        advisory lock helpers
+      policy.ts             cancellation cutoff
+    account/bookings.ts     customer booking history + cancellation
+    auth/
+      guards.ts             assertAdmin / assertSuperAdmin helpers
+      roles.ts              canManagePricing / canViewRevenue helpers
+    content/site-data.ts    all public-site copy (single source of truth)
+    domain/types.ts         shared domain type interfaces
+    locations/service.ts    location resolution
+    pricing/engine.ts       period resolution + price calculation
+    settings/service.ts     opening hours + pricing settings
+    time/venue-timezone.ts  timezone-aware date helpers
+
+prisma/
+  schema.prisma             DB schema
+  migrations/               all committed SQL migrations
+  seed.ts                   dev/test seed data
+
+docs/
+  devops-postgres.md        Docker + Postgres local runbook
+  test-credentials.md       seeded test accounts
+  next-session-prompt.md    context handoff for new sessions
+  production-readiness-checklist.md
+
+tests/
+  unit/                     Vitest unit tests
+  integration/              Vitest integration tests (real DB)
+  e2e/                      Playwright e2e tests
+
+types/                      local type augmentations (next-auth.d.ts)
+docker-compose.yml          local Postgres container
+auth.ts                     Auth.js / NextAuth config
+```
+
+---
 
 ## Automated Tests
 
-### Installed Test Stack
-
-- `Vitest` for unit tests
-- `Playwright` for browser e2e tests
-
-### Important Hostname Note (Auth.js)
-
-- Keep Playwright and the app on `localhost` (not `127.0.0.1`) to match `NEXTAUTH_URL` and avoid session/cookie auth issues in e2e tests.
-
-### One-Time Browser Install (Playwright)
-
-```powershell
-npx playwright install chromium
+```bash
+npm run test:unit          # Vitest unit tests
+npm run test:integration   # Vitest + real DB (reseeds first)
+npm run test:e2e           # Playwright (reseeds first)
 ```
 
-### Run Tests
+Run lint and e2e **separately** (they race on `test-results/`):
 
-```powershell
-npm run test:unit
-npm run test:integration
+```bash
+npm run lint
 npm run test:e2e
 ```
 
-- `npm run test:integration` reseeds the local database before DB-backed Vitest integration tests.
-- `npm run test:e2e` reseeds the local database before Playwright e2e tests.
+One-time Playwright browser install:
 
-### Current Automated Coverage (Implemented)
+```bash
+npx playwright install chromium
+```
 
-- Unit:
-  - availability engine (hour alignment, overlap removal, trainer schedule filtering)
-  - pricing engine (tiers + trainer override)
-  - booking validation (hour-only starts, fixed 60 min)
-  - cancellation policy cutoff logic
-- Integration / API (Vitest + real DB):
-  - availability route handler (`/api/availability`) DB-backed response + hour-only slot output
-  - booking persistence overlap prevention
-  - trainer-specific pricing in persisted bookings
-  - concurrent booking conflict serialization (one success / one failure)
-- E2E:
-  - customer registration -> court booking -> slot disappears after refresh -> account cancellation
-  - authenticated training booking with trainer selection + trainer-specific pricing
-  - admin booking status update
-  - admin inline trainer pricing edit reflected in booking preview
-  - admin settings/resource flows (opening hours, pricing matrix, courts, instructors, services, exceptions, delete actions + delete banners)
+**Important:** Keep `NEXTAUTH_URL` and Playwright `baseURL` both on `localhost` (not `127.0.0.1`) to avoid session cookie failures in e2e tests.
 
-## Prisma / Database Notes
+### Test coverage
 
-- Prisma schema is in `prisma/schema.prisma`
-- Migrations are committed under `prisma/migrations/`
-- Seed script resets and repopulates dev data (`prisma/seed.ts`)
-- This repo currently includes at least one committed migration (`simplify_pricing_matrix`)
-- If your local DB is behind recent schema changes (e.g. trainer pricing on `Instructor`), run a new migration locally
+- **Unit:** availability engine, pricing engine, booking validation, cancellation policy
+- **Integration:** availability API (DB-backed), booking persistence + overlap prevention, concurrent booking conflict
+- **E2E:** customer registration → court booking → slot disappears → cancellation; training booking with trainer pricing; admin booking status updates; admin resource CRUD flows
 
-### Common Windows Prisma Issue (`EPERM`)
+---
 
-Prisma can fail to replace `query_engine-windows.dll.node` if a process is locking it.
+## Database Operations
 
-Fix:
+```bash
+# Apply all pending migrations
+npx prisma migrate deploy
 
-1. Stop `next dev`
-2. Stop Prisma Studio (if running)
-3. Rerun:
-   - `npx prisma generate`
+# Create a new migration from schema changes
+npx prisma migrate dev --name <descriptive_name>
 
-## Docs Index
+# Regenerate Prisma client (stop dev server first on Windows)
+npx prisma generate
 
-- `docs/devops-postgres.md` - local Docker + PostgreSQL + Prisma runbook
-- `docs/changes-2026-02-23.md` - detailed implementation/change log for current work
-- `docs/next-session-handoff.md` - next-session tasks, risks, and ready-to-copy prompt
-- `docs/next-session-prompt.md` - standalone copy/paste prompt for the next coding session
-- `docs/production-readiness-checklist.md` - launch gate checklist (infra, DB, auth, booking integrity, payments, tests, ops)
+# Seed dev data
+npm run db:seed
 
-## Known Gaps / Not Yet Production-Ready
+# Open Prisma Studio
+npx prisma studio
 
-- Real payment provider integration/webhooks (Kaspi/Freedom)
-- Real refund API integration (currently DB status only)
-- Full RBAC coverage / audit logging
-- More complete admin editing UX (inline edit exists for trainer prices only)
-- CI pipeline to run lint/build/tests automatically
-- Monitoring/observability, error tracking, backup/restore procedures
-- Deployment infrastructure docs (beyond local Docker DB runbook)
+# Full reset (destroys all data)
+docker compose down -v
+docker compose up -d postgres
+npx prisma migrate deploy
+npm run db:seed
+```
+
+### Migrations applied
+
+| Migration | Description |
+|---|---|
+| `20260305081139_sport_table_transitional` | Sport enum → Sport table (transitional) |
+| `20260305083000_sport_table_finalize` | Finalize Sport table, drop enum |
+| `20260305103000_location_multi_center` | Add Location model, scope all resources |
+| `20260305130000_role_super_admin_trainer` | Expand UserRole enum, add trainer link |
+| `20260305140000_instructor_photo_schedule_sport` | Add photoUrl to Instructor, sportId to ResourceSchedule |
+
+---
 
 ## Commands Reference
 
@@ -386,10 +364,25 @@ npm run test:integration
 npm run test:e2e
 npm run db:seed
 npm run db:generate
+npx prisma migrate deploy
 npx prisma migrate dev --name <name>
 npx prisma generate
 npx playwright install chromium
 docker compose up -d postgres
 docker compose ps
+docker compose stop postgres
 docker compose down -v
 ```
+
+---
+
+## Known Gaps / Not Yet Production-Ready
+
+- Real payment provider (Kaspi / Freedom) — stubs exist, no live integration
+- Real refund API — DB status only, no provider call
+- File upload for trainer photos — currently URL-only field
+- CI pipeline (lint / build / test on push)
+- Monitoring, error tracking, alerting
+- Backup / restore procedures
+- Deployment infrastructure docs (beyond local Docker runbook)
+- Multi-location admin UI (schema supports it; admin UX defaults to single location)

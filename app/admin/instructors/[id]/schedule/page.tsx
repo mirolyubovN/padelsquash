@@ -8,6 +8,7 @@ import {
   deleteInstructorSchedule,
   deleteScheduleExceptionForResource,
   EXCEPTION_TYPE_LABELS,
+  getAdminSportOptions,
   getInstructorSchedulePageData,
   getScheduleWeekdayLabel,
   setInstructorScheduleActive,
@@ -39,7 +40,10 @@ export default async function AdminInstructorSchedulePage({
   const session = await assertAdmin();
   const canSeeRevenue = canViewRevenue(session.user.role);
   const { id } = await params;
-  const data = await getInstructorSchedulePageData(id);
+  const [data, sportOptions] = await Promise.all([
+    getInstructorSchedulePageData(id),
+    getAdminSportOptions(),
+  ]);
 
   async function addScheduleAction(formData: FormData) {
     "use server";
@@ -161,6 +165,19 @@ export default async function AdminInstructorSchedulePage({
                   <input id="schedule-end" name="endTime" type="time" className="admin-form__field" required />
                 </td>
                 <td className="admin-table__cell">
+                  <label className="admin-form__label" htmlFor="schedule-sport">
+                    Вид спорта
+                  </label>
+                  <select id="schedule-sport" name="sportId" className="admin-form__field">
+                    <option value="">Все виды спорта</option>
+                    {data.instructor.sports.map((sport) => (
+                      <option key={sport.sportId} value={sport.sportId}>
+                        {sport.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="admin-table__cell">
                   <label className="admin-form__checkbox">
                     <input name="active" type="checkbox" defaultChecked />
                     <span>Активный интервал</span>
@@ -185,6 +202,7 @@ export default async function AdminInstructorSchedulePage({
             <tr className="admin-table__row">
               <th className="admin-table__cell admin-table__cell--head">День</th>
               <th className="admin-table__cell admin-table__cell--head">Интервал</th>
+              <th className="admin-table__cell admin-table__cell--head">Вид спорта</th>
               <th className="admin-table__cell admin-table__cell--head">Активно</th>
               <th className="admin-table__cell admin-table__cell--head">Действия</th>
             </tr>
@@ -192,7 +210,7 @@ export default async function AdminInstructorSchedulePage({
           <tbody>
             {data.schedules.length === 0 ? (
               <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={4}>
+                <td className="admin-table__cell" colSpan={5}>
                   Интервалы графика еще не добавлены.
                 </td>
               </tr>
@@ -202,6 +220,9 @@ export default async function AdminInstructorSchedulePage({
                   <td className="admin-table__cell">{getScheduleWeekdayLabel(row.dayOfWeek)}</td>
                   <td className="admin-table__cell">
                     {row.startTime} - {row.endTime}
+                  </td>
+                  <td className="admin-table__cell">
+                    {row.sportName ?? <span className="admin-bookings__cell-sub">Все виды спорта</span>}
                   </td>
                   <td className="admin-table__cell">
                     <span className="admin-bookings__chip">{row.active ? "Да" : "Нет"}</span>

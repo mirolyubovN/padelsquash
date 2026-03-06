@@ -112,6 +112,10 @@ export async function getAvailabilityContextFromDb(args: {
             active: true,
             resourceType: "instructor",
             resourceId: { in: instructorIds },
+            OR: [
+              { sportId: service.sportId },
+              { sportId: null },
+            ],
           },
         })
       : [];

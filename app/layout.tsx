@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, IBM_Plex_Mono } from "next/font/google";
+import { Manrope, IBM_Plex_Mono, Oswald } from "next/font/google";
 import { SiteFooter } from "@/src/components/site-footer";
 import { SiteHeader } from "@/src/components/site-header";
 import { siteConfig } from "@/src/lib/content/site-data";
@@ -14,6 +14,12 @@ const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
   weight: ["400", "500"],
   subsets: ["latin", "cyrillic"],
+});
+
+const oswald = Oswald({
+  variable: "--font-oswald",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -64,7 +70,7 @@ export default function RootLayout({
 
   return (
     <html lang="ru">
-      <body className={`${manrope.variable} ${plexMono.variable}`}>
+      <body className={`${manrope.variable} ${plexMono.variable} ${oswald.variable}`}>
         <a href="#main-content" className="skip-link">
           Перейти к основному содержимому
         </a>

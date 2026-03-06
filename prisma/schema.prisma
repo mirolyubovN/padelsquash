@@ -111,10 +111,11 @@ model Sport {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  courts           Court[]
-  services         Service[]
-  instructorSports InstructorSport[]
-  componentPrices  ComponentPrice[]
+  courts            Court[]
+  services          Service[]
+  instructorSports  InstructorSport[]
+  componentPrices   ComponentPrice[]
+  resourceSchedules ResourceSchedule[]
 }
 
 model Court {
@@ -138,6 +139,7 @@ model Instructor {
   id        String   @id @default(cuid())
   name      String
   bio       String?
+  photoUrl  String?
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -189,9 +191,13 @@ model ResourceSchedule {
   startTime    String
   endTime      String
   active       Boolean  @default(true)
+  sportId      String?
+
+  sport Sport? @relation(fields: [sportId], references: [id], onDelete: SetNull)
 
   @@index([resourceType, resourceId])
   @@index([dayOfWeek, active])
+  @@index([sportId])
 }
 
 model ScheduleException {

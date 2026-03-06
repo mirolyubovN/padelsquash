@@ -312,43 +312,51 @@ export default async function AdminBookingsPage({
                     </details>
                   </td>
                   <td className="admin-table__cell">
-                    <form action={bookingAction} className="admin-bookings__actions">
-                      <input type="hidden" name="bookingId" value={row.id} />
-                      <button
-                        type="submit"
-                        name="action"
-                        value="cancelled"
-                        className="admin-bookings__action-button"
-                      >
-                        Отмена
-                      </button>
-                      <button
-                        type="submit"
-                        name="action"
-                        value="completed"
-                        className="admin-bookings__action-button"
-                      >
-                        Завершено
-                      </button>
-                      <button
-                        type="submit"
-                        name="action"
-                        value="no_show"
-                        className="admin-bookings__action-button"
-                      >
-                        No show
-                      </button>
-                      {row.status === "pending_payment" ? (
+                    {row.status === "pending_payment" || row.status === "confirmed" ? (
+                      <form action={bookingAction} className="admin-bookings__actions">
+                        <input type="hidden" name="bookingId" value={row.id} />
+                        {row.status === "pending_payment" ? (
+                          <button
+                            type="submit"
+                            name="action"
+                            value="confirm_payment"
+                            className="admin-bookings__action-button admin-bookings__action-button--primary"
+                          >
+                            Принять оплату
+                          </button>
+                        ) : null}
+                        {row.status === "confirmed" ? (
+                          <>
+                            <button
+                              type="submit"
+                              name="action"
+                              value="completed"
+                              className="admin-bookings__action-button"
+                            >
+                              Завершено
+                            </button>
+                            <button
+                              type="submit"
+                              name="action"
+                              value="no_show"
+                              className="admin-bookings__action-button"
+                            >
+                              No show
+                            </button>
+                          </>
+                        ) : null}
                         <button
                           type="submit"
                           name="action"
-                          value="confirm_payment"
-                          className="admin-bookings__action-button admin-bookings__action-button--primary"
+                          value="cancelled"
+                          className="admin-bookings__action-button admin-bookings__action-button--danger"
                         >
-                          Подтвердить оплату
+                          Отменить
                         </button>
-                      ) : null}
-                    </form>
+                      </form>
+                    ) : (
+                      <span className="admin-bookings__no-actions">—</span>
+                    )}
                   </td>
                 </tr>
               ))

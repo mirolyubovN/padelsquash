@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { getAdminDashboardData } from "@/src/lib/admin/dashboard";
 import { assertAdmin } from "@/src/lib/auth/guards";
-import { getAdminNavItems } from "@/src/components/admin/admin-nav-config";
 import { canViewRevenue } from "@/src/lib/auth/roles";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
@@ -17,7 +16,6 @@ export default async function AdminIndexPage() {
   const session = await assertAdmin();
   const canSeeRevenue = canViewRevenue(session.user.role);
   const dashboard = await getAdminDashboardData();
-  const adminSections = getAdminNavItems(session.user.role).filter((item) => item.href !== "/admin");
   return (
     <AdminPageShell
       title="Панель управления"
@@ -52,18 +50,18 @@ export default async function AdminIndexPage() {
         <div className="admin-dashboard__panel">
           <h2 className="admin-dashboard__panel-title">Быстрые действия</h2>
           <div className="admin-dashboard__quick-links">
-            <Link href="/admin/bookings?status=pending_payment" className="admin-link-grid__item">
-              Открыть ожидающие оплаты
+            <Link href="/admin/bookings/create" className="admin-link-grid__item admin-link-grid__item--primary">
+              Создать бронирование
             </Link>
-            <Link href="/admin/instructors" className="admin-link-grid__item">
-              Проверить тренеров и график
+            <Link href="/admin/bookings?status=pending_payment" className="admin-link-grid__item">
+              Ожидают оплаты
             </Link>
             <Link href="/admin/exceptions" className="admin-link-grid__item">
               Добавить исключение
             </Link>
             {canSeeRevenue ? (
               <Link href="/admin/pricing/base" className="admin-link-grid__item">
-                Обновить матрицу цен
+                Цены
               </Link>
             ) : null}
           </div>
@@ -106,13 +104,6 @@ export default async function AdminIndexPage() {
         )}
       </section>
 
-      <div className="admin-link-grid">
-        {adminSections.map((section) => (
-          <Link key={section.href} href={section.href} className="admin-link-grid__item">
-            {section.label}
-          </Link>
-        ))}
-      </div>
     </AdminPageShell>
   );
 }

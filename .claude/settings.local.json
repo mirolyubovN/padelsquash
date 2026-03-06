@@ -15,7 +15,10 @@
       "WebFetch(domain:www.halbooking.com)",
       "WebFetch(domain:sportsbooking.io)",
       "WebFetch(domain:www.bookteq.com)",
-      "WebFetch(domain:bookingcourts.ru)"
+      "WebFetch(domain:bookingcourts.ru)",
+      "Bash(npm run:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

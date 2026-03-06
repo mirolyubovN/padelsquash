@@ -119,10 +119,39 @@ All three must pass before moving to the next phase. If e2e tests fail due to sc
 
 - Stack: Next.js 16 App Router, Prisma, Postgres (Docker), Auth.js Credentials, Vitest, Playwright
 - Locale: Kazakhstan, `KZT`, `Asia/Almaty`, Russian UI
-- Booking UX: progressive disclosure, trainer-first training flow, multi-slot selection, auto-court assignment
+- Booking UX: progressive disclosure, trainer-first training flow, multi-slot + multi-court selection (court mode), query param persistence across auth redirects
 - Admin UX: sidebar + mobile drawer, breadcrumbs, dashboard stats, bookings filters/search/pagination
 - CSS: BEM naming, Tailwind v4 with `@apply` only (no utility classes in JSX)
-- Schema changes this session: Sport enum → Sport table, add Location model, scope all resources
+- Design: dark header/footer (Club Noir), Oswald display font, orange accent (#f04e23), 85vh hero
+
+## Key Schema Models
+
+- `Sport` — DB table (slug, name, icon, sortOrder, active)
+- `Court` — sportId + locationId (active courts only available to their sport)
+- `Instructor` — bio, photoUrl, active; sports/prices via InstructorSport join table
+- `InstructorSport` — per-sport price (instructorId + sportId → pricePerHour)
+- `ResourceSchedule` — sportId? (null = all sports, set = sport-specific availability)
+- `Location` — multi-location support; all resources scoped to locationId
+
+## Recent Features (2026-03-05)
+
+### Court selection in booking form
+- Court rental: after selecting time slots, court picker shows courts available across ALL selected slots (intersection)
+- Multi-court multi-slot: numCourts × numSlots individual API calls on submit
+- Price preview multiplies courtPrice × numCourts
+
+### Per-sport trainer pricing
+- Admin instructors page: one `price_<sportId>` input per sport (replaces flat global price)
+- Create/update functions read per-sport prices from form fields
+
+### Trainer photo
+- `Instructor.photoUrl String?` — migration `20260305140000_instructor_photo_schedule_sport`
+- Admin: photo URL field in create/edit; Coaches page: photo or initials fallback
+
+### Sport-scoped trainer schedules
+- `ResourceSchedule.sportId String?` — null = all sports; set = sport-specific
+- Availability engine: `WHERE sportId = service.sportId OR sportId IS NULL`
+- Admin schedule page: sport dropdown in add-interval form, sport column in table
 
 ## Useful Recovery Commands
 
