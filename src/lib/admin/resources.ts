@@ -43,12 +43,12 @@ export const SPORT_LABELS: Record<string, string> = {
 };
 
 export const EXCEPTION_TYPE_LABELS: Record<"closed" | "maintenance", string> = {
-  closed: "Закрыто",
+  closed: "Недоступно",
   maintenance: "Тех. обслуживание",
 };
 
 export const RESOURCE_TYPE_LABELS: Record<"venue" | "court" | "instructor", string> = {
-  venue: "Площадка (весь клуб)",
+  venue: "Вся площадка",
   court: "Корт",
   instructor: "Тренер",
 };
@@ -665,12 +665,14 @@ export async function updateInstructorFromForm(formData: FormData) {
   const parsed = z
     .object({
       instructorId: nonEmptyString("instructorId"),
+      name: nonEmptyString("Имя"),
       sportIds: z.array(sportIdSchema).min(1, "Выберите хотя бы один вид спорта"),
       bio: optionalTrimmedString,
       photoUrl: optionalTrimmedString,
     })
     .safeParse({
       instructorId: formData.get("instructorId"),
+      name: formData.get("name"),
       sportIds: formData.getAll("sportIds"),
       bio: formData.get("bio") ?? undefined,
       photoUrl: formData.get("photoUrl") ?? undefined,
@@ -692,6 +694,7 @@ export async function updateInstructorFromForm(formData: FormData) {
     await tx.instructor.update({
       where: { id: parsed.data.instructorId },
       data: {
+        name: parsed.data.name,
         bio: parsed.data.bio ?? null,
         photoUrl: parsed.data.photoUrl ?? null,
       },
@@ -722,6 +725,96 @@ export async function updateInstructorFromForm(formData: FormData) {
         },
       });
     }
+  });
+}
+
+export async function updateInstructorBasicFromForm(formData: FormData) {
+  const parsed = z
+    .object({
+      instructorId: nonEmptyString("instructorId"),
+      name: nonEmptyString("Имя"),
+      bio: optionalTrimmedString,
+      photoUrl: optionalTrimmedString,
+    })
+    .safeParse({
+      instructorId: formData.get("instructorId"),
+      name: formData.get("name"),
+      bio: formData.get("bio") ?? undefined,
+      photoUrl: formData.get("photoUrl") ?? undefined,
+    });
+
+  if (!parsed.success) {
+    throw new Error("Некорректные данные тренера");
+  }
+
+  await prisma.instructor.update({
+    where: { id: parsed.data.instructorId },
+    data: {
+      name: parsed.data.name,
+      bio: parsed.data.bio ?? null,
+      photoUrl: parsed.data.photoUrl ?? null,
+    },
+  });
+}
+
+export async function addInstructorScheduleBulk(args: {
+  instructorId: string;
+  entries: Array<{ dayOfWeek: number; startTime: string; endTime: string; sportId?: string | null }>;
+}) {
+  if (args.entries.length === 0) return;
+
+  const instructor = await ensureInstructorExists(args.instructorId);
+  const validSportIds = instructor.instructorSports.map((item) => item.sportId);
+
+  const data = args.entries.map((entry) => {
+    if (entry.sportId && !validSportIds.includes(entry.sportId)) {
+      throw new Error("Выбранный вид спорта не привязан к этому тренеру");
+    }
+    assertTimeRange(entry.startTime, entry.endTime);
+    return {
+      resourceType: "instructor" as const,
+      resourceId: args.instructorId,
+      dayOfWeek: entry.dayOfWeek,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      active: true,
+      sportId: entry.sportId ?? null,
+    };
+  });
+
+  await prisma.resourceSchedule.createMany({ data, skipDuplicates: true });
+}
+
+export async function createInstructorExceptionSimple(args: {
+  instructorId: string;
+  formData: FormData;
+}) {
+  const parsed = z
+    .object({
+      date: isoDateSchema,
+      startTime: hhmmSchema,
+      endTime: hhmmSchema,
+      note: optionalTrimmedString,
+    })
+    .safeParse({
+      date: args.formData.get("date"),
+      startTime: args.formData.get("startTime"),
+      endTime: args.formData.get("endTime"),
+      note: args.formData.get("note") ?? undefined,
+    });
+
+  if (!parsed.success) {
+    throw new Error("Некорректные данные блокировки");
+  }
+
+  await createException({
+    resourceType: "instructor",
+    resourceId: args.instructorId,
+    date: parsed.data.date,
+    startTime: parsed.data.startTime,
+    endTime: parsed.data.endTime,
+    type: "closed",
+    note: parsed.data.note,
   });
 }
 
@@ -862,6 +955,8 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       where: {
         resourceType: "instructor",
         resourceId: instructorId,
+        // weekStart is available after `npx prisma generate` (migration: resource_schedule_week_start)
+        ...({ weekStart: null } as object),
       },
       orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
       include: {
@@ -1345,4 +1440,195 @@ export function getServiceResourceDescription(service: Pick<AdminServiceRow, "re
 
 export function getScheduleWeekdayLabel(dayOfWeek: number): string {
   return (WEEKDAY_LABELS as readonly string[])[dayOfWeek] ?? String(dayOfWeek);
+}
+
+export async function saveInstructorBaseSchedule(args: {
+  instructorId: string;
+  formData: FormData;
+}) {
+  const slots = args.formData.getAll("slot") as string[];
+  const sportId = (args.formData.get("sportId") as string) || null;
+
+  const instructor = await ensureInstructorExists(args.instructorId);
+
+  if (sportId) {
+    const validSportIds = instructor.instructorSports.map((item) => item.sportId);
+    if (!validSportIds.includes(sportId)) {
+      throw new Error("Выбранный вид спорта не привязан к этому тренеру");
+    }
+  }
+
+  const intervals = mergeHourCellsToIntervals(slots);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.resourceSchedule.deleteMany({
+      where: {
+        resourceType: "instructor",
+        resourceId: args.instructorId,
+        ...({ weekStart: null } as object),
+      },
+    });
+
+    if (intervals.length > 0) {
+      await tx.resourceSchedule.createMany({
+        data: intervals.map((interval) => ({
+          resourceType: "instructor" as const,
+          resourceId: args.instructorId,
+          dayOfWeek: interval.dayOfWeek,
+          startTime: interval.startTime,
+          endTime: interval.endTime,
+          active: true,
+          sportId: sportId,
+        })),
+      });
+    }
+  });
+}
+
+function mergeHourCellsToIntervals(
+  slots: string[],
+): Array<{ dayOfWeek: number; startTime: string; endTime: string }> {
+  if (slots.length === 0) return [];
+
+  const parsed = slots.map((slot) => {
+    const parts = slot.split(":");
+    return {
+      dayOfWeek: parseInt(parts[0], 10),
+      startHour: parseInt(parts[1], 10),
+      endHour: parseInt(parts[3], 10),
+    };
+  });
+
+  const byDay = new Map<number, Array<{ startHour: number; endHour: number }>>();
+  for (const entry of parsed) {
+    if (!byDay.has(entry.dayOfWeek)) byDay.set(entry.dayOfWeek, []);
+    byDay.get(entry.dayOfWeek)!.push({ startHour: entry.startHour, endHour: entry.endHour });
+  }
+
+  const result: Array<{ dayOfWeek: number; startTime: string; endTime: string }> = [];
+
+  for (const [day, hours] of byDay) {
+    hours.sort((a, b) => a.startHour - b.startHour);
+    let currentStart = hours[0].startHour;
+    let currentEnd = hours[0].endHour;
+    for (let i = 1; i < hours.length; i++) {
+      if (hours[i].startHour <= currentEnd) {
+        currentEnd = Math.max(currentEnd, hours[i].endHour);
+      } else {
+        result.push({
+          dayOfWeek: day,
+          startTime: `${currentStart.toString().padStart(2, "0")}:00`,
+          endTime: `${currentEnd.toString().padStart(2, "0")}:00`,
+        });
+        currentStart = hours[i].startHour;
+        currentEnd = hours[i].endHour;
+      }
+    }
+    result.push({
+      dayOfWeek: day,
+      startTime: `${currentStart.toString().padStart(2, "0")}:00`,
+      endTime: `${currentEnd.toString().padStart(2, "0")}:00`,
+    });
+  }
+
+  return result;
+}
+
+export async function getInstructorWeekSchedule(
+  instructorId: string,
+  weekStart: string,
+): Promise<AdminScheduleRow[] | null> {
+  const weekStartDate = new Date(weekStart + "T00:00:00Z");
+  const rows = await prisma.resourceSchedule.findMany({
+    where: {
+      resourceType: "instructor",
+      resourceId: instructorId,
+      ...({ weekStart: weekStartDate } as object),
+    },
+    orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+    include: {
+      sport: { select: { slug: true, name: true } },
+    },
+  });
+
+  if (rows.length === 0) return null;
+
+  return rows.map((row) => {
+    const r = row as typeof row & { sport: { slug: string; name: string } | null };
+    return {
+      id: r.id,
+      dayOfWeek: r.dayOfWeek,
+      startTime: r.startTime,
+      endTime: r.endTime,
+      active: r.active,
+      sportId: r.sportId ?? undefined,
+      sportName: r.sport ? resolveSportLabel(r.sport.slug, r.sport.name) : undefined,
+    };
+  });
+}
+
+export async function saveInstructorWeekSchedule(args: {
+  instructorId: string;
+  formData: FormData;
+}) {
+  const weekStart = String(args.formData.get("weekStart") ?? "");
+  const slots = args.formData.getAll("slot") as string[];
+  const sportId = (args.formData.get("sportId") as string) || null;
+
+  const weekStartParsed = isoDateSchema.safeParse(weekStart);
+  if (!weekStartParsed.success) throw new Error("Неверный формат даты недели");
+
+  const weekStartDate = new Date(weekStart + "T00:00:00Z");
+  if (weekStartDate.getUTCDay() !== 1) throw new Error("weekStart должен быть понедельником");
+
+  const instructor = await ensureInstructorExists(args.instructorId);
+
+  if (sportId) {
+    const validSportIds = instructor.instructorSports.map((item) => item.sportId);
+    if (!validSportIds.includes(sportId)) {
+      throw new Error("Выбранный вид спорта не привязан к этому тренеру");
+    }
+  }
+
+  const intervals = mergeHourCellsToIntervals(slots);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.resourceSchedule.deleteMany({
+      where: {
+        resourceType: "instructor",
+        resourceId: args.instructorId,
+        ...({ weekStart: weekStartDate } as object),
+      },
+    });
+
+    if (intervals.length > 0) {
+      await tx.resourceSchedule.createMany({
+        data: intervals.map((interval) => ({
+          resourceType: "instructor" as const,
+          resourceId: args.instructorId,
+          dayOfWeek: interval.dayOfWeek,
+          startTime: interval.startTime,
+          endTime: interval.endTime,
+          active: true,
+          sportId: sportId,
+          ...({ weekStart: weekStartDate } as object),
+        })),
+      });
+    }
+  });
+}
+
+export async function resetInstructorWeekToTemplate(args: {
+  instructorId: string;
+  weekStart: string;
+}) {
+  await ensureInstructorExists(args.instructorId);
+  const weekStartDate = new Date(args.weekStart + "T00:00:00Z");
+  await prisma.resourceSchedule.deleteMany({
+    where: {
+      resourceType: "instructor",
+      resourceId: args.instructorId,
+      ...({ weekStart: weekStartDate } as object),
+    },
+  });
 }

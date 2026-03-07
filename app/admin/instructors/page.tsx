@@ -11,6 +11,7 @@ import {
   getAdminInstructors,
   getAdminSportOptions,
   setInstructorActive,
+  updateInstructorBasicFromForm,
   updateInstructorFromForm,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
@@ -74,6 +75,15 @@ export default async function AdminInstructorsPage({
     "use server";
     await assertSuperAdmin();
     await updateInstructorFromForm(formData);
+    revalidatePath("/admin/instructors");
+    revalidatePath("/book");
+    revalidatePath("/coaches");
+  }
+
+  async function updateBasicAction(formData: FormData) {
+    "use server";
+    await assertAdmin();
+    await updateInstructorBasicFromForm(formData);
     revalidatePath("/admin/instructors");
     revalidatePath("/book");
     revalidatePath("/coaches");
@@ -216,11 +226,9 @@ export default async function AdminInstructorsPage({
             <tr className="admin-table__row">
               <th className="admin-table__cell admin-table__cell--head">Имя</th>
               <th className="admin-table__cell admin-table__cell--head">Виды спорта</th>
-              <th className="admin-table__cell admin-table__cell--head">
-                {canEditPricing ? "Описание и ставка (₸)" : "Описание"}
-              </th>
+              <th className="admin-table__cell admin-table__cell--head">Описание</th>
               <th className="admin-table__cell admin-table__cell--head">Активен</th>
-              <th className="admin-table__cell admin-table__cell--head">График / история / исключения</th>
+              <th className="admin-table__cell admin-table__cell--head">График</th>
               <th className="admin-table__cell admin-table__cell--head">Действия</th>
             </tr>
           </thead>
@@ -244,74 +252,135 @@ export default async function AdminInstructorsPage({
                       : "—"}
                   </td>
                   <td className="admin-table__cell">
-                    {canEditPricing ? (
-                      <form action={updatePricingAction} className="admin-bookings__actions">
-                        <input type="hidden" name="instructorId" value={instructor.id} />
-                        <div className="admin-inline-edit">
-                          <label className="admin-form__label">Виды спорта и ставка (₸ / час)</label>
-                          <div className="admin-inline-sport-prices">
-                            {sportOptions.map((sport) => {
-                              const existingSport = instructor.sports.find((s) => s.sportId === sport.id);
-                              return (
-                                <div key={`${instructor.id}-${sport.id}`} className="admin-inline-sport-price-row">
-                                  <label className="admin-form__checkbox">
-                                    <input
-                                      name="sportIds"
-                                      type="checkbox"
-                                      value={sport.id}
-                                      defaultChecked={Boolean(existingSport)}
-                                    />
-                                    <span>{sport.name}</span>
-                                  </label>
-                                  <input
-                                    name={`price_${sport.id}`}
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    className="admin-form__field admin-form__field--narrow"
-                                    defaultValue={existingSport?.pricePerHour ?? 10000}
-                                    placeholder="₸ / час"
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        <div className="admin-inline-edit">
-                          <label className="admin-form__label" htmlFor={`bio-${instructor.id}`}>
-                            Описание
-                          </label>
-                          <input
-                            id={`bio-${instructor.id}`}
-                            name="bio"
-                            className="admin-form__field"
-                            defaultValue={instructor.bio ?? ""}
-                            placeholder="Направление, опыт, формат занятий"
-                          />
-                        </div>
-                        <div className="admin-inline-edit">
-                          <label className="admin-form__label" htmlFor={`photo-${instructor.id}`}>
-                            Фото (URL)
-                          </label>
-                          <input
-                            id={`photo-${instructor.id}`}
-                            name="photoUrl"
-                            type="url"
-                            className="admin-form__field"
-                            defaultValue={instructor.photoUrl ?? ""}
-                            placeholder="https://..."
-                          />
-                        </div>
-                        <button type="submit" className="admin-bookings__action-button">
-                          Сохранить
-                        </button>
-                      </form>
-                    ) : (
-                      <>
-                        <div className="admin-bookings__cell-sub">{instructor.bio?.trim() || "Описание не заполнено."}</div>
-                        <div className="admin-bookings__cell-sub">Ставка: доступно только супер-админу</div>
-                      </>
-                    )}
+                    <div className="admin-bookings__cell-sub">{instructor.bio?.trim() || "—"}</div>
+                    <details className="admin-details">
+                      <summary className="admin-details__summary">Редактировать</summary>
+                      <div className="admin-details__content">
+                        {canEditPricing ? (
+                          <form action={updatePricingAction} className="admin-form">
+                            <input type="hidden" name="instructorId" value={instructor.id} />
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`name-${instructor.id}`}>
+                                Имя
+                              </label>
+                              <input
+                                id={`name-${instructor.id}`}
+                                name="name"
+                                className="admin-form__field"
+                                defaultValue={instructor.name}
+                                required
+                              />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label">Виды спорта и ставка (₸ / час)</label>
+                              <div className="admin-inline-sport-prices">
+                                {sportOptions.map((sport) => {
+                                  const existingSport = instructor.sports.find((s) => s.sportId === sport.id);
+                                  return (
+                                    <div key={`${instructor.id}-${sport.id}`} className="admin-inline-sport-price-row">
+                                      <label className="admin-form__checkbox">
+                                        <input
+                                          name="sportIds"
+                                          type="checkbox"
+                                          value={sport.id}
+                                          defaultChecked={Boolean(existingSport)}
+                                        />
+                                        <span>{sport.name}</span>
+                                      </label>
+                                      <input
+                                        name={`price_${sport.id}`}
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        className="admin-form__field admin-form__field--narrow"
+                                        defaultValue={existingSport?.pricePerHour ?? 10000}
+                                        placeholder="₸ / час"
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`bio-${instructor.id}`}>
+                                Описание
+                              </label>
+                              <input
+                                id={`bio-${instructor.id}`}
+                                name="bio"
+                                className="admin-form__field"
+                                defaultValue={instructor.bio ?? ""}
+                                placeholder="Направление, опыт, формат занятий"
+                              />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`photo-${instructor.id}`}>
+                                Фото (URL)
+                              </label>
+                              <input
+                                id={`photo-${instructor.id}`}
+                                name="photoUrl"
+                                type="url"
+                                className="admin-form__field"
+                                defaultValue={instructor.photoUrl ?? ""}
+                                placeholder="https://..."
+                              />
+                            </div>
+                            <div className="admin-form__actions">
+                              <button type="submit" className="admin-form__submit">
+                                Сохранить
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <form action={updateBasicAction} className="admin-form">
+                            <input type="hidden" name="instructorId" value={instructor.id} />
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`name-basic-${instructor.id}`}>
+                                Имя
+                              </label>
+                              <input
+                                id={`name-basic-${instructor.id}`}
+                                name="name"
+                                className="admin-form__field"
+                                defaultValue={instructor.name}
+                                required
+                              />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`bio-basic-${instructor.id}`}>
+                                Описание
+                              </label>
+                              <input
+                                id={`bio-basic-${instructor.id}`}
+                                name="bio"
+                                className="admin-form__field"
+                                defaultValue={instructor.bio ?? ""}
+                                placeholder="Направление, опыт, формат занятий"
+                              />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`photo-basic-${instructor.id}`}>
+                                Фото (URL)
+                              </label>
+                              <input
+                                id={`photo-basic-${instructor.id}`}
+                                name="photoUrl"
+                                type="url"
+                                className="admin-form__field"
+                                defaultValue={instructor.photoUrl ?? ""}
+                                placeholder="https://..."
+                              />
+                            </div>
+                            <div className="admin-form__actions">
+                              <button type="submit" className="admin-form__submit">
+                                Сохранить
+                              </button>
+                            </div>
+                          </form>
+                        )}
+                      </div>
+                    </details>
                   </td>
                   <td className="admin-table__cell">
                     <span className={`admin-status-badge ${instructor.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
@@ -333,7 +402,7 @@ export default async function AdminInstructorsPage({
                         <input type="hidden" name="instructorId" value={instructor.id} />
                         <input type="hidden" name="nextActive" value={String(!instructor.active)} />
                         <button type="submit" className="admin-bookings__action-button">
-                          {instructor.active ? "Выключить" : "Включить"}
+                          {instructor.active ? "Деактивировать" : "Активировать"}
                         </button>
                       </form>
                       <AdminConfirmActionForm

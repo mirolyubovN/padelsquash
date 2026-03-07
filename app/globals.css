@@ -165,6 +165,23 @@ summary:focus-visible {
   color: #ffffff;
 }
 
+.site-header__logout-button {
+  @apply rounded border px-4 py-2 text-sm font-medium transition-colors;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.site-header__logout-button:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.site-header__mobile-logout-button {
+  @apply w-full rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors;
+  border-color: rgba(16, 37, 46, 0.12);
+  color: var(--muted);
+}
+
 .site-header__menu-button {
   @apply hidden items-center gap-2 rounded border px-3 py-2 text-sm font-medium;
   border-color: rgba(255, 255, 255, 0.14);
@@ -873,6 +890,96 @@ summary:focus-visible {
   @apply rounded-lg border-l-4 px-4 py-3 text-sm leading-6;
   border-color: var(--accent);
   background-color: var(--accent-soft);
+}
+
+/* Timetable */
+.booking-flow__timetable-wrapper {
+  @apply -mx-1 overflow-x-auto px-1;
+}
+
+.booking-flow__timetable {
+  @apply w-full border-collapse text-sm;
+  min-width: max-content;
+}
+
+.booking-flow__timetable-time-header {
+  @apply py-2 pr-4 text-left text-xs font-bold uppercase tracking-widest;
+  color: var(--muted);
+  min-width: 7.5rem;
+  position: sticky;
+  left: 0;
+  background-color: var(--surface);
+  z-index: 1;
+}
+
+.booking-flow__timetable-col-header {
+  @apply px-2 py-2 text-center;
+  min-width: 6rem;
+}
+
+.booking-flow__timetable-col-name {
+  @apply block text-xs font-bold uppercase tracking-wide;
+}
+
+.booking-flow__timetable-col-price {
+  @apply block text-xs font-normal normal-case tracking-normal;
+  color: var(--accent);
+}
+
+.booking-flow__timetable-row {
+  border-bottom: 1px solid var(--line);
+}
+
+.booking-flow__timetable-time-cell {
+  @apply py-1.5 pr-4;
+  min-width: 7.5rem;
+  position: sticky;
+  left: 0;
+  background-color: var(--surface);
+  z-index: 1;
+}
+
+.booking-flow__timetable-time-label {
+  @apply block text-xs font-bold;
+}
+
+.booking-flow__timetable-time-price {
+  @apply block text-xs font-medium;
+  color: var(--accent);
+}
+
+.booking-flow__timetable-cell-wrapper {
+  @apply px-1 py-1;
+}
+
+.booking-flow__timetable-cell {
+  @apply flex h-10 w-full items-center justify-center rounded border text-xs font-semibold transition-all;
+  border-color: var(--line);
+  background-color: var(--background);
+  min-width: 5rem;
+}
+
+.booking-flow__timetable-cell--available {
+  cursor: pointer;
+}
+
+.booking-flow__timetable-cell--available:hover {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.booking-flow__timetable-cell--selected {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.booking-flow__timetable-cell--unavailable {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background-color: rgba(0, 0, 0, 0.04);
 }
 
 /* Court picker */
@@ -1736,6 +1843,172 @@ summary:focus-visible {
 .admin-section__description {
   @apply mt-1 text-sm leading-6;
   color: var(--muted);
+}
+
+/* admin-details: collapsible edit panel */
+.admin-details {
+  @apply mt-2;
+}
+
+.admin-details__summary {
+  @apply cursor-pointer text-xs font-medium;
+  color: var(--accent);
+}
+
+.admin-details__summary:hover {
+  text-decoration: underline;
+}
+
+.admin-details__content {
+  @apply mt-3 rounded-xl border p-3;
+  border-color: rgba(16, 37, 46, 0.1);
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+/* schedule-grid: weekly availability grid */
+.schedule-grid__form {
+  @apply w-full;
+}
+
+.schedule-grid__sport-row {
+  @apply mb-3 flex items-center gap-3;
+}
+
+.schedule-grid__sport-select {
+  @apply w-auto;
+}
+
+.schedule-grid {
+  @apply w-full overflow-x-auto;
+}
+
+.schedule-grid__header {
+  @apply flex;
+}
+
+.schedule-grid__row {
+  @apply flex;
+}
+
+.schedule-grid__hour-label {
+  @apply flex-none text-right text-xs;
+  width: 3.5rem;
+  padding: 0.25rem 0.5rem 0.25rem 0;
+  color: var(--muted);
+  line-height: 1.75rem;
+}
+
+.schedule-grid__day-label {
+  @apply flex-1 text-center text-xs font-semibold;
+  padding: 0.25rem 0.125rem;
+  color: var(--muted);
+}
+
+.schedule-grid__cell {
+  @apply flex-1 cursor-pointer rounded-sm border transition-colors;
+  margin: 0.125rem;
+  height: 1.75rem;
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.schedule-grid__cell:hover:not(:disabled) {
+  border-color: var(--accent);
+  background-color: rgba(240, 78, 35, 0.08);
+}
+
+.schedule-grid__cell--covered {
+  cursor: default;
+  background-color: rgba(16, 37, 46, 0.1);
+  border-color: rgba(16, 37, 46, 0.08);
+}
+
+.schedule-grid__cell--selected {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.schedule-grid__actions {
+  @apply mt-3 flex items-center justify-between gap-3;
+}
+
+.schedule-grid__hint {
+  @apply text-sm;
+  color: var(--muted);
+}
+
+.schedule-grid__wrapper {
+  @apply w-full;
+}
+
+.schedule-grid__nav {
+  @apply mb-3 flex flex-wrap items-center gap-2;
+}
+
+.schedule-grid__nav-btn {
+  @apply rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors;
+  border-color: rgba(16, 37, 46, 0.15);
+  background-color: rgba(255, 255, 255, 0.8);
+  color: var(--foreground);
+}
+
+.schedule-grid__nav-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.schedule-grid__nav-btn--active {
+  background-color: var(--foreground);
+  border-color: var(--foreground);
+  color: #fff;
+}
+
+.schedule-grid__nav-btn--active:hover {
+  background-color: var(--foreground);
+  border-color: var(--foreground);
+  color: #fff;
+}
+
+.schedule-grid__banner {
+  @apply mb-3 rounded-lg px-3 py-2 text-sm font-medium;
+}
+
+.schedule-grid__banner--template {
+  background-color: rgba(16, 37, 46, 0.06);
+  color: var(--muted);
+}
+
+.schedule-grid__banner--custom {
+  background-color: rgba(240, 78, 35, 0.08);
+  color: var(--accent);
+}
+
+.schedule-grid__banner--editing {
+  background-color: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+}
+
+.schedule-grid__cell--template {
+  cursor: default;
+  background-color: rgba(16, 37, 46, 0.04);
+  border-color: rgba(16, 37, 46, 0.05);
+  border-style: dashed;
+}
+
+.schedule-grid__action-group {
+  @apply flex items-center gap-2;
+}
+
+.admin-form__cancel {
+  @apply rounded-lg border px-4 py-2 text-sm font-medium transition-colors;
+  border-color: rgba(16, 37, 46, 0.15);
+  background-color: transparent;
+  color: var(--muted);
+}
+
+.admin-form__cancel:hover {
+  border-color: var(--foreground);
+  color: var(--foreground);
 }
 
 .admin-form__label {

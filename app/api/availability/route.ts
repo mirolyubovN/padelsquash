@@ -14,6 +14,25 @@ import { availabilityQuerySchema } from "@/src/lib/validation/booking";
 
 export const dynamic = "force-dynamic";
 
+const APP_TIMEZONE = process.env.APP_TIMEZONE ?? "Asia/Almaty";
+
+function getTodayVenueDate(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: APP_TIMEZONE }).format(new Date());
+}
+
+function getNowVenueMin(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  return (
+    Number(parts.find((p) => p.type === "hour")?.value ?? 0) * 60 +
+    Number(parts.find((p) => p.type === "minute")?.value ?? 0)
+  );
+}
+
 export async function GET(request: Request) {
   const allowDemoFallback = process.env.ALLOW_DEMO_FALLBACK === "true";
   const url = new URL(request.url);
@@ -49,6 +68,9 @@ export async function GET(request: Request) {
         }))
       : slots;
 
+  const cutoffMin =
+    parsed.data.date === getTodayVenueDate() ? getNowVenueMin() + 5 : undefined;
+
   let dbErrorMessage: string | null = null;
   try {
     const dbContext = await getAvailabilityContextFromDb({
@@ -69,6 +91,7 @@ export async function GET(request: Request) {
         exceptions: dbContext.exceptions,
         existingBookings: dbContext.existingBookings,
         requestedInstructorId: parsed.data.instructorId,
+        cutoffMin,
       });
 
       return NextResponse.json({
@@ -114,6 +137,7 @@ export async function GET(request: Request) {
     exceptions: demoExceptions,
     existingBookings: demoExistingBookings,
     requestedInstructorId: parsed.data.instructorId,
+    cutoffMin,
   });
 
   return NextResponse.json({

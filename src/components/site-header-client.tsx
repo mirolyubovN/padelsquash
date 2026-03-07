@@ -10,9 +10,11 @@ interface SiteHeaderClientProps {
     href: string;
     label: string;
   };
+  logoutAction?: (fd: FormData) => void | Promise<void>;
+  accountLink?: { href: string; label: string };
 }
 
-export function SiteHeaderClient({ portalLink }: SiteHeaderClientProps) {
+export function SiteHeaderClient({ portalLink, logoutAction, accountLink }: SiteHeaderClientProps) {
   const pathname = usePathname();
   const [mobileMenuPath, setMobileMenuPath] = useState<string | null>(null);
   const isMobileMenuOpen = mobileMenuPath === pathname;
@@ -68,9 +70,21 @@ export function SiteHeaderClient({ portalLink }: SiteHeaderClientProps) {
         </nav>
 
         <div className="site-header__actions">
+          {accountLink ? (
+            <Link href={accountLink.href} className="site-header__portal-link">
+              {accountLink.label}
+            </Link>
+          ) : null}
           <Link href={portalLink.href} className="site-header__portal-link">
             {portalLink.label}
           </Link>
+          {logoutAction ? (
+            <form action={logoutAction}>
+              <button type="submit" className="site-header__logout-button">
+                Выйти
+              </button>
+            </form>
+          ) : null}
           <Link href="/book" className="site-header__cta">
             Забронировать
           </Link>
@@ -136,6 +150,15 @@ export function SiteHeaderClient({ portalLink }: SiteHeaderClientProps) {
             </nav>
 
             <div className="site-header__mobile-actions">
+              {accountLink ? (
+                <Link
+                  href={accountLink.href}
+                  className="site-header__mobile-portal-link"
+                  onClick={() => setMobileMenuPath(null)}
+                >
+                  {accountLink.label}
+                </Link>
+              ) : null}
               <Link
                 href={portalLink.href}
                 className="site-header__mobile-portal-link"
@@ -143,6 +166,13 @@ export function SiteHeaderClient({ portalLink }: SiteHeaderClientProps) {
               >
                 {portalLink.label}
               </Link>
+              {logoutAction ? (
+                <form action={logoutAction}>
+                  <button type="submit" className="site-header__mobile-logout-button">
+                    Выйти
+                  </button>
+                </form>
+              ) : null}
               <Link href="/book" className="site-header__mobile-cta" onClick={() => setMobileMenuPath(null)}>
                 Забронировать
               </Link>

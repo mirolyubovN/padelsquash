@@ -9,6 +9,13 @@ import type {
 } from "@/src/lib/domain/types";
 import { toVenueIsoDate, venueDateRangeUtc } from "@/src/lib/time/venue-timezone";
 
+function getWeekStartDate(venueDate: string): string {
+  const d = new Date(venueDate + "T12:00:00Z");
+  const day = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));
+  return d.toISOString().split("T")[0];
+}
+
 export interface AvailabilityDbContext {
   service: ServiceRecord;
   location: {
@@ -105,20 +112,47 @@ export async function getAvailabilityContextFromDb(args: {
   ]);
 
   const instructorIds = instructors.map((row: { id: string }) => row.id);
-  const instructorSchedules =
-    instructorIds.length > 0
+
+  let instructorSchedules: Array<{
+    resourceId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    active: boolean;
+  }> = [];
+
+  if (instructorIds.length > 0) {
+    const weekStartStr = getWeekStartDate(args.date);
+    const weekStartDate = new Date(weekStartStr + "T00:00:00Z");
+    const sportFilter = [{ sportId: service.sportId }, { sportId: null }];
+
+    const weekSpecific = await prisma.resourceSchedule.findMany({
+      where: {
+        active: true,
+        resourceType: "instructor",
+        resourceId: { in: instructorIds },
+        ...({ weekStart: weekStartDate } as object),
+        OR: sportFilter,
+      },
+    });
+
+    const instructorsWithOverride = new Set(weekSpecific.map((r) => r.resourceId));
+    const baseInstructorIds = instructorIds.filter((id) => !instructorsWithOverride.has(id));
+
+    const baseEntries = baseInstructorIds.length > 0
       ? await prisma.resourceSchedule.findMany({
           where: {
             active: true,
             resourceType: "instructor",
-            resourceId: { in: instructorIds },
-            OR: [
-              { sportId: service.sportId },
-              { sportId: null },
-            ],
+            resourceId: { in: baseInstructorIds },
+            ...({ weekStart: null } as object),
+            OR: sportFilter,
           },
         })
       : [];
+
+    instructorSchedules = [...weekSpecific, ...baseEntries];
+  }
 
   return {
     service: {

@@ -184,20 +184,22 @@ model OpeningHour {
 }
 
 model ResourceSchedule {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   resourceType ScheduleResourceType
   resourceId   String
   dayOfWeek    Int
   startTime    String
   endTime      String
-  active       Boolean  @default(true)
+  active       Boolean   @default(true)
   sportId      String?
+  weekStart    DateTime? @db.Date
 
   sport Sport? @relation(fields: [sportId], references: [id], onDelete: SetNull)
 
   @@index([resourceType, resourceId])
   @@index([dayOfWeek, active])
   @@index([sportId])
+  @@index([resourceType, resourceId, weekStart])
 }
 
 model ScheduleException {

@@ -76,6 +76,11 @@ interface BookingSuccessSummary {
   currency: string;
 }
 
+interface SelectedCell {
+  timeKey: string;
+  resourceId: string;
+}
+
 export interface LiveBookingFormProps {
   locations: Array<{ id: string; slug: string; name: string; address: string }>;
   selectedLocationSlug: string;
@@ -178,7 +183,6 @@ export function LiveBookingForm({
     [serviceMatrix],
   );
 
-  // Initial values
   const firstSport = sportOptions[0]?.slug ?? "padel";
   const initialKind: ServiceKind = serviceMatrix[firstSport]?.court ? "court" : "training";
 
@@ -193,8 +197,7 @@ export function LiveBookingForm({
   const [reloadKey, setReloadKey] = useState(0);
   const [autoDateMessage, setAutoDateMessage] = useState<string | null>(null);
   const [autoSearchKey, setAutoSearchKey] = useState("");
-  const [selectedSlotKeys, setSelectedSlotKeys] = useState<string[]>([]);
-  const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>([]);
+  const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitWarning, setSubmitWarning] = useState<string | null>(null);
@@ -263,31 +266,28 @@ export function LiveBookingForm({
     }
   }, [availableKindsForSport, resolvedService]);
 
-  // Clear trainer when switching away from training
+  // Clear selection when context changes
   useEffect(() => {
-    if (serviceKind !== "training") setSelectedInstructorId("");
-    else {
-      // Deselect trainer if not available for new sport
-      if (selectedInstructorId && !trainersForSport.some((t) => t.id === selectedInstructorId)) {
-        setSelectedInstructorId("");
-      }
-    }
-  }, [serviceKind, sport, trainersForSport, selectedInstructorId]);
-
-  // Clear slots when selections change
-  useEffect(() => {
-    setSelectedCourtIds([]);
-    setSelectedSlotKeys([]);
+    setSelectedCells([]);
+    setSelectedInstructorId("");
     setSubmitError(null);
     setSubmitWarning(null);
     setSubmitSuccessSummary(null);
     setAutoDateMessage(null);
     setAutoSearchKey("");
-  }, [sport, serviceKind, selectedInstructorId]);
+  }, [sport, serviceKind]);
+
+  // Clear cells when instructor changes
+  useEffect(() => {
+    setSelectedCells([]);
+    setSubmitError(null);
+    setSubmitWarning(null);
+    setAutoDateMessage(null);
+    setAutoSearchKey("");
+  }, [selectedInstructorId]);
 
   useEffect(() => {
-    setSelectedCourtIds([]);
-    setSelectedSlotKeys([]);
+    setSelectedCells([]);
     setSubmitError(null);
     setSubmitWarning(null);
     setAutoDateMessage(null);
@@ -300,18 +300,14 @@ export function LiveBookingForm({
     if (resolvedService.requiresInstructor && !selectedInstructorId) { setAvailability(null); return; }
 
     const svc = resolvedService;
+    const instrId = svc.requiresInstructor ? selectedInstructorId : undefined;
     let cancelled = false;
 
     async function load() {
       setAvailabilityLoading(true);
       setAvailabilityError(null);
       try {
-        const payload = await fetchAvailability(
-          selectedLocationSlug,
-          svc.id,
-          date,
-          svc.requiresInstructor ? selectedInstructorId : undefined,
-        );
+        const payload = await fetchAvailability(selectedLocationSlug, svc.id, date, instrId);
         if (!cancelled) setAvailability(payload);
       } catch (err) {
         if (!cancelled) {
@@ -324,7 +320,7 @@ export function LiveBookingForm({
     }
     void load();
     return () => { cancelled = true; };
-  }, [resolvedService, date, reloadKey, selectedInstructorId, selectedLocationSlug]);
+  }, [resolvedService, date, reloadKey, selectedLocationSlug, selectedInstructorId]);
 
   // Auto-advance to nearest date with slots
   useEffect(() => {
@@ -336,6 +332,7 @@ export function LiveBookingForm({
     if (autoSearchKey === key) return;
 
     const svc = resolvedService;
+    const instrId = svc.requiresInstructor ? selectedInstructorId : undefined;
     let cancelled = false;
     setAutoSearchKey(key);
 
@@ -343,12 +340,7 @@ export function LiveBookingForm({
       for (let i = 1; i <= 14; i++) {
         const next = addDays(date, i);
         try {
-          const result = await fetchAvailability(
-            selectedLocationSlug,
-            svc.id,
-            next,
-            svc.requiresInstructor ? selectedInstructorId : undefined,
-          );
+          const result = await fetchAvailability(selectedLocationSlug, svc.id, next, instrId);
           if (cancelled) return;
           if (result.slots.length > 0) {
             setAutoDateMessage(`На ${date} слотов нет. Показана ближайшая дата: ${next}.`);
@@ -361,54 +353,69 @@ export function LiveBookingForm({
     }
     void findNext();
     return () => { cancelled = true; };
-  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey, selectedInstructorId, selectedLocationSlug]);
+  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey, selectedLocationSlug, selectedInstructorId]);
 
-  // Derived slot data
+  // Available time slots
   const availableTimeSlots = useMemo(
     () => [...(availability?.slots ?? [])].sort((a, b) => a.startTime.localeCompare(b.startTime)),
     [availability],
   );
 
-  const selectedSlots = useMemo(() => {
-    const set = new Set(selectedSlotKeys);
-    return availableTimeSlots.filter((s) => set.has(getSlotKey(s)));
-  }, [availableTimeSlots, selectedSlotKeys]);
+  // Timetable columns — always courts (for both court rental and training)
+  const timetableColumns = useMemo(() => {
+    if (availableTimeSlots.length === 0) return [];
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const slot of availableTimeSlots) {
+      for (const id of slot.availableCourtIds) {
+        if (!seen.has(id)) { seen.add(id); ids.push(id); }
+      }
+    }
+    return ids.map((id) => ({ id, label: courtNames[id] ?? id }));
+  }, [availableTimeSlots, courtNames]);
 
-  // Courts available across ALL selected slots (intersection)
-  const availableCourtsForSelection = useMemo(() => {
-    if (serviceKind !== "court" || selectedSlots.length === 0) return [];
-    const sets = selectedSlots.map((s) => new Set(s.availableCourtIds));
-    const first = sets[0]!;
-    return [...first].filter((id) => sets.every((s) => s.has(id)));
-  }, [serviceKind, selectedSlots]);
-
-  // Drop selected keys that are no longer available
+  // Validate selected cells when availability changes (resourceId is always a courtId)
   useEffect(() => {
-    if (!selectedSlotKeys.length) return;
-    const available = new Set(availableTimeSlots.map(getSlotKey));
-    setSelectedSlotKeys((prev) => prev.filter((k) => available.has(k)));
-  }, [availableTimeSlots, selectedSlotKeys.length]);
+    setSelectedCells((prev) => {
+      if (!prev.length) return prev;
+      const valid = prev.filter((cell) => {
+        const slot = availableTimeSlots.find((s) => getSlotKey(s) === cell.timeKey);
+        return slot ? slot.availableCourtIds.includes(cell.resourceId) : false;
+      });
+      return valid.length !== prev.length ? valid : prev;
+    });
+  }, [availableTimeSlots]);
 
-  // Drop selected courts that are no longer in the available intersection
-  useEffect(() => {
-    if (!selectedCourtIds.length) return;
-    const available = new Set(availableCourtsForSelection);
-    setSelectedCourtIds((prev) => prev.filter((id) => available.has(id)));
-  }, [availableCourtsForSelection, selectedCourtIds.length]);
+  function toggleCell(timeKey: string, resourceId: string) {
+    setSelectedCells((prev) => {
+      const exists = prev.some((c) => c.timeKey === timeKey && c.resourceId === resourceId);
+      return exists
+        ? prev.filter((c) => !(c.timeKey === timeKey && c.resourceId === resourceId))
+        : [...prev, { timeKey, resourceId }];
+    });
+  }
 
   // Price preview
   const pricePreview = useMemo(() => {
-    if (!resolvedService || selectedSlots.length === 0) return null;
-    if (serviceKind === "court" && selectedCourtIds.length === 0) return null;
-    const courtCount = serviceKind === "court" ? selectedCourtIds.length : 1;
-    const lines = selectedSlots.map((slot) => {
-      const tier = resolvePricingTier(date, slot.startTime);
-      const courtPrice = courtPrices[sport]?.[tier] ?? 0;
-      const trainerPrice = serviceKind === "training" ? selectedTrainerPrice : 0;
-      return { key: getSlotKey(slot), startTime: slot.startTime, endTime: slot.endTime, tier, total: courtPrice * courtCount + trainerPrice };
-    });
+    if (!resolvedService || selectedCells.length === 0) return null;
+    const lines = selectedCells
+      .map((cell) => {
+        const slot = availableTimeSlots.find((s) => getSlotKey(s) === cell.timeKey);
+        if (!slot) return null;
+        const tier = resolvePricingTier(date, slot.startTime);
+        const courtPrice = courtPrices[sport]?.[tier] ?? 0;
+        const trainerPrice = serviceKind === "training" ? selectedTrainerPrice : 0;
+        const courtLabel = courtNames[cell.resourceId] ?? cell.resourceId;
+        const label =
+          serviceKind === "court"
+            ? `${slot.startTime}–${slot.endTime} · ${courtLabel}`
+            : `${slot.startTime}–${slot.endTime} · ${courtLabel}${selectedTrainer ? ` · ${selectedTrainer.name}` : ""}`;
+        return { key: `${cell.timeKey}:${cell.resourceId}`, label, total: courtPrice + trainerPrice };
+      })
+      .filter(Boolean) as Array<{ key: string; label: string; total: number }>;
+    if (lines.length === 0) return null;
     return { lines, total: lines.reduce((s, l) => s + l.total, 0) };
-  }, [resolvedService, selectedSlots, selectedCourtIds.length, date, courtPrices, sport, serviceKind, selectedTrainerPrice]);
+  }, [resolvedService, selectedCells, availableTimeSlots, date, courtPrices, sport, serviceKind, selectedTrainerPrice, selectedTrainer, courtNames]);
 
   // Booking return URL (for auth redirect)
   const bookingReturnToPath = useMemo(() => {
@@ -423,32 +430,23 @@ export function LiveBookingForm({
 
   // Submit
   async function submitBooking() {
-    if (!resolvedService || selectedSlots.length === 0 || !isAuthenticated) return;
-    if (resolvedService.requiresInstructor && !selectedTrainer) {
-      setSubmitError("Выберите тренера.");
-      return;
-    }
-    if (serviceKind === "court" && selectedCourtIds.length === 0) {
-      setSubmitError("Выберите хотя бы один корт.");
-      return;
-    }
+    if (!resolvedService || selectedCells.length === 0 || !isAuthenticated) return;
 
     setSubmitLoading(true);
     setSubmitError(null);
     setSubmitWarning(null);
 
-    const toBook = [...selectedSlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const totalAttempts = selectedCells.length;
     const booked: BookingSuccessSession[] = [];
     const failed: string[] = [];
 
-    // Court mode: book each (court × slot) combination
-    // Training mode: one booking per slot, auto-assign first available court
-    const bookingPairs: Array<{ courtId: string; slot: SlotOption }> =
-      serviceKind === "court"
-        ? selectedCourtIds.flatMap((courtId) => toBook.map((slot) => ({ courtId, slot })))
-        : toBook.map((slot) => ({ courtId: slot.availableCourtIds[0] ?? "", slot }));
+    for (const cell of selectedCells) {
+      const slot = availableTimeSlots.find((s) => getSlotKey(s) === cell.timeKey);
+      if (!slot) { failed.push(`${cell.timeKey}: слот недоступен`); continue; }
 
-    for (const { courtId, slot } of bookingPairs) {
+      const courtId = cell.resourceId;
+      const instructorId = serviceKind === "training" ? selectedInstructorId : undefined;
+
       if (!courtId) { failed.push(`${slot.startTime}: нет свободного корта`); continue; }
 
       const res = await fetch("/api/bookings", {
@@ -461,7 +459,7 @@ export function LiveBookingForm({
           startTime: slot.startTime,
           durationMin: 60,
           courtId,
-          instructorId: resolvedService.requiresInstructor ? selectedTrainer?.id : undefined,
+          instructorId,
           customer: {
             name: initialCustomer?.name ?? "",
             email: initialCustomer?.email ?? "",
@@ -474,19 +472,21 @@ export function LiveBookingForm({
 
       if (!res.ok || (payload && "source" in payload && (payload as BookingApiSuccessPayload).source === "demo-fallback")) {
         const msg = payload && "error" in payload && payload.error ? payload.error : "Не удалось создать бронирование";
-        failed.push(`${slot.startTime} (${courtNames[courtId] ?? courtId}): ${msg}`);
+        const label = `${slot.startTime} (${courtNames[courtId] ?? courtId}${serviceKind === "training" && selectedTrainer ? ` · ${selectedTrainer.name}` : ""})`;
+        failed.push(`${label}: ${msg}`);
         continue;
       }
 
       const ok = payload as BookingApiSuccessPayload;
       const assignedCourtId =
         ok.data.booking.resources?.find((r) => r.resourceType === "court")?.resourceId ?? courtId;
+      const trainerName = serviceKind === "training" ? (selectedTrainer?.name ?? undefined) : undefined;
       booked.push({
         date,
         startTime: slot.startTime,
         endTime: slot.endTime,
         courtLabel: formatCourtLabel(assignedCourtId, courtNames),
-        trainerName: serviceKind === "training" ? selectedTrainer?.name : undefined,
+        trainerName,
         amount: ok.data.booking.priceTotal,
         currency: ok.data.booking.currency,
       });
@@ -504,19 +504,16 @@ export function LiveBookingForm({
       totalAmount: booked.reduce((s, b) => s + b.amount, 0),
       currency: booked[0]?.currency ?? "KZT",
     });
-    setSelectedSlotKeys([]);
-    setSelectedCourtIds([]);
+    setSelectedCells([]);
     if (failed.length > 0) {
-      setSubmitWarning(`${booked.length} из ${bookingPairs.length} бронирований создано. Ошибка: ${failed[0]}`);
+      setSubmitWarning(`${booked.length} из ${totalAttempts} бронирований создано. Ошибка: ${failed[0]}`);
     }
     setReloadKey((k) => k + 1);
   }
 
   // ── Render ────────────────────────────────────────────────────────────
 
-  const showConfirm =
-    submitSuccessSummary !== null ||
-    (selectedSlots.length > 0 && (serviceKind === "training" || selectedCourtIds.length > 0));
+  const showConfirm = submitSuccessSummary !== null || selectedCells.length > 0;
 
   return (
     <section className="booking-flow" aria-labelledby="booking-flow-title">
@@ -633,7 +630,7 @@ export function LiveBookingForm({
           <p className="booking-flow__section-hint booking-flow__section-hint--info">{autoDateMessage}</p>
         ) : null}
 
-        {/* Slot grid */}
+        {/* Timetable / loading / error states */}
         {!resolvedService ? (
           <p className="booking-flow__section-hint">Выберите спорт и тип услуги выше.</p>
         ) : serviceKind === "training" && !selectedInstructorId ? (
@@ -657,77 +654,81 @@ export function LiveBookingForm({
           </div>
         ) : availableTimeSlots.length === 0 ? (
           <p className="booking-flow__section-hint">Нет доступного времени на эту дату.</p>
+        ) : timetableColumns.length === 0 ? (
+          <p className="booking-flow__section-hint">Нет доступных кортов на эту дату.</p>
         ) : (
           <>
             <p className="booking-flow__slots-hint">
-              {selectedSlotKeys.length > 0
-                ? `Выбрано: ${selectedSlotKeys.length} ${selectedSlotKeys.length === 1 ? "слот" : selectedSlotKeys.length < 5 ? "слота" : "слотов"} — можно выбрать несколько`
-                : "Выберите один или несколько слотов"}
+              {selectedCells.length > 0
+                ? `Выбрано: ${selectedCells.length} ${selectedCells.length === 1 ? "сеанс" : selectedCells.length < 5 ? "сеанса" : "сеансов"}`
+                : "Выберите корт и время — можно несколько"}
             </p>
-            <div className="booking-flow__slots" role="group" aria-label="Временные слоты">
-              {availableTimeSlots.map((slot) => {
-                const key = getSlotKey(slot);
-                const isSelected = selectedSlotKeys.includes(key);
-                const tier = resolvePricingTier(date, slot.startTime);
-                const courtPrice = courtPrices[sport]?.[tier] ?? 0;
-                const trainerPrice = serviceKind === "training" ? selectedTrainerPrice : 0;
-                const total = courtPrice + trainerPrice;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`booking-flow__slot${isSelected ? " booking-flow__slot--selected" : ""}`}
-                    onClick={() =>
-                      setSelectedSlotKeys((prev) =>
-                        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-                      )
-                    }
-                  >
-                    <span className="booking-flow__slot-time">{slot.startTime}</span>
-                    <span className="booking-flow__slot-price">{formatMoneyKzt(total)}</span>
-                  </button>
-                );
-              })}
-            </div>
 
-            {/* Court picker — only for court rental, shown after slots are chosen */}
-            {serviceKind === "court" && selectedSlotKeys.length > 0 ? (
-              <div className="booking-flow__court-picker">
-                <p className="booking-flow__section-label">Выберите корт(ы)</p>
-                {availableCourtsForSelection.length === 0 ? (
-                  <p className="booking-flow__section-hint">
-                    Нет кортов, доступных для всех выбранных слотов. Попробуйте выбрать меньше слотов.
-                  </p>
-                ) : (
-                  <>
-                    <p className="booking-flow__slots-hint">
-                      {selectedCourtIds.length > 0
-                        ? `Выбрано: ${selectedCourtIds.length} ${selectedCourtIds.length === 1 ? "корт" : selectedCourtIds.length < 5 ? "корта" : "кортов"}`
-                        : "Можно выбрать несколько кортов"}
-                    </p>
-                    <div className="booking-flow__court-grid" role="group" aria-label="Выбор корта">
-                      {availableCourtsForSelection.map((courtId) => {
-                        const isCourtSelected = selectedCourtIds.includes(courtId);
-                        return (
-                          <button
-                            key={courtId}
-                            type="button"
-                            className={`booking-flow__court-btn${isCourtSelected ? " booking-flow__court-btn--selected" : ""}`}
-                            onClick={() =>
-                              setSelectedCourtIds((prev) =>
-                                prev.includes(courtId) ? prev.filter((id) => id !== courtId) : [...prev, courtId],
-                              )
-                            }
-                          >
-                            {courtNames[courtId] ?? courtId}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : null}
+            <div className="booking-flow__timetable-wrapper">
+              <table className="booking-flow__timetable">
+                <thead>
+                  <tr>
+                    <th className="booking-flow__timetable-time-header">Время</th>
+                    {timetableColumns.map((col) => (
+                      <th key={col.id} className="booking-flow__timetable-col-header">
+                        <span className="booking-flow__timetable-col-name">{col.label}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {availableTimeSlots.map((slot) => {
+                    const timeKey = getSlotKey(slot);
+                    const tier = resolvePricingTier(date, slot.startTime);
+                    const courtPrice = courtPrices[sport]?.[tier] ?? 0;
+                    return (
+                      <tr key={timeKey} className="booking-flow__timetable-row">
+                        <td className="booking-flow__timetable-time-cell">
+                          <span className="booking-flow__timetable-time-label">
+                            {slot.startTime}–{slot.endTime}
+                          </span>
+                          <span className="booking-flow__timetable-time-price">
+                            {formatMoneyKzt(serviceKind === "training" ? courtPrice + selectedTrainerPrice : courtPrice)}
+                          </span>
+                        </td>
+                        {timetableColumns.map((col) => {
+                          const isAvailable = slot.availableCourtIds.includes(col.id);
+                          const isSelected = selectedCells.some(
+                            (c) => c.timeKey === timeKey && c.resourceId === col.id,
+                          );
+                          const cellPrice =
+                            serviceKind === "training" ? courtPrice + selectedTrainerPrice : null;
+                          return (
+                            <td key={col.id} className="booking-flow__timetable-cell-wrapper">
+                              <button
+                                type="button"
+                                disabled={!isAvailable}
+                                className={`booking-flow__timetable-cell${
+                                  isSelected
+                                    ? " booking-flow__timetable-cell--selected"
+                                    : isAvailable
+                                    ? " booking-flow__timetable-cell--available"
+                                    : " booking-flow__timetable-cell--unavailable"
+                                }`}
+                                onClick={() => isAvailable && toggleCell(timeKey, col.id)}
+                                aria-label={`${slot.startTime}–${slot.endTime}, ${col.label}${!isAvailable ? " — занято" : ""}`}
+                                aria-pressed={isSelected}
+                              >
+                                {isSelected
+                                  ? "✓"
+                                  : isAvailable && cellPrice !== null
+                                  ? formatMoneyKzt(cellPrice)
+                                  : null}
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </div>
@@ -743,7 +744,7 @@ export function LiveBookingForm({
               <p className="booking-flow__success-title">Бронирование создано</p>
               <div className="booking-flow__success-sessions">
                 {submitSuccessSummary.sessions.map((s) => (
-                  <div key={`${s.date}-${s.startTime}`} className="booking-flow__success-row">
+                  <div key={`${s.date}-${s.startTime}-${s.courtLabel}`} className="booking-flow__success-row">
                     <span>
                       {s.date}, {s.startTime}–{s.endTime} · {s.courtLabel}
                       {s.trainerName ? ` · ${s.trainerName}` : ""}
@@ -766,7 +767,7 @@ export function LiveBookingForm({
                 <div className="booking-flow__breakdown">
                   {pricePreview.lines.map((line) => (
                     <div key={line.key} className="booking-flow__breakdown-row">
-                      <span>{line.startTime}–{line.endTime}</span>
+                      <span>{line.label}</span>
                       <span>{formatMoneyKzt(line.total)}</span>
                     </div>
                   ))}
@@ -817,7 +818,7 @@ export function LiveBookingForm({
                   <button
                     type="button"
                     className={`booking-flow__submit${submitLoading ? " booking-flow__submit--loading" : ""}`}
-                    disabled={submitLoading || (resolvedService?.requiresInstructor && !selectedTrainer)}
+                    disabled={submitLoading}
                     onClick={() => void submitBooking()}
                   >
                     {submitLoading ? "Создаём бронирование..." : "Забронировать"}

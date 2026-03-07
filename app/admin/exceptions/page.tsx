@@ -49,8 +49,8 @@ export default async function AdminExceptionsPage() {
 
   return (
     <AdminPageShell
-      title="Исключения"
-      description="Единый список блокировок по площадке, кортам и тренерам. Используется в расчете доступности."
+      title="Блокировки расписания"
+      description="Блокирует конкретные часы для бронирования. Площадка = все ресурсы недоступны. Корт / тренер = один ресурс."
     >
       <form action={createAction} className="admin-form">
         <div className="admin-table">
@@ -114,7 +114,7 @@ export default async function AdminExceptionsPage() {
                     className="admin-form__field"
                     defaultValue="closed"
                   >
-                    <option value="closed">Закрыто</option>
+                    <option value="closed">Недоступно</option>
                     <option value="maintenance">Тех. обслуживание</option>
                   </select>
                 </td>

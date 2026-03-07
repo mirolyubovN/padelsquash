@@ -20,6 +20,7 @@ export interface AvailabilityInput {
   exceptions: ScheduleExceptionRecord[];
   existingBookings: ExistingBookingRecord[];
   requestedInstructorId?: string;
+  cutoffMin?: number;
 }
 
 export interface AvailableSlot {
@@ -50,6 +51,10 @@ export function generateAvailableSlots(input: AvailabilityInput): AvailableSlot[
     startMin += 60
   ) {
     const endMin = startMin + input.durationMin;
+
+    if (input.cutoffMin !== undefined && startMin < input.cutoffMin) {
+      continue;
+    }
 
     if (isBlockedByVenueException(startMin, endMin, exceptionList)) {
       continue;
