@@ -5,7 +5,6 @@ import {
   type AdminBookingStatus,
   ADMIN_BOOKING_STATUS_LABELS,
   ADMIN_PAYMENT_STATUS_LABELS,
-  confirmPlaceholderPaymentByBookingId,
   getAdminBookings,
   setBookingStatus,
 } from "@/src/lib/admin/bookings";
@@ -23,7 +22,7 @@ export const metadata = buildPageMetadata({
 
 export const dynamic = "force-dynamic";
 
-type BookingActionName = "cancelled" | "completed" | "no_show" | "confirm_payment";
+type BookingActionName = "cancelled" | "completed" | "no_show";
 
 function normalizeSearchParams(params: {
   q?: string;
@@ -120,9 +119,7 @@ export default async function AdminBookingsPage({
       throw new Error("bookingId обязателен");
     }
 
-    if (action === "confirm_payment") {
-      await confirmPlaceholderPaymentByBookingId(bookingId);
-    } else if (action === "cancelled" || action === "completed" || action === "no_show") {
+    if (action === "cancelled" || action === "completed" || action === "no_show") {
       await setBookingStatus({ bookingId, status: action });
     } else {
       throw new Error("Неизвестное действие");
@@ -315,16 +312,6 @@ export default async function AdminBookingsPage({
                     {row.status === "pending_payment" || row.status === "confirmed" ? (
                       <form action={bookingAction} className="admin-bookings__actions">
                         <input type="hidden" name="bookingId" value={row.id} />
-                        {row.status === "pending_payment" ? (
-                          <button
-                            type="submit"
-                            name="action"
-                            value="confirm_payment"
-                            className="admin-bookings__action-button admin-bookings__action-button--primary"
-                          >
-                            Принять оплату
-                          </button>
-                        ) : null}
                         {row.status === "confirmed" ? (
                           <>
                             <button
@@ -341,7 +328,7 @@ export default async function AdminBookingsPage({
                               value="no_show"
                               className="admin-bookings__action-button"
                             >
-                              No show
+                              Неявка
                             </button>
                           </>
                         ) : null}
@@ -381,7 +368,7 @@ export default async function AdminBookingsPage({
           className={`admin-pagination__link${bookings.page >= bookings.totalPages ? " admin-pagination__link--disabled" : ""}`}
           aria-disabled={bookings.page >= bookings.totalPages}
         >
-          Вперед
+          Вперёд
         </Link>
       </div>
     </AdminPageShell>

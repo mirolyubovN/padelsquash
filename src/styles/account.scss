@@ -1,0 +1,324 @@
+@reference "tailwindcss";
+
+/* ── Account ─────────────────────────────────────────────────────── */
+
+.account-page__cards {
+  @apply grid gap-4 md:grid-cols-2;
+}
+
+.account-tabs {
+  @apply flex flex-wrap gap-2;
+}
+
+.account-tabs__link {
+  @apply inline-flex rounded border px-4 py-2 text-sm font-semibold;
+  border-color: var(--line);
+  background-color: var(--surface);
+  color: var(--muted);
+  transition: border-color 0.15s;
+}
+
+.account-tabs__link:hover {
+  border-color: var(--accent);
+}
+
+.account-tabs__link--active {
+  border-color: rgba(132, 204, 22, 0.3);
+  background-color: rgba(132, 204, 22, 0.08);
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.account-shell {
+  @apply flex flex-col gap-4;
+}
+
+.account-shell__toolbar {
+  @apply flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.account-shell__identity {
+  @apply flex items-center gap-2;
+}
+
+.account-shell__badge {
+  @apply inline-flex rounded px-2.5 py-1 text-xs font-semibold uppercase tracking-wide;
+  background-color: var(--accent-soft);
+  color: var(--foreground);
+}
+
+.account-shell__email {
+  @apply text-sm;
+  color: var(--muted);
+}
+
+.account-shell__logout {
+  @apply inline-flex rounded border px-4 py-2 text-sm font-semibold;
+  border-color: var(--line);
+  background-color: var(--background);
+  transition: border-color 0.15s;
+}
+
+.account-shell__logout:hover {
+  border-color: var(--accent);
+}
+
+.account-card {
+  @apply rounded-2xl border p-5;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.account-card__title {
+  @apply text-lg font-semibold;
+}
+
+.account-card__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.account-card__link {
+  @apply mt-4 inline-flex rounded border px-4 py-2 text-sm font-semibold;
+  border-color: var(--line);
+  transition: border-color 0.15s;
+}
+
+.account-card__link:hover {
+  border-color: var(--accent);
+}
+
+.account-profile__list {
+  @apply mt-3 grid gap-3;
+}
+
+.account-profile__item {
+  @apply grid gap-1 rounded-lg border p-3;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+.account-profile__label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.account-profile__value {
+  @apply text-sm;
+}
+
+.account-profile-form {
+  @apply mt-4 rounded-xl border p-4;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+.account-profile-form__title {
+  @apply text-sm font-semibold;
+}
+
+.account-profile-form__grid {
+  @apply mt-3 grid gap-3;
+}
+
+.account-stats {
+  @apply mt-3 grid gap-3;
+}
+
+.account-stats__item {
+  @apply flex items-center justify-between rounded-lg border px-3 py-2.5;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+.account-stats__label {
+  @apply text-sm;
+  color: var(--muted);
+}
+
+.account-stats__value {
+  @apply text-sm font-semibold;
+}
+
+.account-history {
+  @apply flex flex-col gap-4;
+}
+
+.account-history__message {
+  @apply rounded-xl border px-4 py-3 text-sm;
+}
+
+.account-history__message--error {
+  border-color: rgba(239, 68, 68, 0.2);
+  background-color: rgba(239, 68, 68, 0.06);
+  color: #b91c1c;
+}
+
+.account-history__message--success {
+  border-color: rgba(19, 113, 79, 0.14);
+  background-color: rgba(19, 113, 79, 0.06);
+  color: #115a42;
+}
+
+.account-history__cancel-meta {
+  @apply text-xs leading-5;
+  color: var(--muted);
+}
+
+.account-history__empty {
+  @apply rounded-2xl border p-5 text-sm;
+  border-color: var(--line);
+  background-color: var(--surface);
+  color: var(--muted);
+}
+
+.account-history__section {
+  @apply grid gap-3;
+}
+
+.account-history__section-head {
+  @apply flex items-center justify-between gap-3;
+}
+
+.account-history__section-title {
+  @apply text-base font-semibold;
+}
+
+.account-history__section-count {
+  @apply inline-flex rounded border px-2.5 py-1 text-xs font-semibold;
+  border-color: var(--line);
+  background-color: var(--surface);
+  color: var(--muted);
+}
+
+.account-history__card-list {
+  @apply grid gap-3;
+}
+
+.account-history__card {
+  @apply rounded-2xl border p-4;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.account-history__card-head {
+  @apply flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between;
+}
+
+.account-history__card-title {
+  @apply text-sm font-semibold;
+}
+
+.account-history__card-sub {
+  @apply mt-1 text-xs;
+  color: var(--muted);
+}
+
+.account-history__card-price {
+  @apply text-sm font-semibold;
+  color: var(--accent);
+}
+
+.account-history__card-grid {
+  @apply mt-3 grid gap-2 sm:grid-cols-2;
+}
+
+.account-history__card-item {
+  @apply rounded-lg border px-3 py-2;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+.account-history__card-label {
+  @apply text-[11px] font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.account-history__card-value {
+  @apply mt-1 block text-sm;
+}
+
+.account-history__badge {
+  @apply mt-1 inline-flex rounded border px-2.5 py-1 text-xs font-semibold;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+.account-history__badge--status-confirmed {
+  border-color: rgba(19, 113, 79, 0.18);
+  background-color: rgba(19, 113, 79, 0.08);
+  color: #115a42;
+}
+
+.account-history__badge--status-pending-payment {
+  border-color: rgba(234, 179, 8, 0.25);
+  background-color: rgba(234, 179, 8, 0.1);
+  color: #854d0e;
+}
+
+.account-history__badge--status-cancelled,
+.account-history__badge--status-no-show {
+  border-color: rgba(146, 87, 74, 0.16);
+  background-color: rgba(146, 87, 74, 0.08);
+  color: #7c4a3f;
+}
+
+.account-history__badge--status-completed {
+  border-color: rgba(16, 37, 46, 0.12);
+  background-color: rgba(16, 37, 46, 0.05);
+  color: #1b3a46;
+}
+
+.account-history__badge--payment-paid {
+  border-color: rgba(19, 113, 79, 0.16);
+  background-color: rgba(19, 113, 79, 0.07);
+  color: #115a42;
+}
+
+.account-history__badge--payment-unpaid {
+  border-color: rgba(234, 179, 8, 0.25);
+  background-color: rgba(234, 179, 8, 0.1);
+  color: #854d0e;
+}
+
+.account-history__badge--payment-failed,
+.account-history__badge--payment-refunded {
+  border-color: rgba(146, 87, 74, 0.16);
+  background-color: rgba(146, 87, 74, 0.07);
+  color: #7c4a3f;
+}
+
+.account-history__badge--payment-none {
+  color: var(--muted);
+}
+
+.account-history__card-actions {
+  @apply mt-3 flex flex-wrap items-start gap-2;
+}
+
+.account-dialog__backdrop {
+  @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+  background-color: rgba(13, 22, 27, 0.45);
+}
+
+.account-dialog {
+  @apply w-full max-w-md rounded-2xl border p-4;
+  border-color: var(--line);
+  background-color: var(--surface);
+  box-shadow: 0 20px 70px rgba(15, 23, 42, 0.16);
+}
+
+.account-dialog__title {
+  @apply text-base font-semibold;
+}
+
+.account-dialog__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.account-dialog__actions {
+  @apply mt-4 flex flex-wrap gap-2;
+}

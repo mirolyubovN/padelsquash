@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { prisma } from "@/src/lib/prisma";
 import { getDefaultLocation } from "@/src/lib/locations/service";
 import { WEEKDAY_LABELS } from "@/src/lib/settings/service";
@@ -9,8 +9,8 @@ import {
   venueDateTimeToUtc,
 } from "@/src/lib/time/venue-timezone";
 
-const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "Время должно быть в формате HH:MM");
-const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Дата должна быть в формате YYYY-MM-DD");
+const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "?????? ??????? ?????? ???? HH:MM");
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "?????? ???? ?????? ???? YYYY-MM-DD");
 const exceptionTypeSchema = z.enum(["closed", "maintenance"]);
 const resourceTypeSchema = z.enum(["venue", "court", "instructor"]);
 
@@ -18,7 +18,7 @@ const nonEmptyString = (label: string) =>
   z
     .string()
     .transform((value) => value.trim())
-    .pipe(z.string().min(1, `${label} обязателен`));
+    .pipe(z.string().min(1, `${label} ?? ????? ???? ??????`));
 
 const optionalTrimmedString = z
   .string()
@@ -31,26 +31,26 @@ const optionalTrimmedString = z
 const sportIdSchema = nonEmptyString("sportId");
 const sportSlugSchema = nonEmptyString("Slug")
   .transform((value) => value.toLowerCase())
-  .pipe(z.string().regex(/^[a-z0-9-]+$/, "Slug может содержать только a-z, 0-9 и дефис"));
+  .pipe(z.string().regex(/^[a-z0-9-]+$/, "Slug ????? ????????? ?????? a-z, 0-9 ? ?????"));
 
 function resolveSportLabel(slug: string, name?: string | null): string {
   return name?.trim() || SPORT_LABELS[slug] || slug;
 }
 
 export const SPORT_LABELS: Record<string, string> = {
-  padel: "Падел",
-  squash: "Сквош",
+  padel: "?????",
+  squash: "?????",
 };
 
 export const EXCEPTION_TYPE_LABELS: Record<"closed" | "maintenance", string> = {
-  closed: "Недоступно",
-  maintenance: "Тех. обслуживание",
+  closed: "???????",
+  maintenance: "???????????????",
 };
 
 export const RESOURCE_TYPE_LABELS: Record<"venue" | "court" | "instructor", string> = {
-  venue: "Вся площадка",
-  court: "Корт",
-  instructor: "Тренер",
+  venue: "????????",
+  court: "????",
+  instructor: "??????",
 };
 
 export interface AdminCourtRow {
@@ -94,6 +94,12 @@ export interface AdminSportOption {
 
 export interface AdminSportRow extends AdminSportOption {
   icon?: string;
+  defaultRentalServiceId?: string;
+  defaultRentalServiceCode?: string;
+  defaultRentalServiceName?: string;
+  courtBasePriceMorningKzt: number;
+  courtBasePriceEveningWeekendKzt: number;
+  courtsCount: number;
 }
 
 export interface AdminScheduleRow {
@@ -137,7 +143,7 @@ export interface ExceptionTargetOption {
 
 function assertTimeRange(startTime: string, endTime: string) {
   if (startTime >= endTime) {
-    throw new Error("Время начала должно быть раньше времени окончания");
+    throw new Error("пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅР‹пїЅпїЅвЂљпїЅР‹пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ¶пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚Сћ пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂ° пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅР‹пїЅпїЅР‚С™пїЅВ¬пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅР‹пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅРЏ");
   }
 }
 
@@ -160,7 +166,7 @@ async function ensureCourtExists(courtId: string) {
     },
   });
   if (!court) {
-    throw new Error("Корт не найден");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅвЂћСћпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ў пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦");
   }
   return court;
 }
@@ -190,7 +196,7 @@ async function ensureInstructorExists(instructorId: string) {
     },
   });
   if (!instructor) {
-    throw new Error("Тренер не найден");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅвЂєпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦");
   }
   return instructor;
 }
@@ -218,6 +224,7 @@ export async function getAdminSportOptions(includeInactive = false): Promise<Adm
 }
 
 export async function getAdminSports(): Promise<AdminSportRow[]> {
+  const defaultLocation = await getDefaultLocation();
   const rows = await prisma.sport.findMany({
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: {
@@ -227,27 +234,78 @@ export async function getAdminSports(): Promise<AdminSportRow[]> {
       icon: true,
       active: true,
       sortOrder: true,
+      courts: {
+        select: { id: true },
+      },
+      services: {
+        where: {
+          requiresCourt: true,
+          requiresInstructor: false,
+        },
+        orderBy: [{ createdAt: "asc" }],
+        select: {
+          id: true,
+          code: true,
+          name: true,
+        },
+      },
+      componentPrices: {
+        where: {
+          locationId: defaultLocation.id,
+          componentType: "court",
+          currency: "KZT",
+          period: { in: ["morning", "evening_weekend"] },
+        },
+        select: {
+          period: true,
+          amount: true,
+        },
+      },
     },
   });
 
-  return rows.map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    name: resolveSportLabel(row.slug, row.name),
-    icon: row.icon ?? undefined,
-    active: row.active,
-    sortOrder: row.sortOrder,
-  }));
+  return rows.map((row) => {
+    const morningPrice = row.componentPrices.find((price) => price.period === "morning")?.amount ?? 0;
+    const eveningPrice = row.componentPrices.find((price) => price.period === "evening_weekend")?.amount ?? 0;
+    const defaultRentalService = row.services[0];
+
+    return {
+      id: row.id,
+      slug: row.slug,
+      name: resolveSportLabel(row.slug, row.name),
+      icon: row.icon ?? undefined,
+      active: row.active,
+      sortOrder: row.sortOrder,
+      defaultRentalServiceId: defaultRentalService?.id,
+      defaultRentalServiceCode: defaultRentalService?.code,
+      defaultRentalServiceName: defaultRentalService?.name,
+      courtBasePriceMorningKzt: Number(morningPrice),
+      courtBasePriceEveningWeekendKzt: Number(eveningPrice),
+      courtsCount: row.courts.length,
+    };
+  });
+}
+
+function buildDefaultRentalServiceCode(slug: string): string {
+  return `${slug}-rental`;
+}
+
+function buildDefaultRentalServiceName(name: string): string {
+  return `Court rental (${name})`;
 }
 
 export async function createSportFromForm(formData: FormData) {
   const parsed = z
     .object({
-      name: nonEmptyString("Название"),
+      name: nonEmptyString("Sport name"),
       slug: sportSlugSchema,
       icon: optionalTrimmedString,
       sortOrder: z.coerce.number().int(),
       active: z.boolean(),
+      rentalServiceName: optionalTrimmedString,
+      rentalServiceCode: optionalTrimmedString,
+      courtPriceMorningKzt: z.coerce.number().int().nonnegative(),
+      courtPriceEveningWeekendKzt: z.coerce.number().int().nonnegative(),
     })
     .safeParse({
       name: formData.get("name"),
@@ -255,26 +313,102 @@ export async function createSportFromForm(formData: FormData) {
       icon: formData.get("icon") ?? undefined,
       sortOrder: formData.get("sortOrder") ?? "0",
       active: String(formData.get("active") ?? "") === "on",
+      rentalServiceName: formData.get("rentalServiceName") ?? undefined,
+      rentalServiceCode: formData.get("rentalServiceCode") ?? undefined,
+      courtPriceMorningKzt: formData.get("courtPriceMorningKzt") ?? "0",
+      courtPriceEveningWeekendKzt: formData.get("courtPriceEveningWeekendKzt") ?? "0",
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные вида спорта");
+    throw new Error("Invalid sport setup");
   }
 
   try {
-    await prisma.sport.create({
-      data: {
-        name: parsed.data.name,
-        slug: parsed.data.slug,
-        icon: parsed.data.icon ?? null,
-        sortOrder: parsed.data.sortOrder,
-        active: parsed.data.active,
-      },
+    const defaultLocation = await getDefaultLocation();
+    await prisma.$transaction(async (tx) => {
+      const sport = await tx.sport.create({
+        data: {
+          name: parsed.data.name,
+          slug: parsed.data.slug,
+          icon: parsed.data.icon ?? null,
+          sortOrder: parsed.data.sortOrder,
+          active: parsed.data.active,
+        },
+      });
+
+      await tx.service.create({
+        data: {
+          code: (parsed.data.rentalServiceCode ?? buildDefaultRentalServiceCode(parsed.data.slug)).trim().toLowerCase(),
+          name: parsed.data.rentalServiceName ?? buildDefaultRentalServiceName(parsed.data.name),
+          sportId: sport.id,
+          requiresCourt: true,
+          requiresInstructor: false,
+          active: true,
+        },
+      });
+
+      await tx.componentPrice.createMany({
+        data: [
+          {
+            locationId: defaultLocation.id,
+            sportId: sport.id,
+            componentType: "court",
+            period: "morning",
+            currency: "KZT",
+            amount: parsed.data.courtPriceMorningKzt,
+          },
+          {
+            locationId: defaultLocation.id,
+            sportId: sport.id,
+            componentType: "court",
+            period: "day",
+            currency: "KZT",
+            amount: parsed.data.courtPriceMorningKzt,
+          },
+          {
+            locationId: defaultLocation.id,
+            sportId: sport.id,
+            componentType: "court",
+            period: "evening_weekend",
+            currency: "KZT",
+            amount: parsed.data.courtPriceEveningWeekendKzt,
+          },
+          {
+            locationId: defaultLocation.id,
+            sportId: sport.id,
+            componentType: "instructor",
+            period: "morning",
+            currency: "KZT",
+            amount: 0,
+          },
+          {
+            locationId: defaultLocation.id,
+            sportId: sport.id,
+            componentType: "instructor",
+            period: "day",
+            currency: "KZT",
+            amount: 0,
+          },
+          {
+            locationId: defaultLocation.id,
+            sportId: sport.id,
+            componentType: "instructor",
+            period: "evening_weekend",
+            currency: "KZT",
+            amount: 0,
+          },
+        ],
+      });
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("Unique constraint failed") && message.toLowerCase().includes("slug")) {
-      throw new Error("Вид спорта с таким slug уже существует");
+    if (message.includes("Unique constraint failed")) {
+      if (message.toLowerCase().includes("slug")) {
+        throw new Error("Sport slug already exists");
+      }
+      if (message.toLowerCase().includes("code")) {
+        throw new Error("Service code already exists");
+      }
     }
     throw error;
   }
@@ -284,10 +418,18 @@ export async function updateSportFromForm(formData: FormData) {
   const parsed = z
     .object({
       sportId: nonEmptyString("sportId"),
-      name: nonEmptyString("Название"),
+      name: nonEmptyString("Sport name"),
       slug: sportSlugSchema,
       icon: optionalTrimmedString,
       sortOrder: z.coerce.number().int(),
+      rentalServiceId: optionalTrimmedString,
+      rentalServiceName: nonEmptyString("Rental service name"),
+      rentalServiceCode: z
+        .string()
+        .transform((value) => value.trim().toLowerCase())
+        .pipe(z.string().regex(/^[a-z0-9-]{3,64}$/, "code: only a-z, 0-9 and -")),
+      courtPriceMorningKzt: z.coerce.number().int().nonnegative(),
+      courtPriceEveningWeekendKzt: z.coerce.number().int().nonnegative(),
     })
     .safeParse({
       sportId: formData.get("sportId"),
@@ -295,26 +437,89 @@ export async function updateSportFromForm(formData: FormData) {
       slug: formData.get("slug"),
       icon: formData.get("icon") ?? undefined,
       sortOrder: formData.get("sortOrder") ?? "0",
+      rentalServiceId: formData.get("rentalServiceId") ?? undefined,
+      rentalServiceName: formData.get("rentalServiceName"),
+      rentalServiceCode: formData.get("rentalServiceCode"),
+      courtPriceMorningKzt: formData.get("courtPriceMorningKzt") ?? "0",
+      courtPriceEveningWeekendKzt: formData.get("courtPriceEveningWeekendKzt") ?? "0",
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные вида спорта");
+    throw new Error("Invalid sport setup");
   }
 
   try {
-    await prisma.sport.update({
-      where: { id: parsed.data.sportId },
-      data: {
-        name: parsed.data.name,
-        slug: parsed.data.slug,
-        icon: parsed.data.icon ?? null,
-        sortOrder: parsed.data.sortOrder,
-      },
+    const defaultLocation = await getDefaultLocation();
+    await prisma.$transaction(async (tx) => {
+      await tx.sport.update({
+        where: { id: parsed.data.sportId },
+        data: {
+          name: parsed.data.name,
+          slug: parsed.data.slug,
+          icon: parsed.data.icon ?? null,
+          sortOrder: parsed.data.sortOrder,
+        },
+      });
+
+      if (parsed.data.rentalServiceId) {
+        await tx.service.update({
+          where: { id: parsed.data.rentalServiceId },
+          data: {
+            code: parsed.data.rentalServiceCode,
+            name: parsed.data.rentalServiceName,
+          },
+        });
+      } else {
+        await tx.service.create({
+          data: {
+            code: parsed.data.rentalServiceCode,
+            name: parsed.data.rentalServiceName,
+            sportId: parsed.data.sportId,
+            requiresCourt: true,
+            requiresInstructor: false,
+            active: true,
+          },
+        });
+      }
+
+      for (const [period, amount] of [
+        ["morning", parsed.data.courtPriceMorningKzt],
+        ["day", parsed.data.courtPriceMorningKzt],
+        ["evening_weekend", parsed.data.courtPriceEveningWeekendKzt],
+      ] as const) {
+        await tx.componentPrice.upsert({
+          where: {
+            locationId_sportId_componentType_period_currency: {
+              locationId: defaultLocation.id,
+              sportId: parsed.data.sportId,
+              componentType: "court",
+              period,
+              currency: "KZT",
+            },
+          },
+          create: {
+            locationId: defaultLocation.id,
+            sportId: parsed.data.sportId,
+            componentType: "court",
+            period,
+            currency: "KZT",
+            amount,
+          },
+          update: {
+            amount,
+          },
+        });
+      }
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("Unique constraint failed") && message.toLowerCase().includes("slug")) {
-      throw new Error("Вид спорта с таким slug уже существует");
+    if (message.includes("Unique constraint failed")) {
+      if (message.toLowerCase().includes("slug")) {
+        throw new Error("Sport slug already exists");
+      }
+      if (message.toLowerCase().includes("code")) {
+        throw new Error("Service code already exists");
+      }
     }
     throw error;
   }
@@ -333,7 +538,7 @@ export async function deleteSport(sportId: string) {
     select: { id: true },
   });
   if (!sport) {
-    throw new Error("Вид спорта не найден");
+    throw new Error("пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦");
   }
 
   const [courtUsageCount, serviceUsageCount, instructorUsageCount, priceUsageCount] = await Promise.all([
@@ -344,7 +549,7 @@ export async function deleteSport(sportId: string) {
   ]);
 
   if (courtUsageCount + serviceUsageCount + instructorUsageCount + priceUsageCount > 0) {
-    throw new Error("Нельзя удалить вид спорта: он уже используется в данных");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂ° пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ°: пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅвЂ™пїЅВ¶пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅВ пїЅР‚В  пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅР‹пїЅпїЅвЂљпїЅВ¦");
   }
 
   await prisma.sport.delete({
@@ -363,7 +568,7 @@ async function ensureSportsExist(sportIds: string[]) {
     select: { id: true, slug: true, name: true, active: true },
   });
   if (sports.length !== uniqueIds.length) {
-    throw new Error("Выбран неизвестный вид спорта");
+    throw new Error("пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
   return sports;
@@ -381,13 +586,13 @@ function formatResourceLabel(args: {
 
   if (args.resourceType === "court") {
     return args.resourceId
-      ? `Корт: ${args.courtsById.get(args.resourceId) ?? args.resourceId}`
-      : "Корт";
+      ? `????: ${args.courtsById.get(args.resourceId) ?? args.resourceId}`
+      : "????";
   }
 
   return args.resourceId
-    ? `Тренер: ${args.instructorsById.get(args.resourceId) ?? args.resourceId}`
-    : "Тренер";
+    ? `??????: ${args.instructorsById.get(args.resourceId) ?? args.resourceId}`
+    : "??????";
 }
 
 function mapExceptionRows(
@@ -453,7 +658,7 @@ export async function getAdminCourts(): Promise<AdminCourtRow[]> {
 export async function createCourtFromForm(formData: FormData) {
   const parsed = z
     .object({
-      name: nonEmptyString("Название"),
+      name: nonEmptyString("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµ"),
       sportId: sportIdSchema,
       notes: optionalTrimmedString,
     })
@@ -464,7 +669,7 @@ export async function createCourtFromForm(formData: FormData) {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные корта");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
   await ensureSportsExist([parsed.data.sportId]);
@@ -492,7 +697,7 @@ export async function updateCourtFromForm(formData: FormData) {
   const parsed = z
     .object({
       courtId: nonEmptyString("courtId"),
-      name: nonEmptyString("Название"),
+      name: nonEmptyString("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµ"),
       notes: optionalTrimmedString,
     })
     .safeParse({
@@ -502,7 +707,7 @@ export async function updateCourtFromForm(formData: FormData) {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные корта");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
   await prisma.court.update({
@@ -525,7 +730,7 @@ export async function deleteCourt(courtId: string) {
   });
 
   if (bookingUsageCount > 0) {
-    throw new Error("Нельзя удалить корт: он уже используется в истории бронирований");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂ° пїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ў: пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅвЂ™пїЅВ¶пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅВ пїЅР‚В  пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ");
   }
 
   await prisma.$transaction(async (tx) => {
@@ -581,8 +786,8 @@ export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
 export async function createInstructorFromForm(formData: FormData) {
   const parsed = z
     .object({
-      name: nonEmptyString("Имя"),
-      sportIds: z.array(sportIdSchema).min(1, "Выберите хотя бы один вид спорта"),
+      name: nonEmptyString("пїЅВ пїЅВ пїЅвЂ™пїЅВпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅВ пїЅРЏ"),
+      sportIds: z.array(sportIdSchema).min(1, "пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅВ¦пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅ пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ°"),
       bio: optionalTrimmedString,
       photoUrl: optionalTrimmedString,
     })
@@ -594,7 +799,7 @@ export async function createInstructorFromForm(formData: FormData) {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные тренера");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
   await ensureSportsExist(parsed.data.sportIds);
@@ -645,7 +850,7 @@ export async function deleteInstructor(instructorId: string) {
   });
 
   if (bookingUsageCount > 0) {
-    throw new Error("Нельзя удалить тренера: он уже используется в истории бронирований");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂ° пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°: пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅвЂ™пїЅВ¶пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅВ пїЅР‚В  пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ");
   }
 
   await prisma.$transaction(async (tx) => {
@@ -665,8 +870,8 @@ export async function updateInstructorFromForm(formData: FormData) {
   const parsed = z
     .object({
       instructorId: nonEmptyString("instructorId"),
-      name: nonEmptyString("Имя"),
-      sportIds: z.array(sportIdSchema).min(1, "Выберите хотя бы один вид спорта"),
+      name: nonEmptyString("пїЅВ пїЅВ пїЅвЂ™пїЅВпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅВ пїЅРЏ"),
+      sportIds: z.array(sportIdSchema).min(1, "пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅВ¦пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅ пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ°"),
       bio: optionalTrimmedString,
       photoUrl: optionalTrimmedString,
     })
@@ -679,7 +884,7 @@ export async function updateInstructorFromForm(formData: FormData) {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные тренера");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
   await ensureSportsExist(parsed.data.sportIds);
@@ -732,7 +937,7 @@ export async function updateInstructorBasicFromForm(formData: FormData) {
   const parsed = z
     .object({
       instructorId: nonEmptyString("instructorId"),
-      name: nonEmptyString("Имя"),
+      name: nonEmptyString("пїЅВ пїЅВ пїЅвЂ™пїЅВпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅВ пїЅРЏ"),
       bio: optionalTrimmedString,
       photoUrl: optionalTrimmedString,
     })
@@ -744,7 +949,7 @@ export async function updateInstructorBasicFromForm(formData: FormData) {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные тренера");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
   await prisma.instructor.update({
@@ -768,7 +973,7 @@ export async function addInstructorScheduleBulk(args: {
 
   const data = args.entries.map((entry) => {
     if (entry.sportId && !validSportIds.includes(entry.sportId)) {
-      throw new Error("Выбранный вид спорта не привязан к этому тренеру");
+      throw new Error("пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅРЏпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅРЋпїЅР‚Сњ пїЅВ пїЅР‹пїЅВ пїЅР‰пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ");
     }
     assertTimeRange(entry.startTime, entry.endTime);
     return {
@@ -804,7 +1009,7 @@ export async function createInstructorExceptionSimple(args: {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные блокировки");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚В");
   }
 
   await createException({
@@ -859,8 +1064,8 @@ export async function createServiceFromForm(formData: FormData) {
       code: z
         .string()
         .transform((value) => value.trim().toLowerCase())
-        .pipe(z.string().regex(/^[a-z0-9-]{3,64}$/, "code: только a-z, 0-9 и -")),
-      name: nonEmptyString("Название"),
+        .pipe(z.string().regex(/^[a-z0-9-]{3,64}$/, "code: пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚Сћ a-z, 0-9 пїЅВ пїЅВ пїЅРЋпїЅР‚В -")),
+      name: nonEmptyString("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµ"),
       sportId: sportIdSchema,
       includesInstructor: z.boolean(),
     })
@@ -872,7 +1077,7 @@ export async function createServiceFromForm(formData: FormData) {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные услуги");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅРЋпїЅР‚вЂњпїЅВ пїЅВ пїЅРЋпїЅР‚В");
   }
 
   await ensureSportsExist([parsed.data.sportId]);
@@ -903,8 +1108,8 @@ export async function updateServiceFromForm(formData: FormData) {
       code: z
         .string()
         .transform((value) => value.trim().toLowerCase())
-        .pipe(z.string().regex(/^[a-z0-9-]{3,64}$/, "code: только a-z, 0-9 и -")),
-      name: nonEmptyString("Название"),
+        .pipe(z.string().regex(/^[a-z0-9-]{3,64}$/, "code: пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚Сћ a-z, 0-9 пїЅВ пїЅВ пїЅРЋпїЅР‚В -")),
+      name: nonEmptyString("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµ"),
     })
     .safeParse({
       serviceId: formData.get("serviceId"),
@@ -913,7 +1118,7 @@ export async function updateServiceFromForm(formData: FormData) {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные услуги");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅРЋпїЅР‚вЂњпїЅВ пїЅВ пїЅРЋпїЅР‚В");
   }
 
   await prisma.service.update({
@@ -932,7 +1137,7 @@ export async function deleteService(serviceId: string) {
   });
 
   if (!service) {
-    throw new Error("Услуга не найдена");
+    throw new Error("пїЅВ пїЅВ пїЅВ пїЅвЂљВ¬пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅРЋпїЅР‚вЂњпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
   const bookingCount = await prisma.booking.count({
@@ -940,7 +1145,7 @@ export async function deleteService(serviceId: string) {
   });
 
   if (bookingCount > 0) {
-    throw new Error("Нельзя удалить услугу: по ней уже есть бронирования");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂ° пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅРЋпїЅР‚вЂњпїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ: пїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚Сћ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅвЂ™пїЅВ¶пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂ° пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅРЏ");
   }
 
   await prisma.service.delete({
@@ -1101,14 +1306,14 @@ export async function addInstructorScheduleFromForm(args: {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные графика");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚вЂњпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂєпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
   // Validate sportId belongs to this instructor if provided
   if (parsed.data.sportId) {
     const validSportIds = instructor.instructorSports.map((item) => item.sportId);
     if (!validSportIds.includes(parsed.data.sportId)) {
-      throw new Error("Выбранный вид спорта не привязан к этому тренеру");
+      throw new Error("пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅРЏпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅРЋпїЅР‚Сњ пїЅВ пїЅР‹пїЅВ пїЅР‰пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ");
     }
   }
 
@@ -1142,7 +1347,7 @@ export async function setInstructorScheduleActive(args: {
     schedule.resourceType !== "instructor" ||
     schedule.resourceId !== args.instructorId
   ) {
-    throw new Error("Интервал графика не найден");
+    throw new Error("пїЅВ пїЅВ пїЅвЂ™пїЅВпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅ пїЅВ пїЅВ пїЅРЋпїЅР‚вЂњпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂєпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦");
   }
 
   await prisma.resourceSchedule.update({
@@ -1165,7 +1370,7 @@ export async function deleteInstructorSchedule(args: {
     schedule.resourceType !== "instructor" ||
     schedule.resourceId !== args.instructorId
   ) {
-    throw new Error("Интервал графика не найден");
+    throw new Error("пїЅВ пїЅВ пїЅвЂ™пїЅВпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅвЂ™пїЅ пїЅВ пїЅВ пїЅРЋпїЅР‚вЂњпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂєпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦");
   }
 
   await prisma.resourceSchedule.delete({
@@ -1191,7 +1396,7 @@ async function createException(args: CreateExceptionInput) {
     await ensureInstructorExists(args.resourceId);
   }
   if ((args.resourceType === "court" || args.resourceType === "instructor") && !args.resourceId) {
-    throw new Error("Для выбранного типа ресурса требуется resourceId");
+    throw new Error("пїЅВ пїЅВ пїЅпїЅвЂљпїЅСљпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅРЋпїЅР‚вЂњпїЅВ пїЅВ пїЅРЋпїЅР‚Сћ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅРЋпїЅР‚СљпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅР‹пїЅВ пїЅРЏ resourceId");
   }
   if (args.resourceType === "venue") {
     args.resourceId = null;
@@ -1230,7 +1435,7 @@ function parseExceptionFields(formData: FormData): Omit<CreateExceptionInput, "r
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректные данные исключения");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅР‚пїЅпїЅВ пїЅР‹пїЅпїЅвЂљпїЅР‹пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅРЏ");
   }
 
   return parsed.data;
@@ -1312,7 +1517,7 @@ export async function deleteScheduleExceptionForResource(args: {
     exception.resourceType !== args.resourceType ||
     exception.resourceId !== args.resourceId
   ) {
-    throw new Error("Исключение не найдено");
+    throw new Error("пїЅВ пїЅВ пїЅвЂ™пїЅВпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅР‚пїЅпїЅВ пїЅР‹пїЅпїЅвЂљпїЅР‹пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚Сћ");
   }
 
   await prisma.scheduleException.delete({
@@ -1338,11 +1543,11 @@ export async function getExceptionTargetOptions(): Promise<ExceptionTargetOption
     { value: "venue", label: RESOURCE_TYPE_LABELS.venue },
     ...courts.map((court: { id: string; name: string }) => ({
       value: `court:${court.id}`,
-      label: `Корт: ${court.name}`,
+      label: `????: ${court.name}`,
     })),
     ...instructors.map((instructor: { id: string; name: string }) => ({
       value: `instructor:${instructor.id}`,
-      label: `Тренер: ${instructor.name}`,
+      label: `??????: ${instructor.name}`,
     })),
   ];
 }
@@ -1368,7 +1573,7 @@ function parseExceptionTargetValue(targetValue: string): {
     });
 
   if (!parsed.success) {
-    throw new Error("Некорректная цель исключения");
+    throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅВ пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ° пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅР‚пїЅпїЅВ пїЅР‹пїЅпїЅвЂљпїЅР‹пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅВ пїЅРЏ");
   }
 
   return {
@@ -1427,15 +1632,15 @@ export async function deleteScheduleExceptionById(exceptionId: string) {
 
 export function getServiceResourceDescription(service: Pick<AdminServiceRow, "requiresCourt" | "requiresInstructor">) {
   if (service.requiresCourt && service.requiresInstructor) {
-    return "Корт + тренер";
+    return "???? + ??????";
   }
   if (service.requiresCourt) {
-    return "Корт";
+    return "????";
   }
   if (service.requiresInstructor) {
-    return "Тренер";
+    return "??????";
   }
-  return "—";
+  return "???";
 }
 
 export function getScheduleWeekdayLabel(dayOfWeek: number): string {
@@ -1454,7 +1659,7 @@ export async function saveInstructorBaseSchedule(args: {
   if (sportId) {
     const validSportIds = instructor.instructorSports.map((item) => item.sportId);
     if (!validSportIds.includes(sportId)) {
-      throw new Error("Выбранный вид спорта не привязан к этому тренеру");
+      throw new Error("пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅРЏпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅРЋпїЅР‚Сњ пїЅВ пїЅР‹пїЅВ пїЅР‰пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ");
     }
   }
 
@@ -1576,17 +1781,17 @@ export async function saveInstructorWeekSchedule(args: {
   const sportId = (args.formData.get("sportId") as string) || null;
 
   const weekStartParsed = isoDateSchema.safeParse(weekStart);
-  if (!weekStartParsed.success) throw new Error("Неверный формат даты недели");
+  if (!weekStartParsed.success) throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂєпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ў пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅ пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅРЋпїЅР‚В");
 
   const weekStartDate = new Date(weekStart + "T00:00:00Z");
-  if (weekStartDate.getUTCDay() !== 1) throw new Error("weekStart должен быть понедельником");
+  if (weekStartDate.getUTCDay() !== 1) throw new Error("weekStart пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ¶пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅвЂ° пїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅР‹пїЅВ пїЅвЂ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅРЋпїЅВ");
 
   const instructor = await ensureInstructorExists(args.instructorId);
 
   if (sportId) {
     const validSportIds = instructor.instructorSports.map((item) => item.sportId);
     if (!validSportIds.includes(sportId)) {
-      throw new Error("Выбранный вид спорта не привязан к этому тренеру");
+      throw new Error("пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅпїЅР‚С›пїЅР‚вЂњ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ° пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅРЏпїЅВ пїЅВ пїЅвЂ™пїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅРЋпїЅР‚Сњ пїЅВ пїЅР‹пїЅВ пїЅР‰пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅРЋпїЅР‚Сљ");
     }
   }
 

@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { LiveBookingForm } from "@/src/components/booking/live-booking-form";
 import { demoServices } from "@/src/lib/availability/demo";
+import { parseBookingUrlState } from "@/src/lib/bookings/url-state";
 import { demoComponentPrices } from "@/src/lib/pricing/demo";
 import { bookPageContent, siteConfig } from "@/src/lib/content/site-data";
 import { resolveLocationBySlug } from "@/src/lib/locations/service";
@@ -58,6 +59,7 @@ async function getInitialCustomerProfile(userId?: string): Promise<{
   name?: string;
   email?: string;
   phone?: string;
+  walletBalanceKzt?: number;
 }> {
   if (!userId) {
     return {};
@@ -66,7 +68,7 @@ async function getInitialCustomerProfile(userId?: string): Promise<{
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, email: true, phone: true },
+      select: { name: true, email: true, phone: true, walletBalance: true },
     });
 
     if (!user) return {};
@@ -75,6 +77,7 @@ async function getInitialCustomerProfile(userId?: string): Promise<{
       name: user.name || undefined,
       email: user.email || undefined,
       phone: user.phone || undefined,
+      walletBalanceKzt: Number(user.walletBalance),
     };
   } catch {
     return {};
@@ -278,10 +281,12 @@ async function getCourtPriceMatrix(locationId: string): Promise<CourtPriceMatrix
 export default async function BookPage({
   searchParams,
 }: {
-  searchParams: Promise<{ location?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await auth();
   const params = await searchParams;
+  const bookingUrlState = parseBookingUrlState(params);
+  const requestedLocationSlug = Array.isArray(params.location) ? params.location[0] : params.location;
 
   let selectedLocation: BookLocationOption = {
     id: "fallback-main",
@@ -292,7 +297,7 @@ export default async function BookPage({
   let locationOptions: BookLocationOption[] = [selectedLocation];
 
   try {
-    const locationSelection = await resolveLocationBySlug(params.location);
+    const locationSelection = await resolveLocationBySlug(requestedLocationSlug);
     selectedLocation = {
       id: locationSelection.selected.id,
       slug: locationSelection.selected.slug,
@@ -325,10 +330,12 @@ export default async function BookPage({
         services={services}
         courtNames={courtNames}
         instructors={instructors}
-        courtPrices={courtPrices}
-        isAuthenticated={Boolean(session?.user?.id)}
-        initialCustomer={initialCustomer}
-      />
+      courtPrices={courtPrices}
+      isAuthenticated={Boolean(session?.user?.id)}
+      initialCustomer={initialCustomer}
+      initialWalletBalanceKzt={initialCustomer.walletBalanceKzt ?? null}
+      initialSelection={bookingUrlState}
+    />
 
       <section className="booking-flow" aria-labelledby="booking-notes-title">
         <h2 id="booking-notes-title" className="booking-flow__title">

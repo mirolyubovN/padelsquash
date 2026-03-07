@@ -4,6 +4,7 @@ import {
 } from "@/src/lib/bookings/policy";
 import { prisma } from "@/src/lib/prisma";
 import { isoToVenueTimezoneParts } from "@/src/lib/time/venue-timezone";
+import { creditUserWallet } from "@/src/lib/wallet/service";
 
 const FREE_CANCELLATION_HOURS = getSafeCustomerFreeCancellationHours();
 const CANCELLATION_WINDOW_MS = FREE_CANCELLATION_HOURS * 60 * 60 * 1000;
@@ -31,6 +32,7 @@ export interface AccountDashboardData {
     email: string;
     phone: string;
     role: "customer" | "trainer" | "admin" | "super_admin";
+    walletBalanceKzt: number;
   };
   totals: {
     upcoming: number;
@@ -57,6 +59,17 @@ const PAYMENT_STATUS_LABELS: Record<AccountBookingRow["paymentStatus"], string> 
 
 function formatAmountKzt(amount: number): string {
   return `${amount.toLocaleString("ru-KZ")} ₸`;
+}
+
+function resolveAccountPaymentStatus(row: {
+  payment: null | { status: "unpaid" | "paid" | "failed" | "refunded"; provider: string };
+  status: AccountBookingRow["status"];
+}): AccountBookingRow["paymentStatus"] {
+  if (row.payment?.status) {
+    return row.payment.status;
+  }
+
+  return row.status === "confirmed" ? "paid" : "none";
 }
 
 function getCancellationState(args: {
@@ -95,7 +108,7 @@ function getCancellationState(args: {
 export async function getAccountDashboardData(userId: string): Promise<AccountDashboardData> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, phone: true, role: true },
+    select: { id: true, name: true, email: true, phone: true, role: true, walletBalance: true },
   });
 
   if (!user) {
@@ -125,7 +138,10 @@ export async function getAccountDashboardData(userId: string): Promise<AccountDa
   }, 0);
 
   return {
-    user,
+    user: {
+      ...user,
+      walletBalanceKzt: Number(user.walletBalance),
+    },
     totals: {
       upcoming,
       history: historyRows.length,
@@ -154,12 +170,12 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
       status: AccountBookingRow["status"];
       priceTotal: unknown;
       service: { name: string };
-      payment: null | { status: "unpaid" | "paid" | "failed" | "refunded" };
+      payment: null | { status: "unpaid" | "paid" | "failed" | "refunded"; provider: string };
     }) => {
       const startParts = isoToVenueTimezoneParts(row.startAt);
       const endParts = isoToVenueTimezoneParts(row.endAt);
       const cancellationState = getCancellationState({ startAt: row.startAt, status: row.status, now });
-      const paymentStatus = row.payment?.status ?? "none";
+      const paymentStatus = resolveAccountPaymentStatus({ payment: row.payment, status: row.status });
 
       return {
         id: row.id,
@@ -190,10 +206,23 @@ export async function cancelCustomerBooking(args: { userId: string; bookingId: s
       id: true,
       status: true,
       startAt: true,
+      priceTotal: true,
       payment: {
         select: {
           id: true,
           status: true,
+          provider: true,
+        },
+      },
+      walletTransactions: {
+        where: {
+          type: {
+            in: ["booking_charge", "booking_refund"],
+          },
+        },
+        select: {
+          id: true,
+          type: true,
         },
       },
     },
@@ -221,9 +250,27 @@ export async function cancelCustomerBooking(args: { userId: string; bookingId: s
       });
     }
 
+    const hasWalletCharge = booking.walletTransactions.some((row) => row.type === "booking_charge");
+    const alreadyRefundedToWallet = booking.walletTransactions.some((row) => row.type === "booking_refund");
+
+    if (hasWalletCharge && !alreadyRefundedToWallet) {
+      await creditUserWallet({
+        tx,
+        userId: args.userId,
+        amountKzt: Number(booking.priceTotal),
+        type: "booking_refund",
+        bookingId: booking.id,
+        note: "Возврат на баланс после отмены бронирования",
+        metadataJson: {
+          source: "booking_cancellation",
+        },
+      });
+    }
+
     return tx.booking.update({
       where: { id: booking.id },
       data: { status: "cancelled" },
     });
   });
 }
+

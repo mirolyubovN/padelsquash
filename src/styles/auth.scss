@@ -1,0 +1,148 @@
+@reference "tailwindcss";
+
+/* ── Auth / Login ─────────────────────────────────────────────────── */
+
+.login-page {
+  @apply flex flex-col gap-6;
+}
+
+.auth-panel {
+  @apply flex justify-center;
+}
+
+.auth-panel__box {
+  @apply w-full max-w-xl rounded-2xl border p-5 md:p-6;
+  border-color: var(--line);
+  background-color: var(--surface);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+}
+
+.auth-panel__brand {
+  @apply mb-4 flex items-center gap-3 rounded-xl border p-3;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+.auth-panel__brand-mark {
+  @apply inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold;
+  background-color: var(--accent);
+  color: #0f172a;
+}
+
+.auth-panel__brand-title {
+  @apply text-sm font-semibold;
+}
+
+.auth-panel__brand-subtitle {
+  @apply text-xs;
+  color: var(--muted);
+}
+
+.auth-panel__title {
+  @apply text-xl font-semibold;
+}
+
+.auth-panel__hint {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.auth-panel__error {
+  @apply mt-3 rounded-lg border px-4 py-3 text-sm;
+  border-color: rgba(239, 68, 68, 0.2);
+  background-color: rgba(239, 68, 68, 0.06);
+  color: #b91c1c;
+}
+
+.auth-panel__notice {
+  @apply mt-3 rounded-lg border px-4 py-3 text-sm leading-6;
+  border-color: rgba(132, 204, 22, 0.25);
+  background-color: rgba(132, 204, 22, 0.06);
+  color: #3a6300;
+}
+
+.auth-panel__links {
+  @apply mt-4 flex flex-wrap gap-2;
+}
+
+.auth-panel__link {
+  @apply rounded border px-4 py-2 text-sm font-medium;
+  border-color: var(--line);
+  background-color: var(--background);
+  transition: border-color 0.2s;
+}
+
+.auth-panel__link:hover {
+  border-color: var(--accent);
+}
+
+.auth-form {
+  @apply mt-4 flex flex-col gap-4;
+}
+
+.auth-form__group {
+  @apply flex flex-col gap-2;
+}
+
+.auth-form__label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.auth-form__field {
+  @apply w-full rounded border px-3 py-2.5 text-sm;
+  border-color: var(--line);
+  background-color: var(--background);
+  transition: border-color 0.2s;
+}
+
+.auth-form__field:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.auth-form__field-row {
+  @apply flex gap-2;
+}
+
+.auth-form__field--row {
+  @apply min-w-0 flex-1;
+}
+
+.auth-form__toggle {
+  @apply shrink-0 rounded border px-3 py-2 text-xs font-semibold;
+  border-color: var(--line);
+  background-color: var(--surface);
+  color: var(--muted);
+}
+
+.auth-form__actions-row {
+  @apply flex flex-wrap gap-2;
+}
+
+.auth-form__field--error {
+  border-color: rgba(239, 68, 68, 0.35);
+  background-color: rgba(239, 68, 68, 0.04);
+}
+
+.auth-form__hint {
+  @apply text-xs leading-5;
+  color: var(--muted);
+}
+
+.auth-form__field-error {
+  @apply text-xs leading-5;
+  color: #b91c1c;
+}
+
+.auth-form__submit {
+  @apply inline-flex items-center justify-center rounded px-4 py-2.5 text-sm font-bold uppercase tracking-wide;
+  background-color: var(--accent);
+  color: #0f172a;
+  letter-spacing: 0.08em;
+  transition: background-color 0.2s;
+}
+
+.auth-form__submit:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}

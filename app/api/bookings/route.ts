@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createBookingMvp } from "@/src/lib/bookings/service";
-import { createBookingInDb } from "@/src/lib/bookings/persistence";
+import {
+  createBookingInDb,
+  InsufficientWalletBalanceError,
+} from "@/src/lib/bookings/persistence";
 import { demoServices } from "@/src/lib/availability/demo";
 import { demoComponentPrices } from "@/src/lib/pricing/demo";
 import { prisma } from "@/src/lib/prisma";
@@ -57,15 +60,14 @@ export async function POST(request: Request) {
   const locationSelection = await resolveLocationBySlug(parsed.data.location);
   const selectedLocation = locationSelection.selected;
 
-  const accountCustomer =
-    session?.user?.id
-      ? await prisma.user
-          .findUnique({
-            where: { id: session.user.id },
-            select: { id: true, name: true, email: true, phone: true },
-          })
-          .catch(() => null)
-      : null;
+  const accountCustomer = session.user.id
+    ? await prisma.user
+        .findUnique({
+          where: { id: session.user.id },
+          select: { id: true, name: true, email: true, phone: true },
+        })
+        .catch(() => null)
+    : null;
 
   try {
     const result = await createBookingInDb({
@@ -76,6 +78,7 @@ export async function POST(request: Request) {
       durationMin: parsed.data.durationMin,
       courtId: parsed.data.courtId,
       instructorId: parsed.data.instructorId,
+      holdId: parsed.data.holdId,
       customerUserId: accountCustomer?.id,
       customer: accountCustomer
         ? {
@@ -88,19 +91,30 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        message:
-          process.env.PAYMENTS_ENABLED === "true"
-            ? "Бронь создана. Ожидается подтверждение оплаты."
-            : "Бронь создана и подтверждена.",
+        message: "Бронь создана и оплачена с баланса.",
         data: result,
         source: "db",
       },
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof InsufficientWalletBalanceError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code,
+          holdId: error.holdId,
+          currentBalanceKzt: error.currentBalanceKzt,
+          amountRequiredKzt: error.amountRequiredKzt,
+          shortfallKzt: error.shortfallKzt,
+          expiresAt: error.expiresAtIso,
+        },
+        { status: 402 },
+      );
+    }
+
     const message = error instanceof Error ? error.message : "Ошибка создания бронирования";
 
-    // Demo fallback is disabled by default to avoid masking DB persistence failures.
     const service = demoServices.find((item) => item.id === parsed.data.serviceId);
     if (allowDemoFallback && service) {
       const result = await createBookingMvp({
@@ -117,10 +131,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          message:
-            process.env.PAYMENTS_ENABLED === "true"
-              ? "Бронь создана. Ожидается подтверждение оплаты."
-              : "Бронь создана и подтверждена.",
+          message: "Бронь создана в demo-режиме.",
           data: result,
           source: "demo-fallback",
           note: message,
@@ -135,9 +146,9 @@ export async function POST(request: Request) {
         ? 404
         : message.includes("требуется зарегистрированный аккаунт")
           ? 401
-        : message.includes("требуется")
-          ? 400
-          : 500;
+          : message.includes("требуется") || message.includes("hold")
+            ? 400
+            : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

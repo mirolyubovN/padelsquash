@@ -79,6 +79,14 @@ function toPaymentStatus(row: { payment: null | { status: string }; status: Admi
   return "none";
 }
 
+function toPaymentProvider(row: { payment: null | { provider: string }; status: AdminBookingStatus }): string {
+  if (row.payment?.provider) {
+    return row.payment.provider;
+  }
+
+  return row.status === "confirmed" ? "wallet" : "—";
+}
+
 function parsePricingBreakdownLines(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -222,7 +230,7 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
       statusLabel: ADMIN_BOOKING_STATUS_LABELS[status],
       paymentStatus,
       paymentStatusLabel: ADMIN_PAYMENT_STATUS_LABELS[paymentStatus],
-      paymentProvider: row.payment?.provider ?? "placeholder",
+      paymentProvider: toPaymentProvider({ payment: row.payment, status }),
       amountKzt: formatAmountKzt(amountRaw),
       amountRaw,
       currency: row.currency,
@@ -250,30 +258,4 @@ export async function setBookingStatus(args: {
     where: { id: args.bookingId },
     data: { status: args.status },
   });
-}
-
-export async function confirmPlaceholderPaymentByBookingId(bookingId: string) {
-  const payment = await prisma.payment.findFirst({
-    where: {
-      bookingId,
-      provider: "placeholder",
-    },
-  });
-
-  if (!payment) {
-    throw new Error("Платеж placeholder не найден");
-  }
-
-  const [updatedPayment, updatedBooking] = await prisma.$transaction([
-    prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "paid" },
-    }),
-    prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: "confirmed" },
-    }),
-  ]);
-
-  return { updatedPayment, updatedBooking };
 }

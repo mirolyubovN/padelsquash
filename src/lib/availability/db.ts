@@ -35,6 +35,7 @@ export async function getAvailabilityContextFromDb(args: {
   serviceCode: string;
   date: string;
   locationSlug?: string;
+  excludeHoldIds?: string[];
 }): Promise<AvailabilityDbContext | null> {
   const locationSelection = await resolveLocationBySlug(args.locationSlug);
   const selectedLocation = locationSelection.selected;
@@ -66,7 +67,7 @@ export async function getAvailabilityContextFromDb(args: {
 
   const { startUtc, endUtc } = venueDateRangeUtc(args.date);
 
-  const [openingHours, courts, instructors, exceptions, bookings] = await Promise.all([
+  const [openingHours, courts, instructors, exceptions, bookings, bookingHolds] = await Promise.all([
     prisma.openingHour.findMany({
       where: { locationId: selectedLocation.id },
       orderBy: { dayOfWeek: "asc" },
@@ -108,6 +109,23 @@ export async function getAvailabilityContextFromDb(args: {
         endAt: { gt: startUtc },
       },
       include: { resources: true },
+    }),
+    prisma.bookingHold.findMany({
+      where: {
+        locationId: selectedLocation.id,
+        status: "active",
+        expiresAt: { gt: new Date() },
+        id: args.excludeHoldIds?.length ? { notIn: args.excludeHoldIds } : undefined,
+        startAt: { lt: endUtc },
+        endAt: { gt: startUtc },
+      },
+      select: {
+        id: true,
+        startAt: true,
+        endAt: true,
+        courtId: true,
+        instructorId: true,
+      },
     }),
   ]);
 
@@ -207,21 +225,35 @@ export async function getAvailabilityContextFromDb(args: {
       type: row.type,
       note: row.note ?? undefined,
     })),
-    existingBookings: bookings.map((row: {
-      id: string;
-      startAt: Date;
-      endAt: Date;
-      status: ExistingBookingRecord["status"];
-      resources: Array<{ resourceType: "court" | "instructor"; resourceId: string }>;
-    }) => ({
-      id: row.id,
-      startAt: row.startAt.toISOString(),
-      endAt: row.endAt.toISOString(),
-      status: row.status,
-      resourceLinks: row.resources.map((resource: { resourceType: "court" | "instructor"; resourceId: string }) => ({
-        resourceType: resource.resourceType,
-        resourceId: resource.resourceId,
+    existingBookings: [
+      ...bookings.map((row: {
+        id: string;
+        startAt: Date;
+        endAt: Date;
+        status: ExistingBookingRecord["status"];
+        resources: Array<{ resourceType: "court" | "instructor"; resourceId: string }>;
+      }) => ({
+        id: row.id,
+        startAt: row.startAt.toISOString(),
+        endAt: row.endAt.toISOString(),
+        status: row.status,
+        resourceLinks: row.resources.map((resource: { resourceType: "court" | "instructor"; resourceId: string }) => ({
+          resourceType: resource.resourceType,
+          resourceId: resource.resourceId,
+        })),
       })),
-    })),
+      ...bookingHolds.map((row) => ({
+        id: `hold:${row.id}`,
+        startAt: row.startAt.toISOString(),
+        endAt: row.endAt.toISOString(),
+        status: "pending_payment" as const,
+        resourceLinks: [
+          ...(row.courtId ? [{ resourceType: "court" as const, resourceId: row.courtId }] : []),
+          ...(row.instructorId
+            ? [{ resourceType: "instructor" as const, resourceId: row.instructorId }]
+            : []),
+        ],
+      })),
+    ],
   };
 }

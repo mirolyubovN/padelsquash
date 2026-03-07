@@ -1,0 +1,33 @@
+@reference "tailwindcss";
+
+/* ── Layout ──────────────────────────────────────────────────────── */
+
+.site-frame {
+  min-height: 100vh;
+  background: var(--background);
+}
+
+.site-shell {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.site-main {
+  @apply py-8;
+}
+
+.site-main__inner {
+  @apply flex flex-col gap-10;
+}
+
+.home-page {
+  @apply flex flex-col gap-8;
+}
+
+@media (max-width: 767px) {
+  .site-main {
+    @apply pb-20;
+  }
+}

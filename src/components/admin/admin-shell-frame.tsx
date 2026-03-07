@@ -20,28 +20,6 @@ export function AdminShellFrame({ email, role, logoutAction, children }: AdminSh
 
   return (
     <div className="admin-shell">
-      <div className="admin-shell__toolbar">
-        <div className="admin-shell__identity">
-          <button
-            type="button"
-            className="admin-shell__menu-button"
-            onClick={() => setMobileOpen((value) => !value)}
-            aria-expanded={mobileOpen}
-            aria-controls="admin-sidebar"
-            aria-label={mobileOpen ? "Закрыть меню админ-панели" : "Открыть меню админ-панели"}
-          >
-            Меню
-          </button>
-          <span className="admin-shell__badge">{getRoleLabel(role)}</span>
-          <span className="admin-shell__email">{email}</span>
-        </div>
-        <form action={logoutAction}>
-          <button type="submit" className="admin-shell__logout">
-            Выйти
-          </button>
-        </form>
-      </div>
-
       <div className="admin-shell__layout">
         {mobileOpen ? (
           <button
@@ -56,10 +34,11 @@ export function AdminShellFrame({ email, role, logoutAction, children }: AdminSh
           id="admin-sidebar"
           className={`admin-shell__sidebar${mobileOpen ? " admin-shell__sidebar--open" : ""}`}
         >
-          <div className="admin-shell__sidebar-head">
-            <p className="admin-shell__sidebar-title">Навигация</p>
-            <p className="admin-shell__sidebar-subtitle">Разделы управления клубом</p>
+          <div className="admin-shell__sidebar-brand">
+            <span className="admin-shell__brand-mark">PS</span>
+            <span className="admin-shell__brand-name">Admin</span>
           </div>
+
           <nav className="admin-shell__nav" aria-label="Разделы админ-панели">
             {navItems.map((item) => {
               const isActive =
@@ -77,9 +56,50 @@ export function AdminShellFrame({ email, role, logoutAction, children }: AdminSh
               );
             })}
           </nav>
+
+          <div className="admin-shell__sidebar-footer">
+            <div className="admin-shell__identity">
+              <span className="admin-shell__badge">{getRoleLabel(role)}</span>
+              <span className="admin-shell__email">{email}</span>
+            </div>
+            <form action={logoutAction}>
+              <button type="submit" className="admin-shell__logout">
+                Выйти
+              </button>
+            </form>
+          </div>
         </aside>
 
-        <main className="admin-shell__main">{children}</main>
+        <div className="admin-shell__main-col">
+          <div className="admin-shell__toolbar">
+            <button
+              type="button"
+              className="admin-shell__menu-button"
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-expanded={mobileOpen}
+              aria-controls="admin-sidebar"
+              aria-label={mobileOpen ? "Закрыть меню" : "Открыть меню"}
+            >
+              <span className="admin-shell__menu-icon">
+                <span className="admin-shell__menu-icon-bar" />
+                <span className="admin-shell__menu-icon-bar" />
+                <span className="admin-shell__menu-icon-bar" />
+              </span>
+              Меню
+            </button>
+            <div className="admin-shell__toolbar-identity">
+              <span className="admin-shell__badge">{getRoleLabel(role)}</span>
+              <span className="admin-shell__email">{email}</span>
+            </div>
+            <form action={logoutAction}>
+              <button type="submit" className="admin-shell__logout">
+                Выйти
+              </button>
+            </form>
+          </div>
+
+          <main className="admin-shell__main">{children}</main>
+        </div>
       </div>
     </div>
   );

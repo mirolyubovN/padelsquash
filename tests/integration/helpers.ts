@@ -1,4 +1,5 @@
 import { prisma } from "@/src/lib/prisma";
+import { creditUserWallet } from "@/src/lib/wallet/service";
 
 export function nextWeekdayIsoDate(minDaysAhead = 2): string {
   const date = new Date();
@@ -24,6 +25,36 @@ function formatIsoDate(date: Date): string {
 
 export function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
+}
+
+export async function createCustomerWithWallet(prefix: string, balanceKzt = 200_000) {
+  const user = await prisma.user.create({
+    data: {
+      name: `Test ${prefix}`,
+      email: uniqueEmail(prefix),
+      phone: "+77070009999",
+      passwordHash: "test-password-hash",
+      role: "customer",
+    },
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      name: true,
+    },
+  });
+
+  await creditUserWallet({
+    userId: user.id,
+    amountKzt: balanceKzt,
+    applyBonus: false,
+    note: "Integration test wallet funding",
+    metadataJson: {
+      source: "integration_test",
+    },
+  });
+
+  return user;
 }
 
 export async function getSeededPadelRentalService() {

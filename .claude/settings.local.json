@@ -18,7 +18,11 @@
       "WebFetch(domain:bookingcourts.ru)",
       "Bash(npm run:*)",
       "Bash(npx prisma:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(ls:*)",
+      "Bash(kill %1:*)",
+      "Bash(curl:*)"
     ]
   }
 }

@@ -4,6 +4,7 @@ import { SiteFooter } from "@/src/components/site-footer";
 import { SiteHeader } from "@/src/components/site-header";
 import { siteConfig } from "@/src/lib/content/site-data";
 import "./globals.css";
+import "@/src/styles/index.scss";
 
 const manrope = Manrope({
   variable: "--font-manrope",

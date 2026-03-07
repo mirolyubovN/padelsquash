@@ -1,5 +1,23 @@
 # Session Todo (2026-02-23)
 
+## Plan (2026-03-07 - new device bootstrap)
+
+- [x] Read README/runbook and extract exact local setup requirements.
+- [x] Create local `.env` for Docker Postgres + Auth.js + app defaults.
+- [x] Start Docker PostgreSQL container and confirm healthy status.
+- [x] Apply Prisma migrations and regenerate Prisma client.
+- [x] Seed development data and verify core commands.
+
+## Review (2026-03-07 - new device bootstrap)
+
+- Created local `.env` with Docker DB connection (`127.0.0.1:55432`), Auth.js values, and explicit seed credentials.
+- Started `padelsquash-postgres` via Docker Compose and confirmed `healthy` state.
+- Ran `npm.cmd install` (including Prisma postinstall client generation).
+- Applied all Prisma migrations with `npx.cmd prisma migrate deploy`.
+- Regenerated Prisma client with `npx.cmd prisma generate`.
+- Seeded development data with `npm.cmd run db:seed`.
+- Verified readiness by running unit tests: `12 passed` across `4` files.
+
 ## Plan (2026-03-05 - simplification baseline + role split super-admin/admin/trainer)
 
 - [x] Analyze `bookingcourts.ru/courts` interaction pattern and capture simplification principles for this project.
@@ -1124,3 +1142,182 @@
   - `npm run test:e2e` âœ…
   - `npm run lint` âœ…
   - Note: `lint` must be run separately from Playwright in this repo because both touch `test-results/` and can race when executed in parallel.
+
+## Plan (2026-03-07 - booking auth handoff state persistence)
+
+- [x] Audit current `/book` URL persistence and auth redirect handoff.
+- [x] Persist full in-progress booking selection (sport, service, date, trainer, selected court/time cells) into the booking URL and auth `next` links.
+- [x] Restore preserved booking selections after login/registration without clearing them during initial state hydration.
+- [x] Add regression coverage for guest booking -> login -> resumed selection flow.
+- [x] Run targeted verification and document the review results.
+
+## Review (2026-03-07 - booking auth handoff state persistence)
+
+- Added shared booking URL-state parsing/encoding helpers in `src/lib/bookings/url-state.ts` so `/book` state is serialized consistently for server parsing and client URL sync.
+- Updated `app/book/page.tsx` to pass parsed booking query state into the live booking form on render.
+- Updated `src/components/booking/live-booking-form.tsx` to:
+  - initialize from parsed booking state,
+  - keep selected court/time cells in the URL/auth `next` path,
+  - restore valid selected cells after availability loads,
+  - persist guest in-progress booking state in `sessionStorage` across auth redirects,
+  - avoid clearing restored trainer/slot state on Strict Mode duplicate mount passes.
+- Added Playwright regression coverage in `tests/e2e/06-booking-auth-handoff.spec.ts` for guest training selection -> login -> restored booking confirmation state.
+- Verification:
+  - `npx eslint app/book/page.tsx src/components/booking/live-booking-form.tsx src/lib/bookings/url-state.ts tests/e2e/06-booking-auth-handoff.spec.ts` ?
+  - `npm run db:seed` ?
+  - `npx playwright install chromium` ?
+  - `npx playwright test tests/e2e/06-booking-auth-handoff.spec.ts` ?
+
+## Plan (2026-03-07 - wallet balance booking flow)
+
+- [x] Audit the current booking/payment flow and replace booking-linked placeholder payments with a wallet-first model.
+- [x] Add DB support for wallet balance accounting: user balance field, immutable balance ledger, top-up/bonus metadata, and short-lived booking holds for top-up race protection.
+- [x] Implement wallet domain services for customer top-up, admin manual credit, bonus application, refunds/booking charges, and hold lifecycle.
+- [x] Refactor booking creation so authenticated bookings are paid from wallet balance inside the same transaction that verifies slot availability and creates the booking.
+- [x] When balance is insufficient, create a temporary hold/reservation token, send the user to top up, and resume booking from the saved selection/hold after top-up.
+- [x] Add customer-facing balance/top-up UI and admin tools for manual in-club/cash balance adjustments.
+- [x] Add a super-admin settings surface for configurable top-up bonus threshold/percent (default threshold: 50,000 KZT; default bonus: 10%).
+- [x] Verify with targeted unit/integration/e2e coverage, including hold expiry/conflict behavior during top-up.
+
+## Review (2026-03-07 - wallet balance booking flow)
+
+- Added wallet schema support in Prisma:
+  - `User.walletBalance`
+  - immutable `WalletTransaction` ledger
+  - singleton `WalletBonusConfig`
+  - `BookingHold` for short-lived reservation during top-up
+  - new `wallet` payment provider for confirmed wallet-paid bookings
+- Implemented wallet services in `src/lib/wallet/service.ts`:
+  - customer top-up
+  - admin credit/debit by customer email
+  - bonus calculation/config persistence
+  - booking charge and cancellation refund support
+  - optional transaction reuse so booking creation and wallet debit stay atomic
+- Refactored DB booking persistence to be wallet-first:
+  - `src/lib/bookings/persistence.ts` now confirms bookings only after balance check
+  - booking charge is written in the same serializable transaction as conflict checks and booking insert
+  - insufficient balance now creates/persists an active `BookingHold` and returns structured `INSUFFICIENT_WALLET_BALANCE`
+  - active holds are treated as conflicts in both booking creation and availability reads
+- Added customer and admin runtime surfaces:
+  - `app/account/page.tsx` now shows balance, top-up form, bonus threshold, and recent wallet operations
+  - `app/account/actions.ts` adds `topUpWalletAction` with safe return redirect back to `/book`
+  - `app/admin/wallet/page.tsx` adds manual balance adjustments for admins plus bonus settings for super-admins
+  - `src/components/admin/admin-nav-config.ts` now links to `/admin/wallet`
+- Updated booking resume plumbing:
+  - `src/lib/bookings/url-state.ts` and `src/components/booking/live-booking-form.tsx` now preserve `hold` in the booking URL
+  - insufficient-balance responses keep the slot selection, save the hold id, and offer a direct top-up return path
+- Completed grouped multi-slot hold/resume:
+  - added atomic hold creation endpoint `app/api/bookings/holds/route.ts`
+  - hold ids are now serialized per selected booking cell in `src/lib/bookings/url-state.ts`
+  - availability requests can exclude the customerâ€™s own hold ids so the held selection restores correctly after top-up
+  - `src/components/booking/live-booking-form.tsx` now pre-holds the whole selected series before redirecting to top-up
+- Updated customer cancellation flow:
+  - `src/lib/account/bookings.ts` now refunds wallet-paid bookings back to balance and keeps payment badges consistent
+- Verification:
+  - `npx.cmd prisma generate` âœ“
+  - `npx.cmd prisma migrate deploy` âœ“
+  - `npm.cmd run db:seed` âœ“
+  - `npx.cmd eslint app/account/actions.ts app/account/page.tsx app/admin/wallet/page.tsx app/api/bookings/route.ts src/components/admin/admin-nav-config.ts src/components/booking/live-booking-form.tsx src/lib/account/bookings.ts src/lib/availability/db.ts src/lib/bookings/persistence.ts src/lib/bookings/url-state.ts src/lib/wallet/queries.ts src/lib/wallet/service.ts src/lib/validation/booking.ts tests/integration/helpers.ts tests/integration/booking-persistence.test.ts tests/unit/wallet-service.test.ts tests/unit/booking-holds.test.ts` âœ“
+  - `npx.cmd tsc --noEmit` âœ“
+  - `npm.cmd run test:unit -- tests/unit/wallet-service.test.ts tests/unit/booking-holds.test.ts` âœ“
+  - `npm.cmd run test:integration -- tests/integration/booking-persistence.test.ts` âœ“
+  - `npx.cmd playwright test tests/e2e/07-wallet-topup-resume.spec.ts` âœ“
+
+## Plan (2026-03-07 - admin wallet booking flow cleanup)
+
+- [ ] Audit the remaining admin booking creation and status-management paths that still assume `pending/cash/free` payments.
+- [ ] Refactor admin manual booking creation to remove legacy payment modes, create/find the customer account first, and preserve `holdId` so retry works after a manual wallet top-up.
+- [ ] Update admin wallet and bookings surfaces so admins can top up a customer and retry the same held slot without using placeholder payment confirmation.
+- [ ] Run targeted lint/typecheck/integration/e2e verification and capture the review results.
+
+## Plan (2026-03-07 - admin UX corrections after wallet rollout)
+
+- [x] Add a usable customer wallet operations surface: searchable customer list with current balances and an admin flow to create/register a customer account by name, surname, phone, and email before balance adjustments.
+- [x] Fix `/admin/calendar` so past-time slots cannot be booked and future-slot clicks prefill `/admin/bookings/create` with date/time/court context.
+- [x] Refactor admin booking create so it honors calendar deep-link params and keeps the prefilled selection visible/editable.
+- [x] Collapse sport setup into one admin entry point so creating a sport also exposes the required related configuration (services, courts, pricing) without making the operator repeat the same concept across separate tabs.
+- [x] Run targeted verification and capture review notes.
+
+## Review (2026-03-07 - admin UX corrections after wallet rollout)
+
+- Added an operator-usable client balance workflow in `app/admin/wallet/page.tsx` and `src/lib/wallet/queries.ts`:
+  - searchable customer list with current balances and booking counts
+  - admin-side customer creation by first name, last name, phone, and email
+  - direct prefill from customer row into the balance adjustment form
+  - direct handoff from wallet page into admin booking creation
+- Fixed admin calendar booking affordances in `app/admin/calendar/page.tsx`:
+  - free past-time cells are no longer clickable
+  - future free cells carry date, time, court, and location into `/admin/bookings/create`
+- Fixed deep-link hydration in `app/admin/bookings/create/page.tsx` and `src/components/admin/create-booking-form.tsx`:
+  - create-booking now resolves the linked court, infers sport/location/service, and prefills customer data when provided
+  - the form now keeps the calendar-provided date/time/court visible on initial render instead of clearing it during hydration
+  - manual admin booking creation now also rejects past-time booking attempts server-side via `src/lib/bookings/persistence.ts`
+- Added regression coverage in `tests/integration/booking-persistence.test.ts` so direct past-time booking requests are rejected even outside the admin calendar UI.
+- Collapsed sport setup into one admin surface:
+  - `app/admin/sports/page.tsx` now creates/edits the sport, its default rental service, and its base court prices in one flow
+  - `src/lib/admin/resources.ts` now provisions and updates the linked rental service and pricing rows together with the sport
+  - `src/lib/settings/service.ts` now backfills missing component-price rows for newly added sports instead of silently skipping them once any pricing exists
+  - `src/components/admin/admin-nav-config.ts` removes the redundant separate services/base-pricing tabs from primary navigation
+- Verification:
+  - `npx.cmd eslint src/components/admin/create-booking-form.tsx src/lib/bookings/persistence.ts app/admin/wallet/page.tsx app/admin/calendar/page.tsx app/admin/bookings/create/page.tsx app/admin/sports/page.tsx src/components/admin/admin-nav-config.ts src/lib/wallet/queries.ts src/lib/settings/service.ts src/lib/admin/resources.ts tests/e2e/08-admin-wallet-booking.spec.ts tests/e2e/09-admin-wallet-customers.spec.ts tests/e2e/10-admin-calendar-prefill.spec.ts` âœ“
+  - `npx.cmd tsc --noEmit` âœ“
+  - `npm.cmd run db:seed` âœ“
+  - `npm.cmd run test:integration -- tests/integration/booking-persistence.test.ts` âœ“
+  - `npx.cmd playwright test tests/e2e/08-admin-wallet-booking.spec.ts tests/e2e/09-admin-wallet-customers.spec.ts tests/e2e/10-admin-calendar-prefill.spec.ts` âœ“
+
+## Plan (2026-03-07 - admin-created customer account activation)
+
+- [x] Audit the current registration/auth flow and reuse the minimum viable pieces for a real account-setup path for admin-created customers.
+- [x] Implement a secure activation link flow so admins can create a customer, copy/send a setup link, and the customer can set a password without re-entering account identity data.
+- [x] Expose activation state and setup-link access from `/admin/wallet` so staff can immediately hand off login access after creating or finding a customer.
+- [x] Verify with targeted lint/typecheck and end-to-end coverage for admin create customer -> customer sets password -> customer can log in.
+
+## Review (2026-03-07 - admin-created customer account activation + admin text encoding repair)
+
+- Repaired corrupted UTF-8 literals in the touched admin screens:
+  - `app/admin/wallet/page.tsx`
+  - `app/admin/calendar/page.tsx`
+  - `app/admin/sports/page.tsx`
+  - `app/admin/bookings/create/page.tsx`
+  - `src/components/admin/create-booking-form.tsx`
+- Added stateless signed activation-link support in `src/lib/auth/account-setup.ts`:
+  - activation link includes expiry
+  - signature is tied to the current `passwordHash`, so the link becomes invalid as soon as the customer sets a real password
+  - no extra database table or token cleanup job was needed
+- Added a public account-setup page in `app/activate-account/page.tsx`:
+  - validates the signed activation token
+  - shows the customer identity being activated
+  - lets the customer set a password and signs them into `/account`
+  - rejects reused or expired links
+- Extended `/admin/wallet`:
+  - shows whether a customer still needs password setup
+  - exposes a copy/sendable activation URL for the selected customer
+  - keeps the balance-adjustment and booking-entry workflow intact
+- Extended wallet customer data in `src/lib/wallet/queries.ts` with `needsPasswordSetup` so the admin UI can show activation state directly in the customer table.
+- Added end-to-end coverage in `tests/e2e/11-admin-customer-activation.spec.ts` for:
+  - admin creates customer
+  - admin obtains activation link
+  - customer activates account and lands in `/account`
+  - the same link no longer works after activation
+- Updated existing wallet/customer e2e copy assertions in `tests/e2e/09-admin-wallet-customers.spec.ts` to the new activation-aware success message.
+- Verification:
+  - `npx.cmd eslint app/admin/wallet/page.tsx app/admin/calendar/page.tsx app/admin/sports/page.tsx app/admin/bookings/create/page.tsx app/activate-account/page.tsx src/components/admin/create-booking-form.tsx src/lib/auth/account-setup.ts src/lib/wallet/queries.ts tests/e2e/09-admin-wallet-customers.spec.ts tests/e2e/11-admin-customer-activation.spec.ts` âœ“
+  - `npx.cmd tsc --noEmit` âœ“
+  - `npx.cmd playwright test tests/e2e/08-admin-wallet-booking.spec.ts tests/e2e/09-admin-wallet-customers.spec.ts tests/e2e/10-admin-calendar-prefill.spec.ts tests/e2e/11-admin-customer-activation.spec.ts` âœ“
+
+## Plan (2026-03-07 - site-wide text encoding repair)
+
+- [x] Identify whether the corruption is in source files, seeded database rows, or both so the fix does not stop at one layer.
+- [x] Restore clean Russian text in shared public content/settings modules and repair homepage literals without overwriting the current redesign structure.
+- [x] Correct live Prisma sport names in place so existing pages stop rendering mojibake immediately without wiping user data.
+- [x] Verify with targeted lint/typecheck and spot-check the repaired source/DB values.
+
+## Review (2026-03-07 - site-wide text encoding repair)
+
+- Restored clean UTF-8 copy in `src/lib/content/site-content.ts`, `src/lib/settings/service.ts`, `prisma/seed.ts`, and `app/page.tsx`.
+- Repaired the current homepage redesign file in place instead of reverting it to `HEAD`, so the new layout/classes remain intact while all visible Russian copy renders correctly again.
+- Cleaned the user-facing admin labels/constants in `src/lib/admin/resources.ts` that were still showing mojibake in resource/sport/exception labels.
+- Updated live Prisma sport names in place (`padel` -> `Ïàäåë`, `squash` -> `Ñêâîø`) so existing database-backed pages stop rendering corrupted sport labels without a destructive reseed.
+- Verification:
+  - `npx.cmd eslint app/page.tsx src/lib/content/site-content.ts src/lib/settings/service.ts prisma/seed.ts src/lib/admin/resources.ts` (warnings only for existing `<img>` usage in `app/page.tsx`)
+  - `npx.cmd tsc --noEmit`

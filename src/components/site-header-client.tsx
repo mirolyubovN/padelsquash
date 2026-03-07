@@ -61,7 +61,11 @@ export function SiteHeaderClient({ portalLink, logoutAction, accountLink }: Site
           <ul className="site-header__nav-list">
             {navItems.map((item) => (
               <li key={item.href} className="site-header__nav-item">
-                <Link href={item.href} className="site-header__nav-link">
+                <Link
+                  href={item.href}
+                  className="site-header__nav-link"
+                  aria-current={pathname === item.href ? "page" : undefined}
+                >
                   {item.label}
                 </Link>
               </li>

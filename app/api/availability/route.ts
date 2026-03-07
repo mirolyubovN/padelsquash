@@ -42,6 +42,7 @@ export async function GET(request: Request) {
     date: url.searchParams.get("date"),
     durationMin: url.searchParams.get("durationMin"),
     instructorId: url.searchParams.get("instructorId") ?? undefined,
+    holdIds: url.searchParams.getAll("holdId"),
   });
 
   if (!parsed.success) {
@@ -77,6 +78,7 @@ export async function GET(request: Request) {
       serviceCode: parsed.data.serviceId,
       date: parsed.data.date,
       locationSlug: parsed.data.location,
+      excludeHoldIds: parsed.data.holdIds,
     });
 
     if (dbContext) {

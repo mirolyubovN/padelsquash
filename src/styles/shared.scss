@@ -1,0 +1,393 @@
+@reference "tailwindcss";
+
+/* ── Shared page layouts ─────────────────────────────────────────── */
+
+.listing-page,
+.pricing-page,
+.contact-page,
+.booking-page,
+.account-page {
+  @apply flex flex-col gap-6;
+}
+
+/* ── Card grid ───────────────────────────────────────────────────── */
+
+.card-grid {
+  @apply grid gap-4 md:grid-cols-2 xl:grid-cols-3;
+}
+
+.card-grid__item {
+  @apply rounded-2xl border p-5 transition-all;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.card-grid__item:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.card-grid__badge {
+  @apply inline-flex rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide;
+  background-color: var(--accent-soft);
+  color: var(--foreground);
+  letter-spacing: 0.12em;
+}
+
+.card-grid__title {
+  @apply mt-3 text-lg font-semibold;
+}
+
+.card-grid__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.card-grid__meta {
+  @apply mt-2 text-sm;
+  color: var(--muted);
+}
+
+.card-grid__actions {
+  @apply mt-4 flex flex-wrap gap-2;
+}
+
+.card-grid__button {
+  @apply inline-flex items-center justify-center rounded px-4 py-2.5 text-sm font-bold uppercase tracking-wide;
+  background-color: var(--accent);
+  color: #0f172a;
+  letter-spacing: 0.08em;
+  transition: background-color 0.2s;
+}
+
+.card-grid__button:hover {
+  background-color: var(--accent-hover);
+}
+
+/* ── Tag list ────────────────────────────────────────────────────── */
+
+.tag-list {
+  @apply mt-4 flex flex-wrap gap-2;
+}
+
+.tag-list__item {
+  @apply list-none rounded px-3 py-1 text-xs font-medium;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+/* ── Pricing table ───────────────────────────────────────────────── */
+
+.pricing-table {
+  @apply rounded-2xl border p-5;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.pricing-table__title {
+  @apply text-xl font-semibold;
+}
+
+.pricing-table__scroll {
+  @apply mt-4 overflow-x-auto;
+}
+
+.pricing-table__table {
+  @apply min-w-full border-separate text-left text-sm;
+  border-spacing: 0;
+}
+
+.pricing-table__table th,
+.pricing-table__table td {
+  @apply border-b px-3 py-3 align-top;
+  border-color: var(--line);
+}
+
+.pricing-table__table th {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+/* ── Rule list ───────────────────────────────────────────────────── */
+
+.rule-list {
+  @apply rounded-2xl border p-5;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.rule-list__title {
+  @apply text-xl font-semibold;
+}
+
+.rule-list__items {
+  @apply mt-4 flex flex-col gap-2;
+}
+
+.rule-list__item {
+  @apply ml-5 text-sm leading-6;
+}
+
+.rule-list__notes {
+  @apply mt-4 flex flex-col gap-2;
+}
+
+.rule-list__note {
+  @apply list-none rounded-lg border px-4 py-3 text-sm;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+/* ── Contact cards ───────────────────────────────────────────────── */
+
+.contact-cards {
+  @apply grid gap-4 md:grid-cols-3;
+}
+
+.contact-card {
+  @apply flex flex-col rounded-2xl border p-5 transition-all;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.contact-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.contact-card__title {
+  @apply text-lg font-semibold;
+}
+
+.contact-card__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.contact-card__button {
+  @apply mt-auto inline-flex items-center justify-center rounded px-4 py-2.5 text-sm font-semibold;
+  background-color: var(--accent);
+  color: #0f172a;
+}
+
+.contact-card__link {
+  @apply mt-3 inline-flex items-center text-sm font-semibold;
+  color: var(--accent);
+}
+
+.contact-card__socials {
+  @apply mt-3 flex flex-wrap gap-2;
+}
+
+.contact-card__social-link {
+  @apply rounded-full border px-3 py-1.5 text-xs font-semibold;
+  border-color: rgba(16, 37, 46, 0.1);
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── Contact layout / form ───────────────────────────────────────── */
+
+.contact-layout {
+  @apply grid gap-4 lg:grid-cols-2;
+}
+
+.contact-layout__social-block {
+  @apply mt-4;
+}
+
+.contact-layout__subheading {
+  @apply mb-2 text-sm font-semibold;
+}
+
+.contact-form {
+  @apply rounded-2xl border p-5;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.contact-form__title {
+  @apply text-xl font-semibold;
+}
+
+.contact-form__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.contact-form__message {
+  @apply mt-4 rounded-xl border px-4 py-3 text-sm;
+}
+
+.contact-form__message--success {
+  border-color: rgba(19, 113, 79, 0.14);
+  background-color: rgba(19, 113, 79, 0.06);
+  color: #115a42;
+}
+
+.contact-form__message--error {
+  border-color: rgba(239, 68, 68, 0.2);
+  background-color: rgba(239, 68, 68, 0.06);
+  color: #b91c1c;
+}
+
+.contact-form__form {
+  @apply mt-4 flex flex-col gap-4;
+}
+
+.contact-form__textarea {
+  @apply min-h-28 resize-y;
+}
+
+.contact-form__submit {
+  @apply inline-flex items-center justify-center rounded px-4 py-2.5 text-sm font-bold uppercase tracking-wide;
+  background-color: var(--accent);
+  color: #0f172a;
+  transition: background-color 0.2s;
+}
+
+.contact-form__submit:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+/* ── Pricing example ─────────────────────────────────────────────── */
+
+.pricing-example {
+  @apply grid gap-4 lg:grid-cols-2;
+}
+
+.pricing-example__card {
+  @apply rounded-2xl border p-5;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.pricing-example__title {
+  @apply text-xl font-semibold;
+}
+
+.pricing-example__text {
+  @apply mt-2 text-sm leading-6;
+  color: var(--muted);
+}
+
+.pricing-example__rows {
+  @apply mt-4 grid gap-2;
+}
+
+.pricing-example__row {
+  @apply flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+.pricing-example__row--total {
+  border-color: rgba(132, 204, 22, 0.25);
+  background-color: rgba(132, 204, 22, 0.06);
+}
+
+.pricing-page__footer-cta {
+  @apply flex justify-start;
+}
+
+/* ── Visual placeholder ──────────────────────────────────────────── */
+
+.visual-placeholder {
+  @apply mb-4 flex min-h-32 flex-col justify-between rounded-2xl p-4;
+  border: none;
+}
+
+.visual-placeholder--padel {
+  background:
+    radial-gradient(circle at 80% 20%, rgba(132, 204, 22, 0.2), transparent 55%),
+    linear-gradient(140deg, #0f172a, #1e293b);
+  color: #ffffff;
+}
+
+.visual-placeholder--squash {
+  background:
+    radial-gradient(circle at 80% 20%, rgba(132, 204, 22, 0.12), transparent 55%),
+    linear-gradient(140deg, #1e293b, #0f172a);
+  color: #ffffff;
+}
+
+.visual-placeholder__label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.visual-placeholder__title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+}
+
+/* ── Coach card ──────────────────────────────────────────────────── */
+
+.coach-card {
+  @apply rounded-2xl border p-5 transition-all;
+  border-color: var(--line);
+  background-color: var(--surface);
+}
+
+.coach-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.coach-card__avatar {
+  @apply mb-4 inline-flex h-14 w-14 items-center justify-center rounded-xl text-base font-bold;
+  color: #ffffff;
+}
+
+.coach-card__avatar--padel {
+  background: linear-gradient(145deg, #3d7a00, #84cc16);
+}
+
+.coach-card__avatar--squash {
+  background: linear-gradient(145deg, #0f172a, #1e3a5f);
+}
+
+.coach-card__avatar--photo {
+  background: transparent;
+  overflow: hidden;
+}
+
+.coach-card__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coach-card__head {
+  @apply flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.coach-card__experience {
+  @apply inline-flex rounded-full border px-3 py-1 text-xs font-semibold;
+  border-color: rgba(16, 37, 46, 0.1);
+  color: var(--muted);
+}
+
+.coach-card__price {
+  @apply mt-3 text-sm font-semibold;
+}
+
+/* ── Listing page extras ─────────────────────────────────────────── */
+
+.listing-page__footer-actions {
+  @apply flex flex-wrap gap-2;
+}
+
+.listing-page__link-button {
+  @apply inline-flex items-center justify-center rounded border px-4 py-2.5 text-sm font-semibold;
+  border-color: var(--line);
+  background-color: var(--surface);
+  transition: border-color 0.2s;
+}
+
+.listing-page__link-button:hover {
+  border-color: var(--accent);
+}

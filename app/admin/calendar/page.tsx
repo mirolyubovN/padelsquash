@@ -9,6 +9,7 @@ import {
   type CalendarException,
 } from "@/src/lib/admin/calendar";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 
 export const metadata = buildPageMetadata({
   title: "Расписание | Админ",
@@ -50,59 +51,60 @@ export default async function AdminCalendarPage({
   const prevDate = getAdjacentDate(date, -1);
   const nextDate = getAdjacentDate(date, +1);
   const isToday = date === today;
+  const now = new Date();
 
   const hours: number[] = [];
-  for (let h = data.openHour; h < data.closeHour; h++) {
-    hours.push(h);
+  for (let hour = data.openHour; hour < data.closeHour; hour += 1) {
+    hours.push(hour);
   }
 
   function buildCreateLink(hour: number, courtId: string): string {
     const hh = String(hour).padStart(2, "0");
-    const params = new URLSearchParams({ date, time: `${hh}:00` });
-    if (courtId) params.set("court", courtId);
-    return `/admin/bookings/create?${params.toString()}`;
+    const query = new URLSearchParams({ date, time: `${hh}:00` });
+    if (courtId) query.set("court", courtId);
+    if (locationSlug) query.set("location", locationSlug);
+    return `/admin/bookings/create?${query.toString()}`;
   }
 
   function buildNavLink(targetDate: string): string {
-    const p = new URLSearchParams({ date: targetDate });
-    if (locationSlug) p.set("location", locationSlug);
-    return `/admin/calendar?${p.toString()}`;
+    const query = new URLSearchParams({ date: targetDate });
+    if (locationSlug) query.set("location", locationSlug);
+    return `/admin/calendar?${query.toString()}`;
   }
 
-  // Index bookings and exceptions for fast cell lookup
+  function isPastSlot(hour: number): boolean {
+    const hh = String(hour).padStart(2, "0");
+    return venueDateTimeToUtc(date, `${hh}:00`) <= now;
+  }
+
   const bookingsByCourtHour = new Map<string, CalendarBooking>();
   for (const booking of data.bookings) {
-    for (let h = booking.startHour; h < booking.endHour; h++) {
-      bookingsByCourtHour.set(`${booking.courtId}:${h}`, booking);
+    for (let hour = booking.startHour; hour < booking.endHour; hour += 1) {
+      bookingsByCourtHour.set(`${booking.courtId}:${hour}`, booking);
     }
   }
 
   const exceptionsByCourtHour = new Map<string, CalendarException>();
-  for (const exc of data.exceptions) {
-    for (let h = exc.startHour; h < exc.endHour; h++) {
-      if (exc.courtId === null) {
-        // Venue-level: applies to every court
+  for (const exception of data.exceptions) {
+    for (let hour = exception.startHour; hour < exception.endHour; hour += 1) {
+      if (exception.courtId === null) {
         for (const court of data.courts) {
-          const key = `${court.id}:${h}`;
+          const key = `${court.id}:${hour}`;
           if (!exceptionsByCourtHour.has(key)) {
-            exceptionsByCourtHour.set(key, exc);
+            exceptionsByCourtHour.set(key, exception);
           }
         }
       } else {
-        const key = `${exc.courtId}:${h}`;
+        const key = `${exception.courtId}:${hour}`;
         if (!exceptionsByCourtHour.has(key)) {
-          exceptionsByCourtHour.set(key, exc);
+          exceptionsByCourtHour.set(key, exception);
         }
       }
     }
   }
 
   return (
-    <AdminPageShell
-      title="Расписание"
-      description={formatCalendarDate(date)}
-    >
-      {/* Date navigation */}
+    <AdminPageShell title="Расписание" description={formatCalendarDate(date)}>
       <div className="admin-calendar__nav">
         <Link href={buildNavLink(prevDate)} className="admin-calendar__nav-btn">
           ← Назад
@@ -119,12 +121,7 @@ export default async function AdminCalendarPage({
         </Link>
         <form method="get" action="/admin/calendar" className="admin-calendar__date-form">
           {locationSlug ? <input type="hidden" name="location" value={locationSlug} /> : null}
-          <input
-            type="date"
-            name="date"
-            defaultValue={date}
-            className="admin-form__field admin-calendar__date-input"
-          />
+          <input type="date" name="date" defaultValue={date} className="admin-form__field admin-calendar__date-input" />
           <button type="submit" className="admin-bookings__action-button">Перейти</button>
         </form>
       </div>
@@ -159,7 +156,6 @@ export default async function AdminCalendarPage({
                       const exception = exceptionsByCourtHour.get(cellKey);
 
                       if (booking) {
-                        // Only render full cell on the booking's startHour
                         if (booking.startHour !== hour) {
                           return <td key={court.id} className="admin-calendar__cell admin-calendar__cell--continuation" />;
                         }
@@ -197,6 +193,16 @@ export default async function AdminCalendarPage({
                         );
                       }
 
+                      if (isPastSlot(hour)) {
+                        return (
+                          <td key={court.id} className="admin-calendar__cell admin-calendar__cell--free">
+                            <span className="admin-calendar__free-slot" aria-disabled="true">
+                              Прошло
+                            </span>
+                          </td>
+                        );
+                      }
+
                       return (
                         <td key={court.id} className="admin-calendar__cell admin-calendar__cell--free">
                           <Link href={buildCreateLink(hour, court.id)} className="admin-calendar__free-slot">
@@ -213,7 +219,6 @@ export default async function AdminCalendarPage({
         </div>
       )}
 
-      {/* Legend */}
       <div className="admin-calendar__legend">
         <span className="admin-calendar__legend-item admin-calendar__legend-item--confirmed">Подтверждено</span>
         <span className="admin-calendar__legend-item admin-calendar__legend-item--pending-payment">Ожидает оплаты</span>

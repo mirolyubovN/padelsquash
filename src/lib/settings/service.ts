@@ -83,34 +83,45 @@ export async function ensureComponentPriceDefaults(locationId?: string) {
   const effectiveLocationId = await resolveLocationId(locationId);
   await ensureSportDefaults();
 
-  const count = await prisma.componentPrice.count({ where: { locationId: effectiveLocationId } });
-  if (count > 0) {
+  const [sports, existingRows] = await Promise.all([
+    prisma.sport.findMany({
+      where: { active: true },
+      select: { id: true, slug: true },
+    }),
+    prisma.componentPrice.findMany({
+      where: { locationId: effectiveLocationId },
+      select: { sportId: true, componentType: true, period: true },
+    }),
+  ]);
+
+  const existingKeys = new Set(
+    existingRows.map((row) => `${row.sportId}:${row.componentType}:${row.period}`),
+  );
+  const demoDefaults = new Map(
+    demoComponentPrices.map((item) => [`${item.sport}:${item.componentType}:${item.tier}`, item.amount]),
+  );
+
+  const missingRows = sports.flatMap((sport) =>
+    (["court", "instructor"] as const).flatMap((componentType) =>
+      (["morning", "day", "evening_weekend"] as const)
+        .filter((period) => !existingKeys.has(`${sport.id}:${componentType}:${period}`))
+        .map((period) => ({
+          locationId: effectiveLocationId,
+          sportId: sport.id,
+          componentType,
+          period,
+          currency: "KZT",
+          amount: demoDefaults.get(`${sport.slug}:${componentType}:${period}`) ?? 0,
+        })),
+    ),
+  );
+
+  if (missingRows.length === 0) {
     return;
   }
 
-  const sports = await prisma.sport.findMany({
-    where: { slug: { in: Array.from(new Set(demoComponentPrices.map((item) => item.sport))) } },
-    select: { id: true, slug: true },
-  });
-  const sportBySlug = new Map(sports.map((sport) => [sport.slug, sport.id]));
-
   await prisma.componentPrice.createMany({
-    data: demoComponentPrices
-      .map((item) => {
-        const sportId = sportBySlug.get(item.sport);
-        if (!sportId) {
-          return null;
-        }
-        return {
-          locationId: effectiveLocationId,
-          sportId,
-          componentType: item.componentType,
-          period: item.tier,
-          currency: item.currency,
-          amount: item.amount,
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item)),
+    data: missingRows,
   });
 }
 

@@ -13,11 +13,10 @@ const ALL_ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/instructors", label: "Тренеры" },
   { href: "/admin/courts", label: "Корты" },
   { href: "/admin/exceptions", label: "Исключения" },
+  { href: "/admin/wallet", label: "Клиенты и баланс" },
   { href: "/admin", label: "Дашборд" },
-  { href: "/admin/pricing/base", label: "Цены", pricingSensitive: true },
   { href: "/admin/opening-hours", label: "Часы работы", pricingSensitive: true },
   { href: "/admin/sports", label: "Виды спорта", pricingSensitive: true },
-  { href: "/admin/services", label: "Услуги", pricingSensitive: true },
 ];
 
 export function getAdminNavItems(role: AppRole): AdminNavItem[] {

@@ -190,9 +190,12 @@ async function main() {
   ]);
 
   await prisma.$transaction(async (tx) => {
+    await tx.walletTransaction.deleteMany();
+    await tx.bookingHold.deleteMany();
     await tx.payment.deleteMany();
     await tx.bookingResource.deleteMany();
     await tx.booking.deleteMany();
+    await tx.walletBonusConfig.deleteMany();
     await tx.componentPrice.deleteMany();
     await tx.scheduleException.deleteMany();
     await tx.resourceSchedule.deleteMany();
@@ -229,6 +232,15 @@ async function main() {
         phone: adminPhone,
         passwordHash: adminPasswordHash,
         role: "admin",
+      },
+    });
+
+    await tx.walletBonusConfig.create({
+      data: {
+        key: "default",
+        thresholdKzt: 50000,
+        bonusPercent: 10,
+        active: true,
       },
     });
 

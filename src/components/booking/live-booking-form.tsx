@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  encodeSelectedCellQueryValue,
+  parseBookingUrlState,
+  SELECTED_CELL_QUERY_PARAM,
+  type BookingServiceKind,
+  type BookingUrlSelectedCell,
+  type BookingUrlState,
+} from "@/src/lib/bookings/url-state";
 import { resolvePricingTier } from "@/src/lib/pricing/engine";
 
-type ServiceKind = "court" | "training";
+type ServiceKind = BookingServiceKind;
 type PricingTier = "morning" | "day" | "evening_weekend";
 
 interface ServiceOption {
@@ -60,6 +68,31 @@ interface BookingApiSuccessPayload {
   };
 }
 
+interface BookingApiInsufficientPayload {
+  error: string;
+  code: "INSUFFICIENT_WALLET_BALANCE";
+  holdId: string;
+  currentBalanceKzt: number;
+  amountRequiredKzt: number;
+  shortfallKzt: number;
+  expiresAt: string;
+}
+
+interface BookingHoldsApiSuccessPayload {
+  message: string;
+  data: {
+    holds: Array<{
+      holdId: string;
+      startTime: string;
+      courtId: string;
+      amountRequiredKzt: number;
+      expiresAtIso: string;
+    }>;
+    totalAmountRequiredKzt: number;
+    currency: string;
+  };
+}
+
 interface BookingSuccessSession {
   date: string;
   startTime: string;
@@ -76,10 +109,9 @@ interface BookingSuccessSummary {
   currency: string;
 }
 
-interface SelectedCell {
-  timeKey: string;
-  resourceId: string;
-}
+type SelectedCell = BookingUrlSelectedCell;
+
+const AUTH_RETURN_STATE_STORAGE_KEY = "booking-auth-return-state";
 
 export interface LiveBookingFormProps {
   locations: Array<{ id: string; slug: string; name: string; address: string }>;
@@ -90,6 +122,8 @@ export interface LiveBookingFormProps {
   courtPrices: CourtPriceMatrix;
   isAuthenticated: boolean;
   initialCustomer?: { name?: string; email?: string; phone?: string };
+  initialWalletBalanceKzt: number | null;
+  initialSelection: BookingUrlState;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -138,9 +172,13 @@ async function fetchAvailability(
   serviceId: string,
   date: string,
   instructorId?: string,
+  holdIds: string[] = [],
 ): Promise<AvailabilityPayload> {
   const params = new URLSearchParams({ location, serviceId, date, durationMin: "60" });
   if (instructorId) params.set("instructorId", instructorId);
+  for (const holdId of holdIds) {
+    params.append("holdId", holdId);
+  }
   const res = await fetch(`/api/availability?${params.toString()}`, { cache: "no-store" });
   const payload = (await res.json().catch(() => null)) as AvailabilityPayload | { error?: string } | null;
   if (!res.ok) {
@@ -162,6 +200,8 @@ export function LiveBookingForm({
   courtPrices,
   isAuthenticated,
   initialCustomer,
+  initialWalletBalanceKzt,
+  initialSelection,
 }: LiveBookingFormProps) {
   // Build sport → { court, training } matrix
   const serviceMatrix = useMemo(() => {
@@ -184,13 +224,29 @@ export function LiveBookingForm({
   );
 
   const firstSport = sportOptions[0]?.slug ?? "padel";
-  const initialKind: ServiceKind = serviceMatrix[firstSport]?.court ? "court" : "training";
+  const initialSport = initialSelection.sport && serviceMatrix[initialSelection.sport]
+    ? initialSelection.sport
+    : firstSport;
+  const initialKind: ServiceKind =
+    initialSelection.serviceKind && serviceMatrix[initialSport]?.[initialSelection.serviceKind]
+      ? initialSelection.serviceKind
+      : serviceMatrix[initialSport]?.court
+        ? "court"
+        : "training";
+  const initialDate =
+    initialSelection.date &&
+    /^\d{4}-\d{2}-\d{2}$/.test(initialSelection.date) &&
+    initialSelection.date >= getTodayDate()
+      ? initialSelection.date
+      : getTodayDate();
+  const initialInstructorId =
+    initialKind === "training" ? (initialSelection.instructorId ?? "") : "";
 
   // Core state
-  const [sport, setSport] = useState(firstSport);
+  const [sport, setSport] = useState(initialSport);
   const [serviceKind, setServiceKind] = useState<ServiceKind>(initialKind);
-  const [selectedInstructorId, setSelectedInstructorId] = useState("");
-  const [date, setDate] = useState<string>(getTodayDate);
+  const [selectedInstructorId, setSelectedInstructorId] = useState(initialInstructorId);
+  const [date, setDate] = useState<string>(initialDate);
   const [availability, setAvailability] = useState<AvailabilityPayload | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
@@ -203,12 +259,19 @@ export function LiveBookingForm({
   const [submitWarning, setSubmitWarning] = useState<string | null>(null);
   const [submitSuccessSummary, setSubmitSuccessSummary] = useState<BookingSuccessSummary | null>(null);
 
-  const hasRestoredFromUrlRef = useRef(false);
   const skipInitialUrlSyncRef = useRef(true);
+  const skipNextContextResetRef = useRef(false);
+  const pendingUrlSelectedCellsRef = useRef<SelectedCell[] | null>(
+    initialSelection.selectedCells.length > 0 ? initialSelection.selectedCells : null,
+  );
+  const hasRestoredFromUrlRef = useRef(false);
+  const hasRestoredFromStorageRef = useRef(false);
+  const hasClearedStoredAuthStateRef = useRef(false);
+  const previousContextRef = useRef<{ sport: string; serviceKind: ServiceKind } | null>(null);
 
   // Derived
   const resolvedService = serviceMatrix[sport]?.[serviceKind] ?? null;
-  const availableKindsForSport = serviceMatrix[sport] ?? {};
+  const availableKindsForSport = useMemo(() => serviceMatrix[sport] ?? {}, [serviceMatrix, sport]);
   const trainersForSport = useMemo(
     () => instructors.filter((i) => i.sports.includes(sport)),
     [instructors, sport],
@@ -217,31 +280,141 @@ export function LiveBookingForm({
     ? (instructors.find((i) => i.id === selectedInstructorId) ?? null)
     : null;
   const selectedTrainerPrice = selectedTrainer?.sportPrices[sport] ?? 0;
+  const selectedHoldIds = useMemo(() => {
+    const cellsWithPossibleHolds = [
+      ...selectedCells,
+      ...(pendingUrlSelectedCellsRef.current ?? []),
+    ];
+    return Array.from(
+      new Set(
+        cellsWithPossibleHolds
+          .map((cell) => cell.holdId)
+          .filter((holdId): holdId is string => Boolean(holdId)),
+      ),
+    );
+  }, [selectedCells]);
   const hasLocationStep = locations.length > 1;
   const selectedLocation = locations.find((l) => l.slug === selectedLocationSlug) ?? locations[0];
 
-  // Restore URL params on mount
+  const applySelectionState = useCallback((selection: BookingUrlState) => {
+    if (
+      (selection.sport && selection.sport !== sport && serviceMatrix[selection.sport]) ||
+      (selection.serviceKind && selection.serviceKind !== serviceKind)
+    ) {
+      skipNextContextResetRef.current = true;
+    }
+
+    if (selection.sport && serviceMatrix[selection.sport]) {
+      setSport(selection.sport);
+    }
+
+    if (selection.serviceKind === "court" || selection.serviceKind === "training") {
+      setServiceKind(selection.serviceKind);
+    }
+
+    if (
+      selection.date &&
+      /^\d{4}-\d{2}-\d{2}$/.test(selection.date) &&
+      selection.date >= getTodayDate()
+    ) {
+      setDate(selection.date);
+    }
+
+    if (selection.instructorId) {
+      setSelectedInstructorId(selection.instructorId);
+    }
+
+    if (selection.selectedCells.length > 0) {
+      pendingUrlSelectedCellsRef.current = selection.selectedCells;
+    }
+  }, [serviceKind, serviceMatrix, sport]);
+
   useEffect(() => {
     if (hasRestoredFromUrlRef.current || typeof window === "undefined") return;
     hasRestoredFromUrlRef.current = true;
 
-    const p = new URLSearchParams(window.location.search);
-    const sportParam = p.get("sport");
-    const serviceParam = p.get("service");
-    const dateParam = p.get("date");
-    const instructorParam = p.get("instructor");
+    applySelectionState(parseBookingUrlState(new URLSearchParams(window.location.search)));
+  }, [applySelectionState]);
 
-    if (sportParam && serviceMatrix[sportParam]) setSport(sportParam);
-    if (serviceParam === "court" || serviceParam === "training") setServiceKind(serviceParam);
-    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && dateParam >= getTodayDate()) {
-      setDate(dateParam);
+  useEffect(() => {
+    if (hasRestoredFromStorageRef.current || typeof window === "undefined") return;
+    hasRestoredFromStorageRef.current = true;
+
+    const storedValue = window.sessionStorage.getItem(AUTH_RETURN_STATE_STORAGE_KEY);
+    if (!storedValue) return;
+
+    try {
+      const storedSelection = JSON.parse(storedValue) as BookingUrlState;
+      const shouldRestoreFromStorage =
+        Boolean(storedSelection.instructorId || storedSelection.selectedCells.length > 0) &&
+        !selectedInstructorId &&
+        selectedCells.length === 0;
+
+      if (shouldRestoreFromStorage) {
+        applySelectionState(storedSelection);
+      }
+    } catch {
+      // Ignore malformed storage payloads and let the user continue manually.
     }
-    if (instructorParam) setSelectedInstructorId(instructorParam);
-  }, [serviceMatrix]);
+  }, [applySelectionState, isAuthenticated, selectedCells.length, selectedInstructorId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || isAuthenticated) return;
+
+    const selection: BookingUrlState = {
+      sport,
+      serviceKind,
+      date,
+      instructorId: selectedInstructorId || undefined,
+      selectedCells,
+    };
+    const hasMeaningfulSelection =
+      Boolean(selection.sport || selection.serviceKind || selection.date || selection.instructorId) ||
+      selection.selectedCells.length > 0;
+
+    if (!hasMeaningfulSelection) {
+      window.sessionStorage.removeItem(AUTH_RETURN_STATE_STORAGE_KEY);
+      return;
+    }
+
+    window.sessionStorage.setItem(AUTH_RETURN_STATE_STORAGE_KEY, JSON.stringify(selection));
+  }, [date, isAuthenticated, selectedCells, selectedInstructorId, serviceKind, sport]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !isAuthenticated || hasClearedStoredAuthStateRef.current) return;
+
+    const storedValue = window.sessionStorage.getItem(AUTH_RETURN_STATE_STORAGE_KEY);
+    if (!storedValue) {
+      hasClearedStoredAuthStateRef.current = true;
+      return;
+    }
+
+    try {
+      const storedSelection = JSON.parse(storedValue) as BookingUrlState;
+      const instructorRestored =
+        !storedSelection.instructorId || storedSelection.instructorId === selectedInstructorId;
+      const cellsRestored =
+        storedSelection.selectedCells.length === 0 ||
+        storedSelection.selectedCells.every((cell) =>
+          selectedCells.some(
+            (selectedCell) =>
+              selectedCell.timeKey === cell.timeKey && selectedCell.resourceId === cell.resourceId,
+          ),
+        );
+
+      if (instructorRestored && cellsRestored) {
+        window.sessionStorage.removeItem(AUTH_RETURN_STATE_STORAGE_KEY);
+        hasClearedStoredAuthStateRef.current = true;
+      }
+    } catch {
+      window.sessionStorage.removeItem(AUTH_RETURN_STATE_STORAGE_KEY);
+      hasClearedStoredAuthStateRef.current = true;
+    }
+  }, [isAuthenticated, selectedCells, selectedInstructorId]);
 
   // Sync URL params on state changes
   useEffect(() => {
-    if (!hasRestoredFromUrlRef.current || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
     if (skipInitialUrlSyncRef.current) { skipInitialUrlSyncRef.current = false; return; }
 
     const p = new URLSearchParams(window.location.search);
@@ -251,12 +424,16 @@ export function LiveBookingForm({
     p.set("date", date);
     if (serviceKind === "training" && selectedInstructorId) p.set("instructor", selectedInstructorId);
     else p.delete("instructor");
+    p.delete(SELECTED_CELL_QUERY_PARAM);
+    for (const cell of selectedCells) {
+      p.append(SELECTED_CELL_QUERY_PARAM, encodeSelectedCellQueryValue(cell));
+    }
 
     const next = `${window.location.pathname}?${p.toString()}`;
     if (next !== `${window.location.pathname}${window.location.search}`) {
       window.history.replaceState(window.history.state, "", next);
     }
-  }, [selectedLocationSlug, sport, serviceKind, date, selectedInstructorId]);
+  }, [selectedLocationSlug, sport, serviceKind, date, selectedInstructorId, selectedCells]);
 
   // Auto-fix service kind if unavailable for new sport
   useEffect(() => {
@@ -268,6 +445,22 @@ export function LiveBookingForm({
 
   // Clear selection when context changes
   useEffect(() => {
+    const previousContext = previousContextRef.current;
+    previousContextRef.current = { sport, serviceKind };
+
+    if (previousContext === null) {
+      return;
+    }
+
+    if (previousContext.sport === sport && previousContext.serviceKind === serviceKind) {
+      return;
+    }
+
+    if (skipNextContextResetRef.current) {
+      skipNextContextResetRef.current = false;
+      return;
+    }
+
     setSelectedCells([]);
     setSelectedInstructorId("");
     setSubmitError(null);
@@ -307,7 +500,7 @@ export function LiveBookingForm({
       setAvailabilityLoading(true);
       setAvailabilityError(null);
       try {
-        const payload = await fetchAvailability(selectedLocationSlug, svc.id, date, instrId);
+        const payload = await fetchAvailability(selectedLocationSlug, svc.id, date, instrId, selectedHoldIds);
         if (!cancelled) setAvailability(payload);
       } catch (err) {
         if (!cancelled) {
@@ -320,7 +513,7 @@ export function LiveBookingForm({
     }
     void load();
     return () => { cancelled = true; };
-  }, [resolvedService, date, reloadKey, selectedLocationSlug, selectedInstructorId]);
+  }, [resolvedService, date, reloadKey, selectedLocationSlug, selectedInstructorId, selectedHoldIds]);
 
   // Auto-advance to nearest date with slots
   useEffect(() => {
@@ -340,7 +533,7 @@ export function LiveBookingForm({
       for (let i = 1; i <= 14; i++) {
         const next = addDays(date, i);
         try {
-          const result = await fetchAvailability(selectedLocationSlug, svc.id, next, instrId);
+          const result = await fetchAvailability(selectedLocationSlug, svc.id, next, instrId, selectedHoldIds);
           if (cancelled) return;
           if (result.slots.length > 0) {
             setAutoDateMessage(`На ${date} слотов нет. Показана ближайшая дата: ${next}.`);
@@ -353,13 +546,32 @@ export function LiveBookingForm({
     }
     void findNext();
     return () => { cancelled = true; };
-  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey, selectedLocationSlug, selectedInstructorId]);
+  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey, selectedLocationSlug, selectedInstructorId, selectedHoldIds]);
 
   // Available time slots
   const availableTimeSlots = useMemo(
     () => [...(availability?.slots ?? [])].sort((a, b) => a.startTime.localeCompare(b.startTime)),
     [availability],
   );
+
+  useEffect(() => {
+    const pendingSelectedCells = pendingUrlSelectedCellsRef.current;
+    if (!pendingSelectedCells || availabilityLoading) return;
+    if (!availability) {
+      if (availabilityError) {
+        pendingUrlSelectedCellsRef.current = null;
+      }
+      return;
+    }
+
+    const restoredSelectedCells = pendingSelectedCells.filter((cell) => {
+      const slot = availableTimeSlots.find((item) => getSlotKey(item) === cell.timeKey);
+      return slot ? slot.availableCourtIds.includes(cell.resourceId) : false;
+    });
+
+    setSelectedCells(restoredSelectedCells);
+    pendingUrlSelectedCellsRef.current = null;
+  }, [availability, availabilityError, availabilityLoading, availableTimeSlots]);
 
   // Timetable columns — always courts (for both court rental and training)
   const timetableColumns = useMemo(() => {
@@ -388,10 +600,11 @@ export function LiveBookingForm({
 
   function toggleCell(timeKey: string, resourceId: string) {
     setSelectedCells((prev) => {
-      const exists = prev.some((c) => c.timeKey === timeKey && c.resourceId === resourceId);
+      const normalizedPrev = prev.map((cell) => ({ timeKey: cell.timeKey, resourceId: cell.resourceId }));
+      const exists = normalizedPrev.some((c) => c.timeKey === timeKey && c.resourceId === resourceId);
       return exists
-        ? prev.filter((c) => !(c.timeKey === timeKey && c.resourceId === resourceId))
-        : [...prev, { timeKey, resourceId }];
+        ? normalizedPrev.filter((c) => !(c.timeKey === timeKey && c.resourceId === resourceId))
+        : [...normalizedPrev, { timeKey, resourceId }];
     });
   }
 
@@ -425,8 +638,67 @@ export function LiveBookingForm({
     p.set("service", serviceKind);
     p.set("date", date);
     if (serviceKind === "training" && selectedInstructorId) p.set("instructor", selectedInstructorId);
+    for (const cell of selectedCells) {
+      p.append(SELECTED_CELL_QUERY_PARAM, encodeSelectedCellQueryValue(cell));
+    }
     return `/book?${p.toString()}`;
-  }, [selectedLocationSlug, sport, serviceKind, date, selectedInstructorId]);
+  }, [selectedLocationSlug, sport, serviceKind, date, selectedInstructorId, selectedCells]);
+  const topUpPath = useMemo(
+    () => `/account?next=${encodeURIComponent(bookingReturnToPath)}`,
+    [bookingReturnToPath],
+  );
+
+  async function createHoldsForSelectedSlots() {
+    if (!resolvedService || selectedCells.length === 0) {
+      return false;
+    }
+
+    const res = await fetch("/api/bookings/holds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serviceId: resolvedService.id,
+        location: selectedLocationSlug,
+        date,
+        durationMin: 60,
+        instructorId: serviceKind === "training" ? selectedInstructorId : undefined,
+        slots: selectedCells.map((cell) => ({
+          startTime: cell.timeKey.split("|")[0],
+          courtId: cell.resourceId,
+          holdId: cell.holdId,
+        })),
+      }),
+    });
+
+    const payload = (await res.json().catch(() => null)) as
+      | BookingHoldsApiSuccessPayload
+      | { error?: string }
+      | null;
+
+    if (!res.ok || !payload || !("data" in payload)) {
+      const message =
+        payload && "error" in payload && payload.error
+          ? payload.error
+          : "Не удалось временно удержать выбранные слоты";
+      setSubmitError(message);
+      return false;
+    }
+
+    const holdsBySlotKey = new Map(
+      payload.data.holds.map((hold) => [`${hold.startTime}:${hold.courtId}`, hold.holdId]),
+    );
+    setSelectedCells((prev) =>
+      prev.map((cell) => ({
+        ...cell,
+        holdId: holdsBySlotKey.get(`${cell.timeKey.split("|")[0]}:${cell.resourceId}`) ?? cell.holdId,
+      })),
+    );
+    setSubmitWarning("Слоты временно удержаны для вас. Пополните баланс и вернитесь к подтверждению.");
+    setSubmitError(
+      `Недостаточно средств для всей серии: требуется ${formatMoneyKzt(payload.data.totalAmountRequiredKzt)}.`,
+    );
+    return true;
+  }
 
   // Submit
   async function submitBooking() {
@@ -435,6 +707,21 @@ export function LiveBookingForm({
     setSubmitLoading(true);
     setSubmitError(null);
     setSubmitWarning(null);
+
+    const walletShortForSelection =
+      pricePreview !== null &&
+      initialWalletBalanceKzt !== null &&
+      pricePreview.total > initialWalletBalanceKzt &&
+      selectedCells.some((cell) => !cell.holdId);
+
+    if (walletShortForSelection) {
+      const holdsCreated = await createHoldsForSelectedSlots();
+      setSubmitLoading(false);
+      if (!holdsCreated) {
+        return;
+      }
+      return;
+    }
 
     const totalAttempts = selectedCells.length;
     const booked: BookingSuccessSession[] = [];
@@ -460,6 +747,7 @@ export function LiveBookingForm({
           durationMin: 60,
           courtId,
           instructorId,
+          holdId: cell.holdId,
           customer: {
             name: initialCustomer?.name ?? "",
             email: initialCustomer?.email ?? "",
@@ -468,7 +756,27 @@ export function LiveBookingForm({
         }),
       });
 
-      const payload = (await res.json().catch(() => null)) as BookingApiSuccessPayload | { error?: string } | null;
+      const payload = (await res.json().catch(() => null)) as
+        | BookingApiSuccessPayload
+        | BookingApiInsufficientPayload
+        | { error?: string }
+        | null;
+
+      if (!res.ok && payload && "code" in payload && payload.code === "INSUFFICIENT_WALLET_BALANCE") {
+        setSelectedCells((prev) =>
+          prev.map((selectedCell) =>
+            selectedCell.timeKey === cell.timeKey && selectedCell.resourceId === cell.resourceId
+              ? { ...selectedCell, holdId: payload.holdId }
+              : selectedCell,
+          ),
+        );
+        setSubmitLoading(false);
+        setSubmitWarning("Слот временно удержан для вас. Пополните баланс и вернитесь к бронированию.");
+        setSubmitError(
+          `Недостаточно средств: нужно ${formatMoneyKzt(payload.amountRequiredKzt)}, не хватает ${formatMoneyKzt(payload.shortfallKzt)}.`,
+        );
+        return;
+      }
 
       if (!res.ok || (payload && "source" in payload && (payload as BookingApiSuccessPayload).source === "demo-fallback")) {
         const msg = payload && "error" in payload && payload.error ? payload.error : "Не удалось создать бронирование";
@@ -514,6 +822,7 @@ export function LiveBookingForm({
   // ── Render ────────────────────────────────────────────────────────────
 
   const showConfirm = submitSuccessSummary !== null || selectedCells.length > 0;
+  const hasHeldSelection = selectedCells.some((cell) => Boolean(cell.holdId));
 
   return (
     <section className="booking-flow" aria-labelledby="booking-flow-title">
@@ -812,7 +1121,14 @@ export function LiveBookingForm({
                     <p className="booking-flow__warning" role="status">{submitWarning}</p>
                   ) : null}
                   {submitError ? (
-                    <p className="booking-flow__error-inline" role="alert">{submitError}</p>
+                    <div>
+                      <p className="booking-flow__error-inline" role="alert">{submitError}</p>
+                      {hasHeldSelection ? (
+                        <Link href={topUpPath} className="booking-flow__account-link">
+                          Пополнить баланс и вернуться →
+                        </Link>
+                      ) : null}
+                    </div>
                   ) : null}
 
                   <button

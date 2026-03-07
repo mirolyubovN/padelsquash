@@ -1,4 +1,4 @@
-import type { PricingTier } from "@/src/lib/domain/types";
+﻿import type { PricingTier } from "@/src/lib/domain/types";
 
 export const siteConfig = {
   name: "Padel & Squash KZ",

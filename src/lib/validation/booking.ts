@@ -11,6 +11,7 @@ export const availabilityQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date должен быть в формате YYYY-MM-DD"),
   durationMin: fixedOneHourDurationSchema.optional().default(60),
   instructorId: z.string().min(1).optional(),
+  holdIds: z.array(z.string().min(1)).optional(),
 });
 
 export const createBookingSchema = z.object({
@@ -28,11 +29,35 @@ export const createBookingSchema = z.object({
   durationMin: fixedOneHourDurationSchema.optional().default(60),
   courtId: z.string().optional(),
   instructorId: z.string().optional(),
+  holdId: z.string().optional(),
   customer: z.object({
     name: z.string().min(1),
     email: z.string().email(),
     phone: z.string().min(5),
   }),
+});
+
+export const createBookingHoldsSchema = z.object({
+  serviceId: z.string().min(1),
+  location: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  durationMin: fixedOneHourDurationSchema.optional().default(60),
+  instructorId: z.string().optional(),
+  slots: z
+    .array(
+      z.object({
+        startTime: z
+          .string()
+          .regex(/^\d{2}:\d{2}$/)
+          .refine((value) => {
+            const minutes = Number(value.split(":")[1] ?? "0");
+            return minutes === 0;
+          }, "startTime должен быть на целый час"),
+        courtId: z.string().min(1),
+        holdId: z.string().optional(),
+      }),
+    )
+    .min(1),
 });
 
 export const markPlaceholderPaidSchema = z.object({
