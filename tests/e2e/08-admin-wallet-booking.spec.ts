@@ -13,31 +13,33 @@ test("admin can top up balance and retry the same held booking", async ({ page }
   await freeLink.click();
 
   await expect(page.locator("#cb-date")).toHaveValue(bookingDate);
-  await expect(page.locator(".admin-create-booking__slot--active")).toBeVisible();
+  await expect(page.locator(".admin-create-booking__slot--active").first()).toBeVisible();
 
   await page.locator("#cb-name").fill("Клиент админ-брони");
   await page.locator("#cb-phone").fill("+77070000111");
   await page.locator("#cb-email").fill(customerEmail);
+  await page.getByLabel("Только баланс клиента").check();
 
-  await page.getByRole("button", { name: "Создать бронирование" }).click();
+  await page.getByRole("button", { name: "Создать бронирования" }).click();
 
   await expect(page.locator(".admin-create-booking__error")).toContainText("Недостаточно средств на балансе");
   await expect(page.getByRole("button", { name: "Повторить после пополнения" })).toBeVisible();
 
   const walletPage = await page.context().newPage();
   await walletPage.goto(`/admin/wallet?customerEmail=${encodeURIComponent(customerEmail)}`);
-  await expect(walletPage.locator("#wallet-customer-email")).toHaveValue(customerEmail);
-  await walletPage.locator("#wallet-amount-kzt").fill("100000");
-  await walletPage.locator("#wallet-note").fill("Оплата в клубе за ручную бронь");
-  await walletPage.getByRole("button", { name: "Провести операцию" }).click();
+  const customerRow = walletPage.locator("tr").filter({ has: walletPage.getByText(customerEmail) }).first();
+  await expect(customerRow).toBeVisible();
+  await customerRow.getByRole("button", { name: "Пополнить баланс" }).click();
+  const topUpModal = walletPage.locator("dialog.admin-modal[open]").first();
+  await expect(topUpModal).toBeVisible();
+  await expect(topUpModal.locator("input[name='customerEmail']")).toHaveValue(customerEmail);
+  await topUpModal.locator("input[name='amountKzt']").fill("100000");
+  await topUpModal.locator("input[name='note']").fill("Оплата в клубе за ручную бронь");
+  await topUpModal.getByRole("button", { name: "Провести операцию" }).click();
   await walletPage.waitForURL(/\/admin\/wallet\?success=adjusted/);
   await expect(walletPage.getByText("Баланс клиента обновлен.")).toBeVisible();
 
   await page.bringToFront();
   await page.getByRole("button", { name: "Повторить после пополнения" }).click();
-  await page.waitForURL(/\/admin\/bookings$/);
-
-  const row = page.locator("tr").filter({ has: page.getByText(customerEmail) }).first();
-  await expect(row).toBeVisible();
-  await expect(row.getByText("Подтверждено")).toBeVisible();
+  await expect(page.getByText("Создано бронирований: 1 из 1")).toBeVisible();
 });

@@ -9,8 +9,8 @@ import {
   venueDateTimeToUtc,
 } from "@/src/lib/time/venue-timezone";
 
-const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "?????? ??????? ?????? ???? HH:MM");
-const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "?????? ???? ?????? ???? YYYY-MM-DD");
+const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "Введите время в формате HH:MM");
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Введите дату в формате YYYY-MM-DD");
 const exceptionTypeSchema = z.enum(["closed", "maintenance"]);
 const resourceTypeSchema = z.enum(["venue", "court", "instructor"]);
 
@@ -18,7 +18,7 @@ const nonEmptyString = (label: string) =>
   z
     .string()
     .transform((value) => value.trim())
-    .pipe(z.string().min(1, `${label} ?? ????? ???? ??????`));
+    .pipe(z.string().min(1, `${label} не может быть пустым`));
 
 const optionalTrimmedString = z
   .string()
@@ -31,26 +31,26 @@ const optionalTrimmedString = z
 const sportIdSchema = nonEmptyString("sportId");
 const sportSlugSchema = nonEmptyString("Slug")
   .transform((value) => value.toLowerCase())
-  .pipe(z.string().regex(/^[a-z0-9-]+$/, "Slug ????? ????????? ?????? a-z, 0-9 ? ?????"));
+  .pipe(z.string().regex(/^[a-z0-9-]+$/, "Slug может содержать только a-z, 0-9 и -"));
 
 function resolveSportLabel(slug: string, name?: string | null): string {
   return name?.trim() || SPORT_LABELS[slug] || slug;
 }
 
 export const SPORT_LABELS: Record<string, string> = {
-  padel: "?????",
-  squash: "?????",
+  padel: "Падел",
+  squash: "Сквош",
 };
 
 export const EXCEPTION_TYPE_LABELS: Record<"closed" | "maintenance", string> = {
-  closed: "???????",
-  maintenance: "???????????????",
+  closed: "Закрыто",
+  maintenance: "Тех. обслуживание",
 };
 
 export const RESOURCE_TYPE_LABELS: Record<"venue" | "court" | "instructor", string> = {
-  venue: "????????",
-  court: "????",
-  instructor: "??????",
+  venue: "Площадка",
+  court: "Корт",
+  instructor: "Тренер",
 };
 
 export interface AdminCourtRow {
@@ -586,13 +586,13 @@ function formatResourceLabel(args: {
 
   if (args.resourceType === "court") {
     return args.resourceId
-      ? `????: ${args.courtsById.get(args.resourceId) ?? args.resourceId}`
-      : "????";
+      ? `Корт: ${args.courtsById.get(args.resourceId) ?? args.resourceId}`
+      : "Корт";
   }
 
   return args.resourceId
-    ? `??????: ${args.instructorsById.get(args.resourceId) ?? args.resourceId}`
-    : "??????";
+    ? `Тренер: ${args.instructorsById.get(args.resourceId) ?? args.resourceId}`
+    : "Тренер";
 }
 
 function mapExceptionRows(
@@ -1543,11 +1543,11 @@ export async function getExceptionTargetOptions(): Promise<ExceptionTargetOption
     { value: "venue", label: RESOURCE_TYPE_LABELS.venue },
     ...courts.map((court: { id: string; name: string }) => ({
       value: `court:${court.id}`,
-      label: `????: ${court.name}`,
+      label: `Корт: ${court.name}`,
     })),
     ...instructors.map((instructor: { id: string; name: string }) => ({
       value: `instructor:${instructor.id}`,
-      label: `??????: ${instructor.name}`,
+      label: `Тренер: ${instructor.name}`,
     })),
   ];
 }
@@ -1632,15 +1632,15 @@ export async function deleteScheduleExceptionById(exceptionId: string) {
 
 export function getServiceResourceDescription(service: Pick<AdminServiceRow, "requiresCourt" | "requiresInstructor">) {
   if (service.requiresCourt && service.requiresInstructor) {
-    return "???? + ??????";
+    return "Корт + тренер";
   }
   if (service.requiresCourt) {
-    return "????";
+    return "Корт";
   }
   if (service.requiresInstructor) {
-    return "??????";
+    return "Тренер";
   }
-  return "???";
+  return "Нет";
 }
 
 export function getScheduleWeekdayLabel(dayOfWeek: number): string {

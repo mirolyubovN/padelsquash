@@ -1,12 +1,15 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/src/lib/prisma";
+import { AdminEditModal } from "@/src/components/admin/admin-edit-modal";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin, assertSuperAdmin } from "@/src/lib/auth/guards";
-import { buildAccountSetupPath, createAccountSetupToken, userNeedsPasswordSetup } from "@/src/lib/auth/account-setup";
+import { buildAccountSetupPath, createAccountSetupToken } from "@/src/lib/auth/account-setup";
 import { canManagePricing } from "@/src/lib/auth/roles";
 import { siteConfig } from "@/src/lib/content/site-data";
+import { formatMoneyKzt as formatMoneyKztValue } from "@/src/lib/format/money";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 import { getAdminWalletPageData } from "@/src/lib/wallet/queries";
 import { adjustUserWalletByEmail, saveWalletBonusSettings } from "@/src/lib/wallet/service";
@@ -20,9 +23,14 @@ export const metadata = buildPageMetadata({
 
 export const dynamic = "force-dynamic";
 
-function formatMoneyKzt(amount: number): string {
+function formatMoneyKztLegacy(amount: number): string {
+  if (Number.isFinite(amount)) {
+    return formatMoneyKztValue(amount);
+  }
   return `${amount.toLocaleString("ru-KZ")} ₸`;
 }
+
+const formatMoneyKzt = formatMoneyKztLegacy;
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("ru-KZ");
@@ -58,7 +66,12 @@ function revalidateWalletDependencies() {
 export default async function AdminWalletPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; success?: string; customerEmail?: string; q?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    success?: string;
+    customerEmail?: string;
+    q?: string;
+  }>;
 }) {
   const session = await assertAdmin();
   const params = await searchParams;
@@ -67,37 +80,6 @@ export default async function AdminWalletPage({
   const prefilledCustomerEmail = params.customerEmail?.trim().toLowerCase() ?? "";
   const customerQuery = params.q?.trim() ?? "";
   const requestOrigin = getRequestOrigin(headerStore);
-
-  const selectedCustomerForAccess = prefilledCustomerEmail
-    ? await prisma.user.findUnique({
-        where: { email: prefilledCustomerEmail },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          passwordHash: true,
-        },
-      })
-    : null;
-
-  const customerNeedsPasswordSetup = selectedCustomerForAccess
-    ? userNeedsPasswordSetup(selectedCustomerForAccess.passwordHash)
-    : false;
-
-  const accountSetupUrl =
-    selectedCustomerForAccess && customerNeedsPasswordSetup
-      ? new URL(
-          buildAccountSetupPath(
-            createAccountSetupToken({
-              userId: selectedCustomerForAccess.id,
-              email: selectedCustomerForAccess.email,
-              passwordHash: selectedCustomerForAccess.passwordHash,
-            }),
-          ),
-          requestOrigin,
-        ).toString()
-      : null;
 
   const successMessage =
     params.success === "adjusted"
@@ -118,6 +100,22 @@ export default async function AdminWalletPage({
         : params.error === "customer_failed"
           ? "Не удалось создать клиента. Проверьте email и обязательные поля."
           : null;
+
+  const resolvedSuccessMessage =
+    params.success === "customer_updated"
+      ? "Данные клиента сохранены."
+      : params.success === "password_reset"
+        ? "Пароль клиента сброшен. Новая ссылка активации уже доступна ниже."
+        : successMessage;
+
+  const resolvedErrorMessage =
+    params.error === "customer_update_failed"
+      ? "Не удалось обновить данные клиента."
+      : params.error === "customer_email_taken"
+        ? "Этот email уже используется другим аккаунтом."
+        : params.error === "password_reset_failed"
+          ? "Не удалось сбросить пароль клиента."
+          : errorMessage;
 
   async function adjustBalanceAction(formData: FormData) {
     "use server";
@@ -158,20 +156,24 @@ export default async function AdminWalletPage({
       redirect("/admin/wallet?error=customer_failed");
     }
 
+    let existing: { id: string; role: "customer" | "trainer" | "admin" | "super_admin" } | null = null;
     try {
-      const existing = await prisma.user.findUnique({
+      existing = await prisma.user.findUnique({
         where: { email },
         select: { id: true, role: true },
       });
+    } catch {
+      redirect("/admin/wallet?error=customer_failed");
+    }
 
-      if (existing) {
-        if (existing.role !== "customer") {
-          redirect("/admin/wallet?error=customer_failed");
-        }
-
-        redirect(`/admin/wallet?success=customer_exists&customerEmail=${encodeURIComponent(email)}`);
+    if (existing) {
+      if (existing.role !== "customer") {
+        redirect("/admin/wallet?error=customer_failed");
       }
+      redirect(`/admin/wallet?success=customer_exists&customerEmail=${encodeURIComponent(email)}`);
+    }
 
+    try {
       await prisma.user.create({
         data: {
           name: fullName,
@@ -179,6 +181,8 @@ export default async function AdminWalletPage({
           phone,
           passwordHash: "admin-created-customer-placeholder",
           role: "customer",
+          emailVerifiedAt: new Date(),
+          phoneVerifiedAt: new Date(),
         },
       });
     } catch {
@@ -187,6 +191,106 @@ export default async function AdminWalletPage({
 
     revalidateWalletDependencies();
     redirect(`/admin/wallet?success=customer_created&customerEmail=${encodeURIComponent(email)}`);
+  }
+
+  async function updateCustomerContactsAction(formData: FormData) {
+    "use server";
+    await assertAdmin();
+
+    const customerId = String(formData.get("customerId") ?? "").trim();
+    const currentEmail = String(formData.get("currentEmail") ?? "").trim().toLowerCase();
+    const nextEmail = String(formData.get("email") ?? "").trim().toLowerCase();
+    const nextPhone = String(formData.get("phone") ?? "").trim();
+    const fallbackEmail = currentEmail || nextEmail;
+
+    if (!customerId || !nextEmail || !nextPhone || !nextEmail.includes("@")) {
+      redirect(`/admin/wallet?error=customer_update_failed&customerEmail=${encodeURIComponent(fallbackEmail)}`);
+    }
+
+    let customer: { id: string; email: string } | null = null;
+    try {
+      customer = await prisma.user.findFirst({
+        where: { id: customerId, role: "customer" },
+        select: { id: true, email: true },
+      });
+    } catch {
+      redirect(`/admin/wallet?error=customer_update_failed&customerEmail=${encodeURIComponent(fallbackEmail)}`);
+    }
+
+    if (!customer) {
+      redirect(`/admin/wallet?error=customer_update_failed&customerEmail=${encodeURIComponent(fallbackEmail)}`);
+    }
+
+    let emailOwner: { id: string } | null = null;
+    try {
+      emailOwner = await prisma.user.findUnique({
+        where: { email: nextEmail },
+        select: { id: true },
+      });
+    } catch {
+      redirect(`/admin/wallet?error=customer_update_failed&customerEmail=${encodeURIComponent(customer.email)}`);
+    }
+
+    if (emailOwner && emailOwner.id !== customer.id) {
+      redirect(`/admin/wallet?error=customer_email_taken&customerEmail=${encodeURIComponent(customer.email)}`);
+    }
+
+    try {
+      await prisma.user.update({
+        where: { id: customer.id },
+        data: {
+          email: nextEmail,
+          phone: nextPhone,
+          emailVerifiedAt: new Date(),
+          phoneVerifiedAt: new Date(),
+        },
+      });
+    } catch {
+      redirect(`/admin/wallet?error=customer_update_failed&customerEmail=${encodeURIComponent(customer.email)}`);
+    }
+
+    revalidateWalletDependencies();
+    redirect(`/admin/wallet?success=customer_updated&customerEmail=${encodeURIComponent(nextEmail)}`);
+  }
+
+  async function resetCustomerPasswordAction(formData: FormData) {
+    "use server";
+    await assertAdmin();
+
+    const customerId = String(formData.get("customerId") ?? "").trim();
+    const currentEmail = String(formData.get("currentEmail") ?? "").trim().toLowerCase();
+
+    if (!customerId) {
+      redirect("/admin/wallet?error=password_reset_failed");
+    }
+
+    let customer: { id: string; email: string } | null = null;
+    try {
+      customer = await prisma.user.findFirst({
+        where: { id: customerId, role: "customer" },
+        select: { id: true, email: true },
+      });
+    } catch {
+      redirect(`/admin/wallet?error=password_reset_failed&customerEmail=${encodeURIComponent(currentEmail)}`);
+    }
+
+    if (!customer) {
+      redirect(`/admin/wallet?error=password_reset_failed&customerEmail=${encodeURIComponent(currentEmail)}`);
+    }
+
+    try {
+      await prisma.user.update({
+        where: { id: customer.id },
+        data: {
+          passwordHash: `admin-reset-${randomUUID()}`,
+        },
+      });
+    } catch {
+      redirect(`/admin/wallet?error=password_reset_failed&customerEmail=${encodeURIComponent(customer.email)}`);
+    }
+
+    revalidateWalletDependencies();
+    redirect(`/admin/wallet?success=password_reset&customerEmail=${encodeURIComponent(customer.email)}`);
   }
 
   async function saveBonusAction(formData: FormData) {
@@ -212,14 +316,14 @@ export default async function AdminWalletPage({
       title="Баланс клиентов"
       description="Здесь администратор ищет или создает клиента, пополняет баланс для наличной или клубной оплаты и контролирует историю операций."
     >
-      {errorMessage ? (
+      {resolvedErrorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">
-          {errorMessage}
+          {resolvedErrorMessage}
         </p>
       ) : null}
-      {successMessage ? (
+      {resolvedSuccessMessage ? (
         <p className="account-history__message account-history__message--success" role="status">
-          {successMessage}
+          {resolvedSuccessMessage}
         </p>
       ) : null}
 
@@ -241,7 +345,7 @@ export default async function AdminWalletPage({
                 name="q"
                 className="admin-form__field"
                 defaultValue={customerQuery}
-                placeholder="Имя, email или телефон"
+                placeholder="Имя или телефон"
               />
             </div>
           </div>
@@ -275,11 +379,29 @@ export default async function AdminWalletPage({
                   </td>
                 </tr>
               ) : (
-                data.customers.map((customer) => (
+                data.customers.map((customer) => {
+                  const customerAccountSetupUrl = customer.needsPasswordSetup
+                    ? new URL(
+                        buildAccountSetupPath(
+                          createAccountSetupToken({
+                            userId: customer.id,
+                            email: customer.email,
+                            passwordHash: customer.passwordHash,
+                          }),
+                        ),
+                        requestOrigin,
+                      ).toString()
+                    : null;
+
+                  return (
                   <tr key={customer.id} className="admin-table__row">
                     <td className="admin-table__cell">
-                      <div>{customer.name}</div>
-                      <div className="admin-bookings__cell-sub">{customer.email}</div>
+                      <div>
+                        <a href={`/admin/clients/${customer.id}`}>{customer.name}</a>
+                      </div>
+                      <div className="admin-bookings__cell-sub">
+                        <a href={`/admin/clients/${customer.id}`}>{customer.email}</a>
+                      </div>
                       <div className="admin-bookings__cell-sub">{customer.phone}</div>
                     </td>
                     <td className="admin-table__cell">{formatMoneyKzt(customer.balanceKzt)}</td>
@@ -290,30 +412,169 @@ export default async function AdminWalletPage({
                     <td className="admin-table__cell">{formatDate(customer.createdAtIso)}</td>
                     <td className="admin-table__cell">
                       <div className="admin-bookings__actions">
-                        <a
-                          href={`/admin/wallet?customerEmail=${encodeURIComponent(customer.email)}#wallet-adjustment`}
-                          className="admin-bookings__action-button"
-                        >
-                          Пополнить баланс
-                        </a>
+                        <AdminEditModal triggerLabel="Пополнить баланс" title={`Баланс: ${customer.name}`}>
+                          <form action={adjustBalanceAction} className="admin-form admin-form--panel">
+                            <div className="admin-form__panel-grid">
+                              <div className="admin-form__group">
+                                <label className="admin-form__label" htmlFor={`wallet-customer-email-${customer.id}`}>
+                                  Email клиента
+                                </label>
+                                <input
+                                  id={`wallet-customer-email-${customer.id}`}
+                                  name="customerEmail"
+                                  type="email"
+                                  className="admin-form__field"
+                                  defaultValue={customer.email}
+                                  required
+                                />
+                              </div>
+                              <div className="admin-form__group">
+                                <label className="admin-form__label" htmlFor={`wallet-amount-kzt-${customer.id}`}>
+                                  Сумма, KZT
+                                </label>
+                                <input
+                                  id={`wallet-amount-kzt-${customer.id}`}
+                                  name="amountKzt"
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  className="admin-form__field"
+                                  required
+                                />
+                              </div>
+                              <div className="admin-form__group">
+                                <label className="admin-form__label" htmlFor={`wallet-direction-${customer.id}`}>
+                                  Действие
+                                </label>
+                                <select
+                                  id={`wallet-direction-${customer.id}`}
+                                  name="direction"
+                                  className="admin-form__field"
+                                  defaultValue="credit"
+                                >
+                                  <option value="credit">Начислить</option>
+                                  <option value="debit">Списать</option>
+                                </select>
+                              </div>
+                              <div className="admin-form__group">
+                                <label className="admin-form__label" htmlFor={`wallet-note-${customer.id}`}>
+                                  Комментарий
+                                </label>
+                                <input
+                                  id={`wallet-note-${customer.id}`}
+                                  name="note"
+                                  className="admin-form__field"
+                                  placeholder="Например: оплата в клубе"
+                                />
+                              </div>
+                            </div>
+                            <div className="admin-form__actions">
+                              <button type="submit" className="admin-form__submit">
+                                Провести операцию
+                              </button>
+                            </div>
+                          </form>
+                        </AdminEditModal>
                         <a
                           href={`/admin/bookings/create?customerEmail=${encodeURIComponent(customer.email)}`}
                           className="admin-bookings__action-button"
                         >
                           Создать бронь
                         </a>
+                        <a
+                          href={`/admin/clients/${customer.id}`}
+                          className="admin-bookings__action-button"
+                        >
+                          Брони клиента
+                        </a>
+                        <AdminEditModal triggerLabel="Управлять клиентом" title={`Клиент: ${customer.name}`}>
+                          <form action={updateCustomerContactsAction} className="admin-form admin-form--panel">
+                            <input type="hidden" name="customerId" value={customer.id} />
+                            <input type="hidden" name="currentEmail" value={customer.email} />
+                            <div className="admin-form__panel-grid">
+                              <div className="admin-form__group">
+                                <label className="admin-form__label" htmlFor={`wallet-edit-email-${customer.id}`}>
+                                  Email
+                                </label>
+                                <input
+                                  id={`wallet-edit-email-${customer.id}`}
+                                  name="email"
+                                  type="email"
+                                  className="admin-form__field"
+                                  defaultValue={customer.email}
+                                  required
+                                />
+                              </div>
+                              <div className="admin-form__group">
+                                <label className="admin-form__label" htmlFor={`wallet-edit-phone-${customer.id}`}>
+                                  Телефон
+                                </label>
+                                <input
+                                  id={`wallet-edit-phone-${customer.id}`}
+                                  name="phone"
+                                  className="admin-form__field"
+                                  defaultValue={customer.phone}
+                                  required
+                                />
+                              </div>
+                            </div>
+                            <div className="admin-form__actions">
+                              <button type="submit" className="admin-form__submit">
+                                Сохранить данные
+                              </button>
+                            </div>
+                          </form>
+                          <form action={resetCustomerPasswordAction} className="admin-form admin-form--panel">
+                            <input type="hidden" name="customerId" value={customer.id} />
+                            <input type="hidden" name="currentEmail" value={customer.email} />
+                            <p className="admin-bookings__cell-sub">
+                              Сброс пароля отключает текущий пароль клиента и создаёт новую ссылку активации.
+                            </p>
+                            <div className="admin-form__actions">
+                              <button
+                                type="submit"
+                                className="admin-bookings__action-button admin-bookings__action-button--danger"
+                              >
+                                Сбросить пароль
+                              </button>
+                            </div>
+                          </form>
+                        </AdminEditModal>
                         {customer.needsPasswordSetup ? (
-                          <a
-                            href={`/admin/wallet?customerEmail=${encodeURIComponent(customer.email)}#wallet-account-setup`}
-                            className="admin-bookings__action-button"
-                          >
-                            Ссылка доступа
-                          </a>
+                          <AdminEditModal triggerLabel="Ссылка доступа" title={`Доступ: ${customer.name}`}>
+                            {customerAccountSetupUrl ? (
+                              <div className="admin-form admin-form--panel">
+                                <div className="admin-form__panel-grid">
+                                  <div className="admin-form__group">
+                                    <label className="admin-form__label" htmlFor={`wallet-access-link-${customer.id}`}>
+                                      Ссылка активации
+                                    </label>
+                                    <input
+                                      id={`wallet-access-link-${customer.id}`}
+                                      className="admin-form__field"
+                                      value={customerAccountSetupUrl}
+                                      readOnly
+                                    />
+                                  </div>
+                                </div>
+                                <div className="admin-form__actions">
+                                  <a href={customerAccountSetupUrl} target="_blank" rel="noreferrer" className="admin-form__submit">
+                                    Открыть ссылку
+                                  </a>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="account-history__message account-history__message--success">
+                                Аккаунт уже активирован.
+                              </p>
+                            )}
+                          </AdminEditModal>
                         ) : null}
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -361,43 +622,6 @@ export default async function AdminWalletPage({
           </div>
         </form>
       </section>
-
-      {selectedCustomerForAccess ? (
-        <section className="admin-section" id="wallet-account-setup">
-          <div className="admin-section__head">
-            <h2 className="admin-section__title">Доступ в аккаунт</h2>
-            <p className="admin-section__description">
-              После создания клиента отправьте ему ссылку активации. Клиент сам задаст пароль и сможет войти в личный кабинет.
-            </p>
-          </div>
-          {accountSetupUrl ? (
-            <div className="admin-form admin-form--panel">
-              <div className="admin-form__panel-grid">
-                <div className="admin-form__group">
-                  <label className="admin-form__label" htmlFor="wallet-account-setup-link">
-                    Ссылка активации
-                  </label>
-                  <input
-                    id="wallet-account-setup-link"
-                    className="admin-form__field"
-                    value={accountSetupUrl}
-                    readOnly
-                  />
-                </div>
-              </div>
-              <div className="admin-form__actions">
-                <a href={accountSetupUrl} target="_blank" rel="noreferrer" className="admin-form__submit">
-                  Открыть ссылку
-                </a>
-              </div>
-            </div>
-          ) : (
-            <p className="account-history__message account-history__message--success">
-              Аккаунт {selectedCustomerForAccess.name} уже активирован. Клиент может войти по email и паролю.
-            </p>
-          )}
-        </section>
-      ) : null}
 
       <section className="admin-section" id="wallet-adjustment">
         <div className="admin-section__head">

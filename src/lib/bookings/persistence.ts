@@ -9,8 +9,9 @@ import {
 } from "@/src/lib/bookings/holds";
 import type { ComponentPriceRecord, ServiceRecord } from "@/src/lib/domain/types";
 import { evaluatePricing } from "@/src/lib/pricing/engine";
+import { notifyBookingCreated } from "@/src/lib/notifications/bookings";
 import { prisma } from "@/src/lib/prisma";
-import { venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
+import { formatTimeInVenueTimezone, toVenueIsoDate, venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 import { debitUserWallet } from "@/src/lib/wallet/service";
 
 interface CreateBookingPersistentInput {
@@ -23,12 +24,16 @@ interface CreateBookingPersistentInput {
   instructorId?: string;
   customerUserId?: string;
   holdId?: string;
+  paymentMode?: BookingPaymentMode;
+  allowCurrentHourLateBooking?: boolean;
   customer: {
     name: string;
     email: string;
     phone: string;
   };
 }
+
+export type BookingPaymentMode = "wallet" | "cash" | "auto";
 
 interface CreateBookingHoldSlotInput {
   startTime: string;
@@ -126,6 +131,20 @@ interface InsufficientWalletResult {
   };
 }
 
+function isSameVenueHourAsNow(date: string, startTime: string, now: Date): boolean {
+  if (date !== toVenueIsoDate(now)) {
+    return false;
+  }
+
+  const bookingHour = Number(startTime.split(":")[0] ?? "-1");
+  if (!Number.isFinite(bookingHour) || bookingHour < 0 || bookingHour > 23) {
+    return false;
+  }
+
+  const nowHour = Number(formatTimeInVenueTimezone(now).split(":")[0] ?? "-1");
+  return bookingHour === nowHour;
+}
+
 function ensureMatchingHold(args: {
   hold: {
     serviceId: string;
@@ -165,6 +184,9 @@ export async function createBookingInDb(
   if (!/^\d{2}:00$/.test(input.startTime)) {
     throw new Error("Поддерживаются только часовые слоты (например, 09:00)");
   }
+
+  const requestedPaymentMode: BookingPaymentMode =
+    input.paymentMode === "cash" || input.paymentMode === "auto" ? input.paymentMode : "wallet";
 
   const service = await prisma.service.findUnique({
     where: { code: input.serviceCode },
@@ -253,8 +275,11 @@ export async function createBookingInDb(
 
   const startAt = venueDateTimeToUtc(input.date, input.startTime);
   const endAt = new Date(startAt.getTime() + 60 * 60 * 1000);
+  const now = new Date();
+  const allowLateCurrentHourBooking =
+    input.allowCurrentHourLateBooking === true && isSameVenueHourAsNow(input.date, input.startTime, now);
 
-  if (startAt <= new Date()) {
+  if (startAt <= now && !allowLateCurrentHourBooking) {
     throw new Error("Нельзя создать бронирование на прошедшее время");
   }
 
@@ -428,7 +453,14 @@ export async function createBookingInDb(
       }
 
       const currentBalanceKzt = Number(customerUser.walletBalance);
-      if (currentBalanceKzt < pricing.total) {
+      const effectivePaymentMode: "wallet" | "cash" =
+        requestedPaymentMode === "auto"
+          ? currentBalanceKzt >= pricing.total
+            ? "wallet"
+            : "cash"
+          : requestedPaymentMode;
+
+      if (effectivePaymentMode === "wallet" && currentBalanceKzt < pricing.total) {
         const hold =
           activeHold ??
           (await createBookingHold(
@@ -480,7 +512,7 @@ export async function createBookingInDb(
           },
           payment: {
             create: {
-              provider: "wallet",
+              provider: effectivePaymentMode === "wallet" ? "wallet" : "manual",
               status: "paid",
               amount: pricing.total,
               currency: pricing.currency,
@@ -495,19 +527,21 @@ export async function createBookingInDb(
         },
       });
 
-      await debitUserWallet({
-        tx,
-        userId: customerUser.id,
-        amountKzt: pricing.total,
-        type: "booking_charge",
-        bookingId: booking.id,
-        holdId: activeHold?.id,
-        note: "Оплата бронирования с баланса",
-        metadataJson: {
-          serviceCode: service.code,
-          startAt: booking.startAt.toISOString(),
-        },
-      });
+      if (effectivePaymentMode === "wallet") {
+        await debitUserWallet({
+          tx,
+          userId: customerUser.id,
+          amountKzt: pricing.total,
+          type: "booking_charge",
+          bookingId: booking.id,
+          holdId: activeHold?.id,
+          note: "Оплата бронирования с баланса",
+          metadataJson: {
+            serviceCode: service.code,
+            startAt: booking.startAt.toISOString(),
+          },
+        });
+      }
 
       if (activeHold) {
         await markBookingHoldStatus({
@@ -543,7 +577,10 @@ export async function createBookingInDb(
           amount: Number(booking.payment!.amount),
           currency: booking.payment!.currency,
           providerPaymentId: booking.payment!.providerPaymentId,
-          message: "Оплачено с внутреннего баланса",
+          message:
+            effectivePaymentMode === "wallet"
+              ? "Оплачено с внутреннего баланса"
+              : "Оплачено наличными в клубе",
         },
       };
     },
@@ -554,7 +591,9 @@ export async function createBookingInDb(
     throw new InsufficientWalletBalanceError(insufficientWallet);
   }
 
-  return result as CreateBookingInDbSuccessResult;
+  const success = result as CreateBookingInDbSuccessResult;
+  await notifyBookingCreated({ bookingId: success.booking.id });
+  return success;
 }
 
 export async function createBookingHoldsInDb(

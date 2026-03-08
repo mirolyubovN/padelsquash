@@ -1,6 +1,6 @@
 import { PageHero } from "@/src/components/page-hero";
 import { RegisterForm } from "@/src/components/auth/register-form";
-import { getSafeCustomerFreeCancellationHours } from "@/src/lib/bookings/policy";
+import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -17,7 +17,7 @@ export default async function RegisterPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
-  const freeCancellationHours = getSafeCustomerFreeCancellationHours();
+  const cancellationPolicySummary = getCustomerCancellationPolicySummary();
   const params = await searchParams;
   const next = typeof params.next === "string" && params.next.startsWith("/") ? params.next : "/account";
 
@@ -26,7 +26,7 @@ export default async function RegisterPage({
       <PageHero
         eyebrow="Регистрация"
         title="Создать аккаунт клиента"
-        description={`Аккаунт нужен для просмотра истории бронирований и бесплатной отмены по правилу ${freeCancellationHours} часов.`}
+        description={`Аккаунт нужен для просмотра истории бронирований и управления отменами. ${cancellationPolicySummary}`}
       />
 
       <section className="auth-panel" aria-labelledby="register-form-title">

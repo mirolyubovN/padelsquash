@@ -2,9 +2,9 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import {
+  type AdminBookingSort,
   type AdminBookingStatus,
   ADMIN_BOOKING_STATUS_LABELS,
-  ADMIN_PAYMENT_STATUS_LABELS,
   getAdminBookings,
   setBookingStatus,
 } from "@/src/lib/admin/bookings";
@@ -25,18 +25,24 @@ export const dynamic = "force-dynamic";
 type BookingActionName = "cancelled" | "completed" | "no_show";
 
 function normalizeSearchParams(params: {
+  bookingId?: string;
+  customerEmail?: string;
   q?: string;
   status?: string;
   sport?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort?: string;
   page?: string;
 }): {
+  bookingId?: string;
+  customerEmail?: string;
   q?: string;
   status?: AdminBookingStatus;
   sport?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort: AdminBookingSort;
   page: number;
 } {
   const pageRaw = Number(params.page ?? "1");
@@ -50,31 +56,41 @@ function normalizeSearchParams(params: {
       ? params.status
       : undefined;
   const sport = params.sport?.trim() || undefined;
+  const sort: AdminBookingSort = params.sort === "date_desc" ? "date_desc" : "date_asc";
 
   return {
+    bookingId: params.bookingId?.trim() || undefined,
+    customerEmail: params.customerEmail?.trim().toLowerCase() || undefined,
     q: params.q?.trim() || undefined,
     status,
     sport,
     dateFrom: params.dateFrom || undefined,
     dateTo: params.dateTo || undefined,
+    sort,
     page,
   };
 }
 
 function buildBookingsUrl(filters: {
+  bookingId?: string;
+  customerEmail?: string;
   q?: string;
   status?: string;
   sport?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort?: AdminBookingSort;
   page?: number;
 }) {
   const params = new URLSearchParams();
+  if (filters.bookingId) params.set("bookingId", filters.bookingId);
+  if (filters.customerEmail) params.set("customerEmail", filters.customerEmail);
   if (filters.q) params.set("q", filters.q);
   if (filters.status) params.set("status", filters.status);
   if (filters.sport) params.set("sport", filters.sport);
   if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
   if (filters.dateTo) params.set("dateTo", filters.dateTo);
+  if (filters.sort && filters.sort !== "date_asc") params.set("sort", filters.sort);
   if (filters.page && filters.page > 1) params.set("page", String(filters.page));
   const query = params.toString();
   return query ? `/admin/bookings?${query}` : "/admin/bookings";
@@ -84,11 +100,14 @@ export default async function AdminBookingsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    bookingId?: string;
+    customerEmail?: string;
     q?: string;
     status?: string;
     sport?: string;
     dateFrom?: string;
     dateTo?: string;
+    sort?: string;
     page?: string;
   }>;
 }) {
@@ -99,11 +118,14 @@ export default async function AdminBookingsPage({
     getAdminBookings({
       page: params.page,
       pageSize: 20,
+      bookingId: params.bookingId,
+      customerEmail: params.customerEmail,
       q: params.q,
       status: params.status,
       sport: params.sport,
       dateFrom: params.dateFrom,
       dateTo: params.dateTo,
+      sort: params.sort,
     }),
     getAdminSportOptions(),
   ]);
@@ -138,6 +160,8 @@ export default async function AdminBookingsPage({
       }
     >
       <form method="get" className="admin-filters">
+        {params.bookingId ? <input type="hidden" name="bookingId" value={params.bookingId} /> : null}
+        {params.customerEmail ? <input type="hidden" name="customerEmail" value={params.customerEmail} /> : null}
         <div className="admin-filters__grid">
           <div className="admin-form__group">
             <label htmlFor="admin-bookings-q" className="admin-form__label">
@@ -148,7 +172,7 @@ export default async function AdminBookingsPage({
               name="q"
               className="admin-form__field"
               defaultValue={params.q ?? ""}
-              placeholder="Имя или email"
+              placeholder="Имя или телефон"
             />
           </div>
           <div className="admin-form__group">
@@ -211,6 +235,15 @@ export default async function AdminBookingsPage({
               defaultValue={params.dateTo ?? ""}
             />
           </div>
+          <div className="admin-form__group">
+            <label htmlFor="admin-bookings-sort" className="admin-form__label">
+              Сортировка
+            </label>
+            <select id="admin-bookings-sort" name="sort" className="admin-form__field" defaultValue={params.sort}>
+              <option value="date_asc">По дате: ближайшие сначала</option>
+              <option value="date_desc">По дате: дальние сначала</option>
+            </select>
+          </div>
         </div>
         <div className="admin-filters__actions">
           <button type="submit" className="admin-form__submit">
@@ -223,9 +256,11 @@ export default async function AdminBookingsPage({
       </form>
 
       <div className="admin-list-toolbar">
+        {params.customerEmail ? <p className="admin-list-toolbar__meta">Клиент: {params.customerEmail}</p> : null}
         <p className="admin-list-toolbar__meta">
           Найдено: {bookings.total}. Страница {bookings.page} из {bookings.totalPages}.
         </p>
+        {params.bookingId ? <p className="admin-list-toolbar__meta">Показана бронь: {params.bookingId}</p> : null}
       </div>
 
       <div className="admin-table">
@@ -238,23 +273,30 @@ export default async function AdminBookingsPage({
               <th className="admin-table__cell admin-table__cell--head">Статус</th>
               <th className="admin-table__cell admin-table__cell--head">Оплата</th>
               {canSeeRevenue ? <th className="admin-table__cell admin-table__cell--head">Сумма</th> : null}
-              <th className="admin-table__cell admin-table__cell--head">Детали</th>
               <th className="admin-table__cell admin-table__cell--head">Действия</th>
             </tr>
           </thead>
           <tbody>
             {bookings.rows.length === 0 ? (
               <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={canSeeRevenue ? 8 : 7}>
+                <td className="admin-table__cell" colSpan={canSeeRevenue ? 7 : 6}>
                   Бронирований пока нет.
                 </td>
               </tr>
             ) : (
               bookings.rows.map((row) => (
-                <tr key={row.id} className="admin-table__row">
-                  <td className="admin-table__cell">
-                    <div className="admin-bookings__cell-title">{row.customerName}</div>
-                    <div className="admin-bookings__cell-sub">{row.customerEmail}</div>
+                <tr key={row.id} id={`booking-${row.id}`} className="admin-table__row">
+                    <td className="admin-table__cell">
+                      <div className="admin-bookings__cell-title">
+                        <Link href={`/admin/clients/${row.customerId}`}>
+                          {row.customerName}
+                        </Link>
+                      </div>
+                      <div className="admin-bookings__cell-sub">
+                        <Link href={`/admin/clients/${row.customerId}`}>
+                          {row.customerEmail}
+                        </Link>
+                      </div>
                     <div className="admin-bookings__cell-sub">{row.customerPhone}</div>
                   </td>
                   <td className="admin-table__cell">
@@ -262,6 +304,12 @@ export default async function AdminBookingsPage({
                     <div className="admin-bookings__cell-sub">
                       {row.serviceCode} · {row.serviceSportName}
                     </div>
+                    {row.courtLabels.length > 0 && (
+                      <div className="admin-bookings__cell-sub">Корт: {row.courtLabels.join(", ")}</div>
+                    )}
+                    {row.instructorLabels.length > 0 && (
+                      <div className="admin-bookings__cell-sub">Тренер: {row.instructorLabels.join(", ")}</div>
+                    )}
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__cell-title">{row.date}</div>
@@ -279,35 +327,14 @@ export default async function AdminBookingsPage({
                       {row.paymentStatusLabel}
                     </span>
                   </td>
-                  {canSeeRevenue ? <td className="admin-table__cell">{row.amountKzt}</td> : null}
-                  <td className="admin-table__cell">
-                    <details className="admin-bookings__details">
-                      <summary className="admin-bookings__details-summary">Показать</summary>
-                      <div className="admin-bookings__details-body">
-                        <div className="admin-bookings__details-row">
-                          <span>Корт</span>
-                          <span>{row.courtLabels.length > 0 ? row.courtLabels.join(", ") : "—"}</span>
-                        </div>
-                        <div className="admin-bookings__details-row">
-                          <span>Тренер</span>
-                          <span>{row.instructorLabels.length > 0 ? row.instructorLabels.join(", ") : "—"}</span>
-                        </div>
-                        <div className="admin-bookings__details-row">
-                          <span>Оплата</span>
-                          <span>{ADMIN_PAYMENT_STATUS_LABELS[row.paymentStatus]} · {row.paymentProvider}</span>
-                        </div>
-                        {canSeeRevenue && row.pricingBreakdownLines.length > 0 ? (
-                          <div className="admin-bookings__details-breakdown">
-                            {row.pricingBreakdownLines.map((line) => (
-                              <div key={`${row.id}-${line}`} className="admin-bookings__cell-sub">
-                                {line}
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </details>
-                  </td>
+                  {canSeeRevenue ? (
+                    <td className="admin-table__cell">
+                      <div className="admin-bookings__cell-title">{row.amountKzt}</div>
+                      {row.pricingBreakdownLines.length > 0 && (
+                        <div className="admin-bookings__cell-sub">{row.pricingBreakdownLines[0]}</div>
+                      )}
+                    </td>
+                  ) : null}
                   <td className="admin-table__cell">
                     {row.status === "pending_payment" || row.status === "confirmed" ? (
                       <form action={bookingAction} className="admin-bookings__actions">

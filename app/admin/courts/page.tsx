@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { AdminConfirmActionForm } from "@/src/components/admin/admin-confirm-action-form";
+import { AdminEditModal } from "@/src/components/admin/admin-edit-modal";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   createCourtFromForm,
@@ -185,21 +186,8 @@ export default async function AdminCourtsPage({
               courts.map((court) => (
                 <tr key={court.id} className="admin-table__row">
                   <td className="admin-table__cell">
-                    <form action={updateAction} className="admin-inline-row-form">
-                      <input type="hidden" name="courtId" value={court.id} />
-                      <input type="hidden" name="notes" value={court.notes ?? ""} />
-                      <label className="admin-form__label" htmlFor={`court-name-${court.id}`}>
-                        Название
-                      </label>
-                      <input
-                        id={`court-name-${court.id}`}
-                        name="name"
-                        className="admin-form__field"
-                        defaultValue={court.name}
-                        required
-                      />
-                      <div className="admin-bookings__cell-sub">{court.id}</div>
-                    </form>
+                    <div className="admin-bookings__cell-title">{court.name}</div>
+                    <div className="admin-bookings__cell-sub">{court.id}</div>
                   </td>
                   <td className="admin-table__cell">{court.sportName}</td>
                   <td className="admin-table__cell">
@@ -209,23 +197,7 @@ export default async function AdminCourtsPage({
                     </span>
                   </td>
                   <td className="admin-table__cell">
-                    <form action={updateAction} className="admin-inline-row-form">
-                      <input type="hidden" name="courtId" value={court.id} />
-                      <input type="hidden" name="name" value={court.name} />
-                      <label className="admin-form__label" htmlFor={`court-notes-${court.id}`}>
-                        Примечание
-                      </label>
-                      <input
-                        id={`court-notes-${court.id}`}
-                        name="notes"
-                        className="admin-form__field"
-                        defaultValue={court.notes ?? ""}
-                        placeholder="—"
-                      />
-                      <button type="submit" className="admin-bookings__action-button">
-                        Сохранить
-                      </button>
-                    </form>
+                    <div className="admin-bookings__cell-sub">{court.notes || "—"}</div>
                   </td>
                   <td className="admin-table__cell">
                     <Link
@@ -237,6 +209,22 @@ export default async function AdminCourtsPage({
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
+                      <AdminEditModal triggerLabel="Редактировать" title={`Корт: ${court.name}`}>
+                        <form action={updateAction} className="admin-form">
+                          <input type="hidden" name="courtId" value={court.id} />
+                          <div className="admin-form__group">
+                            <label className="admin-form__label" htmlFor={`court-name-modal-${court.id}`}>Название</label>
+                            <input id={`court-name-modal-${court.id}`} name="name" className="admin-form__field" defaultValue={court.name} required />
+                          </div>
+                          <div className="admin-form__group">
+                            <label className="admin-form__label" htmlFor={`court-notes-modal-${court.id}`}>Примечание</label>
+                            <input id={`court-notes-modal-${court.id}`} name="notes" className="admin-form__field" defaultValue={court.notes ?? ""} placeholder="Например: временно без камеры" />
+                          </div>
+                          <div className="admin-form__actions">
+                            <button type="submit" className="admin-form__submit">Сохранить</button>
+                          </div>
+                        </form>
+                      </AdminEditModal>
                       <form action={toggleActiveAction} className="admin-bookings__actions">
                         <input type="hidden" name="courtId" value={court.id} />
                         <input type="hidden" name="nextActive" value={String(!court.active)} />

@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { AdminConfirmActionForm } from "@/src/components/admin/admin-confirm-action-form";
+import { AdminEditModal } from "@/src/components/admin/admin-edit-modal";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   createServiceFromForm,
@@ -195,33 +196,8 @@ export default async function AdminServicesPage({
               services.map((service) => (
                 <tr key={service.id} className="admin-table__row">
                   <td className="admin-table__cell">
-                    <form action={updateAction} className="admin-inline-row-form">
-                      <input type="hidden" name="serviceId" value={service.id} />
-                      <label className="admin-form__label" htmlFor={`service-name-${service.id}`}>
-                        Название
-                      </label>
-                      <input
-                        id={`service-name-${service.id}`}
-                        name="name"
-                        className="admin-form__field"
-                        defaultValue={service.name}
-                        required
-                      />
-                      <label className="admin-form__label" htmlFor={`service-code-${service.id}`}>
-                        Код
-                      </label>
-                      <input
-                        id={`service-code-${service.id}`}
-                        name="code"
-                        className="admin-form__field"
-                        defaultValue={service.code}
-                        pattern="[a-z0-9-]+"
-                        required
-                      />
-                      <button type="submit" className="admin-bookings__action-button">
-                        Сохранить
-                      </button>
-                    </form>
+                    <div className="admin-bookings__cell-title">{service.name}</div>
+                    <div className="admin-bookings__cell-sub">{service.code}</div>
                   </td>
                   <td className="admin-table__cell">{service.sportName}</td>
                   <td className="admin-table__cell">
@@ -237,6 +213,22 @@ export default async function AdminServicesPage({
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
+                      <AdminEditModal triggerLabel="Редактировать" title={`Услуга: ${service.name}`}>
+                        <form action={updateAction} className="admin-form">
+                          <input type="hidden" name="serviceId" value={service.id} />
+                          <div className="admin-form__group">
+                            <label className="admin-form__label" htmlFor={`svc-name-modal-${service.id}`}>Название</label>
+                            <input id={`svc-name-modal-${service.id}`} name="name" className="admin-form__field" defaultValue={service.name} required />
+                          </div>
+                          <div className="admin-form__group">
+                            <label className="admin-form__label" htmlFor={`svc-code-modal-${service.id}`}>Код</label>
+                            <input id={`svc-code-modal-${service.id}`} name="code" className="admin-form__field" defaultValue={service.code} pattern="[a-z0-9-]+" required />
+                          </div>
+                          <div className="admin-form__actions">
+                            <button type="submit" className="admin-form__submit">Сохранить</button>
+                          </div>
+                        </form>
+                      </AdminEditModal>
                       <form action={toggleActiveAction} className="admin-bookings__actions">
                         <input type="hidden" name="serviceId" value={service.id} />
                         <input type="hidden" name="nextActive" value={String(!service.active)} />

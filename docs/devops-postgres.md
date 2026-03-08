@@ -66,7 +66,7 @@ Do not use `trust` in production or any exposed/shared environment.
 
 ## Local Setup (First Run)
 
-Run from project root: `D:\Websites\padelsquash`
+Run from project root: `E:\padelsquash`
 
 ### 1. Start the database
 
@@ -112,12 +112,52 @@ npm run db:seed
 
 Seed currently creates:
 
-- admin user (`admin@example.com` / `Admin123!`)
+- super-admin user (`admin@example.com` / `Admin123!`)
+- admin user (`manager@example.com` / `Manager123!`)
+- trainer user (`trainer@example.com` / `Trainer123!`)
+- customer user (`customer@example.com` / `Customer123!`)
+- wallet bonus defaults
 - courts
 - instructors
 - services
 - opening hours
 - simplified component pricing matrix (`ComponentPrice`)
+- verification-ready seeded users (`emailVerifiedAt` + `phoneVerifiedAt`)
+
+## Registration Verification Integrations (Local)
+
+The database setup is not enough for end-to-end registration verification. You also need SMTP and Telegram bot settings in `.env`.
+
+Required for email confirmations:
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+
+Required for Telegram phone confirmations:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_BOT_USERNAME`
+- optional security hardening: `TELEGRAM_WEBHOOK_SECRET`
+
+### Telegram webhook setup
+
+Phone confirmation updates arrive via:
+
+- `POST /api/telegram/webhook`
+
+Set webhook after exposing your local app over a tunnel:
+
+```powershell
+curl.exe -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" `
+  -H "Content-Type: application/json" `
+  -d "{\"url\":\"https://<public-host>/api/telegram/webhook\",\"secret_token\":\"<TELEGRAM_WEBHOOK_SECRET>\"}"
+```
+
+If webhook is not configured, `/register/verify` will show the Telegram step but phone confirmation will never complete.
 
 ## Daily Development Commands
 

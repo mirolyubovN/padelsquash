@@ -1,24 +1,25 @@
 @reference "tailwindcss";
 
-/* ── Admin color tokens ──────────────────────────────────────────── */
-/* bg:        #0d1117  surface:    #161b22  surface-2:  #1c2128    */
-/* border:    #21262d  text:       #e6edf3  muted:      #7d8590    */
-/* accent:    #84cc16  green:      #4ade80  yellow:     #facc15    */
-/* red:       #f87171  blue:       #60a5fa                         */
+/* ── Admin color tokens (light mode) ─────────────────────────────── */
+/* bg:        #f8fafc  surface:    #ffffff  surface-2:  #f1f5f9    */
+/* border:    #e2e8f0  text:       #0f172a  muted:      #64748b    */
+/* accent:    #84cc16  green:      #16a34a  yellow:     #d97706    */
+/* red:       #dc2626  blue:       #1d4ed8                         */
 
 /* ── Shell ───────────────────────────────────────────────────────── */
 
 .admin-shell {
-  background: #0d1117;
-  border: 1px solid #21262d;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 0.875rem;
   overflow: hidden;
   min-height: calc(100vh - 7rem);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
 }
 
 .admin-shell__layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 256px 1fr;
   min-height: calc(100vh - 7rem);
 }
 
@@ -27,8 +28,8 @@
 .admin-shell__sidebar {
   display: flex;
   flex-direction: column;
-  background: #0d1117;
-  border-right: 1px solid #21262d;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
   padding: 0;
   position: sticky;
   top: 0;
@@ -41,7 +42,7 @@
   align-items: center;
   gap: 0.625rem;
   padding: 1.25rem 1rem 1rem;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
 }
 
@@ -52,7 +53,7 @@
   width: 1.75rem;
   height: 1.75rem;
   background: #84cc16;
-  color: #0d1117;
+  color: #0f172a;
   font-family: var(--font-display);
   font-size: 0.5625rem;
   font-weight: 700;
@@ -68,7 +69,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: rgba(230, 237, 243, 0.6);
+  color: #94a3b8;
 }
 
 .admin-shell__nav {
@@ -84,7 +85,7 @@
   padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #7d8590;
+  color: #64748b;
   border-radius: 0.375rem;
   border: 1px solid transparent;
   transition: color 0.15s, background-color 0.15s;
@@ -94,20 +95,20 @@
 }
 
 .admin-shell__nav-link:hover {
-  color: #e6edf3;
-  background-color: rgba(255, 255, 255, 0.04);
+  color: #0f172a;
+  background-color: #f1f5f9;
 }
 
 .admin-shell__nav-link--active {
-  color: #84cc16;
-  background-color: rgba(132, 204, 22, 0.1);
-  border-color: rgba(132, 204, 22, 0.2);
+  color: #4d7c0f;
+  background-color: rgba(132, 204, 22, 0.12);
+  border-color: rgba(132, 204, 22, 0.3);
   font-weight: 600;
 }
 
 .admin-shell__sidebar-footer {
   padding: 0.875rem 0.75rem;
-  border-top: 1px solid #21262d;
+  border-top: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
@@ -131,13 +132,13 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   background: rgba(132, 204, 22, 0.15);
-  color: #84cc16;
+  color: #4d7c0f;
   flex-shrink: 0;
 }
 
 .admin-shell__email {
   font-size: 0.6875rem;
-  color: #7d8590;
+  color: #64748b;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -151,17 +152,17 @@
   padding: 0.4375rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #7d8590;
-  border: 1px solid #21262d;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
   background: transparent;
   transition: color 0.15s, border-color 0.15s, background-color 0.15s;
 }
 
 .admin-shell__logout:hover {
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.3);
-  background-color: rgba(248, 113, 113, 0.05);
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.3);
+  background-color: rgba(220, 38, 38, 0.04);
 }
 
 /* ── Mobile sidebar ──────────────────────────────────────────────── */
@@ -170,7 +171,7 @@
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(15, 23, 42, 0.4);
 }
 
 @media (max-width: 767px) {
@@ -184,10 +185,10 @@
     top: 0;
     z-index: 40;
     height: 100vh;
-    width: 14rem;
+    width: 16rem;
     transform: translateX(-100%);
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5);
+    box-shadow: 4px 0 32px rgba(15, 23, 42, 0.12);
   }
 
   .admin-shell__sidebar--open {
@@ -207,7 +208,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: #0d1117;
+  background: #f8fafc;
 }
 
 /* ── Mobile toolbar ──────────────────────────────────────────────── */
@@ -217,8 +218,8 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.625rem 1rem;
-  border-bottom: 1px solid #21262d;
-  background: #0d1117;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
   flex-shrink: 0;
 }
 
@@ -241,19 +242,19 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.375rem 0.625rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #7d8590;
+  color: #64748b;
   background: transparent;
   transition: color 0.15s, border-color 0.15s;
   flex-shrink: 0;
 }
 
 .admin-shell__menu-button:hover {
-  color: #e6edf3;
-  border-color: #30363d;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .admin-shell__menu-icon {
@@ -290,10 +291,11 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 0.625rem;
   padding: 1.375rem 1.5rem;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
 @media (min-width: 1024px) {
@@ -310,7 +312,7 @@
   align-items: center;
   gap: 0.25rem;
   font-size: 0.6875rem;
-  color: #7d8590;
+  color: #64748b;
   margin-bottom: 0.625rem;
 }
 
@@ -321,7 +323,7 @@
 }
 
 .admin-page__breadcrumb-link {
-  color: #7d8590;
+  color: #64748b;
   transition: color 0.15s;
 }
 
@@ -330,7 +332,7 @@
 }
 
 .admin-page__breadcrumb-current {
-  color: #e6edf3;
+  color: #0f172a;
   font-weight: 500;
 }
 
@@ -353,7 +355,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: #e6edf3;
+  color: #0f172a;
   line-height: 1.1;
 }
 
@@ -361,7 +363,7 @@
   margin-top: 0.375rem;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: #7d8590;
+  color: #64748b;
   max-width: 48rem;
 }
 
@@ -378,7 +380,7 @@
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
   background: #84cc16;
-  color: #0d1117;
+  color: #0f172a;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -410,12 +412,13 @@
 }
 
 .admin-dashboard__stat-card {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 0.625rem;
   padding: 1.125rem 1.25rem;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
 .admin-dashboard__stat-card::before {
@@ -433,7 +436,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-dashboard__stat-value {
@@ -441,7 +444,7 @@
   font-size: 1.875rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #e6edf3;
+  color: #0f172a;
   line-height: 1;
   margin-top: 0.625rem;
 }
@@ -458,10 +461,11 @@
 }
 
 .admin-dashboard__panel {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 0.625rem;
   padding: 1.25rem;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
 .admin-dashboard__panel-title {
@@ -469,7 +473,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #7d8590;
+  color: #64748b;
   margin-bottom: 0.875rem;
 }
 
@@ -488,15 +492,15 @@
 .admin-dashboard__alert {
   padding: 0.625rem 0.875rem;
   border-radius: 0.375rem;
-  border: 1px solid rgba(248, 113, 113, 0.2);
-  background: rgba(248, 113, 113, 0.06);
-  color: #fca5a5;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  background: rgba(220, 38, 38, 0.04);
+  color: #b91c1c;
   font-size: 0.8125rem;
 }
 
 .admin-dashboard__empty {
   font-size: 0.8125rem;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-dashboard__recent-list {
@@ -511,20 +515,20 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.625rem 0.75rem;
-  background: #1c2128;
-  border: 1px solid #21262d;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
   font-size: 0.8125rem;
 }
 
 .admin-dashboard__recent-title {
   font-weight: 600;
-  color: #e6edf3;
+  color: #0f172a;
 }
 
 .admin-dashboard__recent-sub {
   font-size: 0.6875rem;
-  color: #7d8590;
+  color: #64748b;
   margin-top: 0.125rem;
 }
 
@@ -546,31 +550,31 @@
   display: block;
   padding: 0.625rem 0.875rem;
   border-radius: 0.375rem;
-  border: 1px solid #21262d;
-  background: #1c2128;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #7d8590;
+  color: #64748b;
   transition: color 0.15s, border-color 0.15s, background-color 0.15s;
 }
 
 .admin-link-grid__item:hover {
-  color: #e6edf3;
-  border-color: #30363d;
-  background: rgba(255, 255, 255, 0.04);
+  color: #0f172a;
+  border-color: #cbd5e1;
+  background: #f1f5f9;
 }
 
 .admin-link-grid__item--primary {
-  background: rgba(132, 204, 22, 0.12);
-  border-color: rgba(132, 204, 22, 0.25);
-  color: #84cc16;
+  background: rgba(132, 204, 22, 0.1);
+  border-color: rgba(132, 204, 22, 0.3);
+  color: #4d7c0f;
   font-weight: 600;
 }
 
 .admin-link-grid__item--primary:hover {
-  background: rgba(132, 204, 22, 0.2);
-  border-color: rgba(132, 204, 22, 0.4);
-  color: #a3e635;
+  background: rgba(132, 204, 22, 0.18);
+  border-color: rgba(132, 204, 22, 0.45);
+  color: #3f6212;
 }
 
 /* ── Admin calendar ──────────────────────────────────────────────── */
@@ -585,35 +589,35 @@
 
 .admin-calendar__nav-btn {
   padding: 0.4375rem 0.875rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #161b22;
-  color: #7d8590;
+  background: #ffffff;
+  color: #64748b;
   font-size: 0.8125rem;
   font-weight: 500;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .admin-calendar__nav-btn:hover {
-  color: #84cc16;
-  border-color: rgba(132, 204, 22, 0.3);
+  color: #4d7c0f;
+  border-color: rgba(132, 204, 22, 0.4);
 }
 
 .admin-calendar__nav-today {
   padding: 0.4375rem 0.875rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #161b22;
-  color: #7d8590;
+  background: #ffffff;
+  color: #64748b;
   font-size: 0.8125rem;
   font-weight: 500;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .admin-calendar__nav-today--active {
-  background: rgba(132, 204, 22, 0.12);
+  background: rgba(132, 204, 22, 0.1);
   border-color: rgba(132, 204, 22, 0.3);
-  color: #84cc16;
+  color: #4d7c0f;
   font-weight: 600;
 }
 
@@ -626,10 +630,10 @@
 
 .admin-calendar__date-input {
   padding: 0.4375rem 0.75rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #161b22;
-  color: #e6edf3;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 0.8125rem;
 }
 
@@ -657,13 +661,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-calendar__court-head {
   text-align: left;
   padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid #e2e8f0;
   min-width: 140px;
 }
 
@@ -671,19 +675,19 @@
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #e6edf3;
+  color: #0f172a;
 }
 
 .admin-calendar__court-sport {
   display: block;
   font-size: 0.625rem;
-  color: #7d8590;
+  color: #64748b;
   margin-top: 0.125rem;
 }
 
 .admin-calendar__row:nth-child(even) .admin-calendar__time-cell,
 .admin-calendar__row:nth-child(even) .admin-calendar__cell--free {
-  background-color: rgba(255, 255, 255, 0.01);
+  background-color: rgba(0, 0, 0, 0.01);
 }
 
 .admin-calendar__time-cell {
@@ -691,18 +695,18 @@
   width: 4rem;
   font-size: 0.6875rem;
   font-family: var(--font-plex-mono), monospace;
-  color: #7d8590;
+  color: #64748b;
   vertical-align: top;
-  border-right: 1px solid #21262d;
+  border-right: 1px solid #e2e8f0;
   white-space: nowrap;
-  background: #0d1117;
+  background: #f8fafc;
   position: sticky;
   left: 0;
   z-index: 1;
 }
 
 .admin-calendar__cell {
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   height: 3rem;
   vertical-align: top;
   padding: 0;
@@ -740,24 +744,39 @@
 }
 
 .admin-calendar__cell--confirmed {
-  background: rgba(74, 222, 128, 0.08);
-  border-color: rgba(74, 222, 128, 0.15);
+  background: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.2);
 }
 
 .admin-calendar__cell--pending-payment {
-  background: rgba(250, 204, 21, 0.08);
-  border-color: rgba(250, 204, 21, 0.15);
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.2);
 }
 
 .admin-calendar__cell--completed {
-  background: rgba(96, 165, 250, 0.06);
-  border-color: rgba(96, 165, 250, 0.12);
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.15);
+}
+
+.admin-calendar__cell--past-session {
+  background: rgba(100, 116, 139, 0.12);
+  border-color: rgba(100, 116, 139, 0.25);
+}
+
+.admin-calendar__cell--past-session .admin-calendar__booking-name {
+  color: #334155;
+}
+
+.admin-calendar__cell--past-session .admin-calendar__booking-service,
+.admin-calendar__cell--past-session .admin-calendar__booking-status,
+.admin-calendar__cell--past-session .admin-calendar__booking-instructor {
+  color: #475569;
 }
 
 .admin-calendar__cell--no-show,
 .admin-calendar__cell--cancelled {
-  background: rgba(248, 113, 113, 0.06);
-  border-color: rgba(248, 113, 113, 0.12);
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.12);
   opacity: 0.7;
 }
 
@@ -765,8 +784,8 @@
   padding: 0.25rem 0.5rem;
   background: repeating-linear-gradient(
     45deg,
-    rgba(255, 255, 255, 0.02),
-    rgba(255, 255, 255, 0.02) 3px,
+    rgba(0, 0, 0, 0.02),
+    rgba(0, 0, 0, 0.02) 3px,
     transparent 3px,
     transparent 10px
   );
@@ -783,30 +802,30 @@
 .admin-calendar__booking-name {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #e6edf3;
+  color: #0f172a;
   line-height: 1.3;
 }
 
 .admin-calendar__booking-service {
   font-size: 0.625rem;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-calendar__booking-instructor {
   font-size: 0.625rem;
   font-weight: 500;
-  color: #60a5fa;
+  color: #1d4ed8;
 }
 
 .admin-calendar__booking-status {
   font-size: 0.625rem;
-  color: #7d8590;
+  color: #64748b;
   margin-top: auto;
 }
 
 .admin-calendar__blocked-label {
   font-size: 0.625rem;
-  color: #7d8590;
+  color: #94a3b8;
   font-weight: 500;
 }
 
@@ -816,7 +835,7 @@
   gap: 1rem;
   margin-top: 1.25rem;
   padding-top: 1rem;
-  border-top: 1px solid #21262d;
+  border-top: 1px solid #e2e8f0;
   font-size: 0.6875rem;
 }
 
@@ -825,7 +844,7 @@
   align-items: center;
   gap: 0.375rem;
   font-weight: 500;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-calendar__legend-item::before {
@@ -837,29 +856,34 @@
 }
 
 .admin-calendar__legend-item--confirmed::before {
-  background: rgba(74, 222, 128, 0.15);
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: rgba(22, 163, 74, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.3);
 }
 
 .admin-calendar__legend-item--pending-payment::before {
-  background: rgba(250, 204, 21, 0.15);
-  border: 1px solid rgba(250, 204, 21, 0.3);
+  background: rgba(217, 119, 6, 0.12);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.admin-calendar__legend-item--past::before {
+  background: rgba(100, 116, 139, 0.18);
+  border: 1px solid rgba(100, 116, 139, 0.35);
 }
 
 .admin-calendar__legend-item--blocked::before {
   background: repeating-linear-gradient(
     45deg,
-    rgba(255, 255, 255, 0.06),
-    rgba(255, 255, 255, 0.06) 2px,
-    #161b22 2px,
-    #161b22 5px
+    rgba(0, 0, 0, 0.05),
+    rgba(0, 0, 0, 0.05) 2px,
+    #f8fafc 2px,
+    #f8fafc 5px
   );
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
 }
 
 .admin-calendar__legend-item--free::before {
-  background: #0d1117;
-  border: 1px solid #21262d;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
 }
 
 /* ── Admin create-booking form ───────────────────────────────────── */
@@ -868,17 +892,17 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  max-width: 36rem;
+  max-width: 100%;
 }
 
 .admin-create-booking__fieldset {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.625rem;
   padding: 1.125rem;
-  background: #161b22;
+  background: #ffffff;
 }
 
 .admin-create-booking__sport-tabs {
@@ -890,10 +914,10 @@
 
 .admin-create-booking__sport-tab {
   padding: 0.375rem 0.875rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #1c2128;
-  color: #7d8590;
+  background: #f1f5f9;
+  color: #64748b;
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
@@ -903,23 +927,42 @@
 .admin-create-booking__sport-tab--active {
   background: rgba(132, 204, 22, 0.12);
   border-color: rgba(132, 204, 22, 0.3);
-  color: #84cc16;
+  color: #4d7c0f;
   font-weight: 600;
 }
 
 .admin-create-booking__slots {
-  display: grid;
-  gap: 0.375rem;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   margin-top: 0.25rem;
+}
+
+.admin-create-booking__slot-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-create-booking__slot-time {
+  min-width: 3.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.admin-create-booking__slot-courts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
 }
 
 .admin-create-booking__slot {
   padding: 0.4375rem 0.5rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #1c2128;
-  color: #7d8590;
+  background: #f1f5f9;
+  color: #64748b;
   font-size: 0.75rem;
   font-weight: 500;
   text-align: center;
@@ -930,28 +973,92 @@
 .admin-create-booking__slot--active {
   background: rgba(132, 204, 22, 0.12);
   border-color: rgba(132, 204, 22, 0.3);
-  color: #84cc16;
+  color: #4d7c0f;
   font-weight: 600;
 }
 
 .admin-create-booking__slots-hint {
   font-size: 0.75rem;
-  color: #7d8590;
+  color: #64748b;
   margin-top: 0.25rem;
+}
+
+.admin-create-booking__payment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.admin-create-booking__payment-option {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
+.admin-create-booking__customer-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-create-booking__customer-results {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.admin-create-booking__customer-result {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.125rem 0.75rem;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  padding: 0.625rem 0.75rem;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.admin-create-booking__customer-result:hover {
+  border-color: rgba(132, 204, 22, 0.45);
+  background: rgba(132, 204, 22, 0.08);
+}
+
+.admin-create-booking__customer-result-name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-create-booking__customer-result-meta {
+  grid-column: 1 / 2;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.admin-create-booking__customer-result-balance {
+  grid-column: 2 / 3;
+  grid-row: 1 / 3;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #4d7c0f;
+  align-self: center;
 }
 
 .admin-create-booking__slots-error {
   font-size: 0.75rem;
-  color: #f87171;
+  color: #dc2626;
   margin-top: 0.25rem;
 }
 
 .admin-create-booking__error {
   padding: 0.75rem 1rem;
   border-radius: 0.375rem;
-  border: 1px solid rgba(248, 113, 113, 0.2);
-  background: rgba(248, 113, 113, 0.06);
-  color: #fca5a5;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  background: rgba(220, 38, 38, 0.04);
+  color: #b91c1c;
   font-size: 0.8125rem;
 }
 
@@ -968,7 +1075,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: #4ade80;
+  color: #16a34a;
 }
 
 .admin-create-booking__success-actions {
@@ -976,13 +1083,36 @@
   gap: 0.625rem;
 }
 
+.admin-create-booking__created-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0 0 0 1rem;
+}
+
+.admin-create-booking__created-item {
+  color: #334155;
+  font-size: 0.8125rem;
+}
+
+.admin-create-booking__warning {
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+  color: #92400e;
+  font-size: 0.8125rem;
+}
+
 /* ── Admin table ─────────────────────────────────────────────────── */
 
 .admin-table {
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.625rem;
   overflow: hidden;
-  background: #161b22;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
 .admin-table__table {
@@ -994,18 +1124,19 @@
 
 .admin-table__cell {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #21262d;
-  color: #e6edf3;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
   vertical-align: top;
 }
 
 .admin-table__cell--head {
-  background: #0d1117;
+  background: #f8fafc;
   font-size: 0.5625rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: #7d8590;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 tbody tr:last-child .admin-table__cell {
@@ -1013,7 +1144,7 @@ tbody tr:last-child .admin-table__cell {
 }
 
 tbody tr:hover .admin-table__cell {
-  background: rgba(255, 255, 255, 0.02);
+  background: #fafbfc;
 }
 
 /* ── Admin inline links ──────────────────────────────────────────── */
@@ -1027,18 +1158,18 @@ tbody tr:hover .admin-table__cell {
 .admin-inline-links__item {
   display: inline-flex;
   padding: 0.3125rem 0.75rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #1c2128;
-  color: #7d8590;
+  background: #f8fafc;
+  color: #64748b;
   font-size: 0.75rem;
   font-weight: 500;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .admin-inline-links__item:hover {
-  color: #e6edf3;
-  border-color: #30363d;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .admin-inline-edit {
@@ -1083,8 +1214,8 @@ tbody tr:hover .admin-table__cell {
 }
 
 .admin-form--panel {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 0.625rem;
   padding: 1.125rem;
 }
@@ -1106,16 +1237,16 @@ tbody tr:hover .admin-table__cell {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-form__field {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #0d1117;
-  color: #e6edf3;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 0.8125rem;
   transition: border-color 0.15s;
 }
@@ -1123,10 +1254,18 @@ tbody tr:hover .admin-table__cell {
 .admin-form__field:focus {
   outline: none;
   border-color: #84cc16;
+  box-shadow: 0 0 0 3px rgba(132, 204, 22, 0.12);
+}
+
+.admin-form__field--locked,
+.admin-form__field[readonly] {
+  background: #f1f5f9;
+  color: #334155;
+  cursor: not-allowed;
 }
 
 .admin-form__field option {
-  background: #161b22;
+  background: #ffffff;
 }
 
 .admin-form__checkbox {
@@ -1134,7 +1273,7 @@ tbody tr:hover .admin-table__cell {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8125rem;
-  color: #e6edf3;
+  color: #0f172a;
 }
 
 .admin-form__actions {
@@ -1149,7 +1288,7 @@ tbody tr:hover .admin-table__cell {
   padding: 0.5rem 1.125rem;
   border-radius: 0.375rem;
   background: #84cc16;
-  color: #0d1117;
+  color: #0f172a;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1170,18 +1309,18 @@ tbody tr:hover .admin-table__cell {
   display: inline-flex;
   align-items: center;
   padding: 0.5rem 1rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
   background: transparent;
-  color: #7d8590;
+  color: #64748b;
   font-size: 0.75rem;
   font-weight: 500;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .admin-form__cancel:hover {
-  color: #e6edf3;
-  border-color: #30363d;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .admin-inline-row-form {
@@ -1192,10 +1331,11 @@ tbody tr:hover .admin-table__cell {
 /* ── Admin section ───────────────────────────────────────────────── */
 
 .admin-section {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 0.625rem;
   padding: 1.25rem;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
 .admin-section__head {
@@ -1207,14 +1347,14 @@ tbody tr:hover .admin-table__cell {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-section__description {
   margin-top: 0.25rem;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: #7d8590;
+  color: #64748b;
 }
 
 /* admin-details: collapsible edit panel */
@@ -1236,10 +1376,10 @@ tbody tr:hover .admin-table__cell {
 
 .admin-details__content {
   margin-top: 0.625rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
   padding: 0.875rem;
-  background: #0d1117;
+  background: #f8fafc;
 }
 
 /* ── Schedule grid ───────────────────────────────────────────────── */
@@ -1279,7 +1419,7 @@ tbody tr:hover .admin-table__cell {
   font-family: var(--font-plex-mono), monospace;
   width: 3rem;
   padding: 0.25rem 0.5rem 0.25rem 0;
-  color: #7d8590;
+  color: #64748b;
   line-height: 1.75rem;
 }
 
@@ -1290,7 +1430,7 @@ tbody tr:hover .admin-table__cell {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #7d8590;
+  color: #64748b;
   padding: 0.25rem 0.125rem;
 }
 
@@ -1298,33 +1438,33 @@ tbody tr:hover .admin-table__cell {
   flex: 1;
   cursor: pointer;
   border-radius: 2px;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   margin: 0.125rem;
   height: 1.75rem;
-  background: #161b22;
+  background: #f8fafc;
   transition: background-color 0.1s, border-color 0.1s;
 }
 
 .schedule-grid__cell:hover:not(:disabled) {
-  border-color: rgba(132, 204, 22, 0.4);
+  border-color: rgba(132, 204, 22, 0.5);
   background: rgba(132, 204, 22, 0.1);
 }
 
 .schedule-grid__cell--covered {
   cursor: default;
-  background: rgba(255, 255, 255, 0.04);
-  border-color: #21262d;
+  background: rgba(0, 0, 0, 0.03);
+  border-color: #e2e8f0;
 }
 
 .schedule-grid__cell--selected {
   background: rgba(132, 204, 22, 0.2);
-  border-color: rgba(132, 204, 22, 0.4);
+  border-color: rgba(132, 204, 22, 0.5);
 }
 
 .schedule-grid__cell--template {
   cursor: default;
-  background: rgba(255, 255, 255, 0.02);
-  border-color: #21262d;
+  background: rgba(0, 0, 0, 0.02);
+  border-color: #e2e8f0;
   border-style: dashed;
 }
 
@@ -1338,7 +1478,7 @@ tbody tr:hover .admin-table__cell {
 
 .schedule-grid__hint {
   font-size: 0.75rem;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .schedule-grid__wrapper {
@@ -1355,29 +1495,29 @@ tbody tr:hover .admin-table__cell {
 
 .schedule-grid__nav-btn {
   padding: 0.375rem 0.75rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #161b22;
-  color: #7d8590;
+  background: #ffffff;
+  color: #64748b;
   font-size: 0.75rem;
   font-weight: 500;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .schedule-grid__nav-btn:hover {
-  color: #84cc16;
-  border-color: rgba(132, 204, 22, 0.3);
+  color: #4d7c0f;
+  border-color: rgba(132, 204, 22, 0.4);
 }
 
 .schedule-grid__nav-btn--active {
   background: rgba(132, 204, 22, 0.12);
   border-color: rgba(132, 204, 22, 0.3);
-  color: #84cc16;
+  color: #4d7c0f;
   font-weight: 600;
 }
 
 .schedule-grid__nav-btn--active:hover {
-  background: rgba(132, 204, 22, 0.2);
+  background: rgba(132, 204, 22, 0.18);
 }
 
 .schedule-grid__banner {
@@ -1389,18 +1529,18 @@ tbody tr:hover .admin-table__cell {
 }
 
 .schedule-grid__banner--template {
-  background: rgba(255, 255, 255, 0.04);
-  color: #7d8590;
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .schedule-grid__banner--custom {
   background: rgba(132, 204, 22, 0.08);
-  color: #84cc16;
+  color: #4d7c0f;
 }
 
 .schedule-grid__banner--editing {
-  background: rgba(96, 165, 250, 0.08);
-  color: #60a5fa;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
 }
 
 .schedule-grid__action-group {
@@ -1431,15 +1571,15 @@ tbody tr:hover .admin-table__cell {
 }
 
 .admin-status-badge--active {
-  background: rgba(74, 222, 128, 0.1);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.2);
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.2);
 }
 
 .admin-status-badge--inactive {
-  background: rgba(248, 113, 113, 0.08);
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.15);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.15);
 }
 
 /* ── Admin bookings ──────────────────────────────────────────────── */
@@ -1447,12 +1587,12 @@ tbody tr:hover .admin-table__cell {
 .admin-bookings__cell-title {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #e6edf3;
+  color: #0f172a;
 }
 
 .admin-bookings__cell-sub {
   font-size: 0.6875rem;
-  color: #7d8590;
+  color: #64748b;
   margin-top: 0.125rem;
 }
 
@@ -1469,37 +1609,37 @@ tbody tr:hover .admin-table__cell {
 }
 
 .admin-bookings__chip--muted {
-  color: #7d8590;
-  background: rgba(255, 255, 255, 0.04);
-  border-color: #21262d;
+  color: #64748b;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
 .admin-bookings__chip--status-pending-payment,
 .admin-bookings__chip--payment-unpaid {
-  background: rgba(250, 204, 21, 0.1);
-  color: #fbbf24;
-  border-color: rgba(250, 204, 21, 0.2);
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.2);
 }
 
 .admin-bookings__chip--status-confirmed,
 .admin-bookings__chip--status-completed,
 .admin-bookings__chip--payment-paid {
-  background: rgba(74, 222, 128, 0.1);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.2);
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.2);
 }
 
 .admin-bookings__chip--status-cancelled,
 .admin-bookings__chip--status-no-show,
 .admin-bookings__chip--payment-failed,
 .admin-bookings__chip--payment-refunded {
-  background: rgba(248, 113, 113, 0.1);
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.2);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.15);
 }
 
 .admin-bookings__chip--payment-none {
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-bookings__actions {
@@ -1512,24 +1652,25 @@ tbody tr:hover .admin-table__cell {
   display: inline-flex;
   align-items: center;
   padding: 0.3125rem 0.625rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #1c2128;
-  color: #7d8590;
+  background: #f8fafc;
+  color: #64748b;
   font-size: 0.6875rem;
   font-weight: 500;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
 }
 
 .admin-bookings__action-button:hover {
-  color: #e6edf3;
-  border-color: #30363d;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  background: #f1f5f9;
 }
 
 .admin-bookings__action-button--primary {
   background: rgba(132, 204, 22, 0.1);
   border-color: rgba(132, 204, 22, 0.25);
-  color: #84cc16;
+  color: #4d7c0f;
   font-weight: 600;
 }
 
@@ -1538,19 +1679,19 @@ tbody tr:hover .admin-table__cell {
 }
 
 .admin-bookings__action-button--danger {
-  background: rgba(248, 113, 113, 0.08);
-  border-color: rgba(248, 113, 113, 0.2);
-  color: #f87171;
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.18);
+  color: #b91c1c;
   font-weight: 600;
 }
 
 .admin-bookings__action-button--danger:hover {
-  background: rgba(248, 113, 113, 0.14);
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .admin-bookings__no-actions {
   font-size: 0.8125rem;
-  color: #7d8590;
+  color: #94a3b8;
 }
 
 .admin-bookings__details {
@@ -1560,30 +1701,30 @@ tbody tr:hover .admin-table__cell {
 .admin-bookings__details-summary {
   cursor: pointer;
   padding: 0.3125rem 0.625rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #1c2128;
+  background: #f8fafc;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #7d8590;
+  color: #64748b;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .admin-bookings__details-summary:hover {
-  color: #e6edf3;
-  border-color: #30363d;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .admin-bookings__details-body {
   margin-top: 0.5rem;
   display: grid;
   gap: 0.375rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
   padding: 0.75rem;
-  background: #0d1117;
+  background: #f8fafc;
   font-size: 0.6875rem;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-bookings__details-row {
@@ -1592,7 +1733,7 @@ tbody tr:hover .admin-table__cell {
 }
 
 .admin-bookings__details-breakdown {
-  border-top: 1px solid #21262d;
+  border-top: 1px solid #e2e8f0;
   padding-top: 0.5rem;
   margin-top: 0.125rem;
 }
@@ -1600,10 +1741,11 @@ tbody tr:hover .admin-table__cell {
 /* ── Admin filters ───────────────────────────────────────────────── */
 
 .admin-filters {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 0.625rem;
   padding: 1.125rem;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
 .admin-filters__grid {
@@ -1641,7 +1783,7 @@ tbody tr:hover .admin-table__cell {
 
 .admin-list-toolbar__meta {
   font-size: 0.75rem;
-  color: #7d8590;
+  color: #64748b;
 }
 
 .admin-pagination {
@@ -1655,18 +1797,18 @@ tbody tr:hover .admin-table__cell {
   display: inline-flex;
   align-items: center;
   padding: 0.4375rem 0.875rem;
-  border: 1px solid #21262d;
+  border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
-  background: #161b22;
-  color: #7d8590;
+  background: #ffffff;
+  color: #64748b;
   font-size: 0.75rem;
   font-weight: 500;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .admin-pagination__link:hover {
-  color: #e6edf3;
-  border-color: #30363d;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .admin-pagination__link--disabled {
@@ -1676,7 +1818,7 @@ tbody tr:hover .admin-table__cell {
 
 .admin-pagination__meta {
   font-size: 0.75rem;
-  color: #7d8590;
+  color: #64748b;
 }
 
 /* ── Shared disabled/loading states ─────────────────────────────── */
@@ -1708,7 +1850,7 @@ tbody tr:hover .admin-table__cell {
   height: 0.625rem;
   margin-right: 0.4375rem;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(0, 0, 0, 0.2);
   border-top-color: currentColor;
   display: inline-block;
   animation: button-spin 0.8s linear infinite;
@@ -1719,13 +1861,90 @@ tbody tr:hover .admin-table__cell {
   to { transform: rotate(360deg); }
 }
 
-/* ── Admin page breadcrumb additional classes ────────────────────── */
-.admin-page__breadcrumbs {
+/* ── Admin modal (native <dialog>) ──────────────────────────────── */
+
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.875rem;
+  box-shadow:
+    0 4px 6px rgba(15, 23, 42, 0.04),
+    0 20px 60px rgba(15, 23, 42, 0.14);
+  background: #ffffff;
+  width: min(560px, calc(100vw - 2rem));
+  max-height: min(88vh, 800px);
+  overflow: hidden;
+}
+
+.admin-modal[open] {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  animation: admin-modal-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-modal::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+}
+
+@keyframes admin-modal-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.admin-modal__inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.admin-modal__header {
+  display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.6875rem;
-  color: #7d8590;
-  margin-bottom: 0.625rem;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.125rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  background: #f8fafc;
+}
+
+.admin-modal__title {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0f172a;
+}
+
+.admin-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: #64748b;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.admin-modal__close:hover {
+  color: #0f172a;
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.admin-modal__body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
 }

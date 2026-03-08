@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
+import { canAccessAdminPortal } from "@/src/lib/auth/roles";
 import { prisma } from "@/src/lib/prisma";
 import { creditUserWallet } from "@/src/lib/wallet/service";
 
@@ -19,6 +20,9 @@ const topUpWalletSchema = z.object({
 
 export async function updateAccountProfileAction(formData: FormData) {
   const session = await requireAuthenticatedUser("/account");
+  if (canAccessAdminPortal(session.user.role)) {
+    redirect("/admin");
+  }
 
   const parsed = updateProfileSchema.safeParse({
     name: String(formData.get("name") ?? ""),
@@ -44,6 +48,9 @@ export async function updateAccountProfileAction(formData: FormData) {
 
 export async function topUpWalletAction(formData: FormData) {
   const session = await requireAuthenticatedUser("/account");
+  if (canAccessAdminPortal(session.user.role)) {
+    redirect("/admin/wallet");
+  }
 
   const parsed = topUpWalletSchema.safeParse({
     amountKzt: formData.get("amountKzt"),

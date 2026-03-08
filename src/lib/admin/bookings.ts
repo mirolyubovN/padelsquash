@@ -1,8 +1,12 @@
 import { prisma } from "@/src/lib/prisma";
+import { buildRussianYoVariants } from "@/src/lib/search/russian";
+import { formatMoneyKzt } from "@/src/lib/format/money";
+import { notifyBookingCancelled } from "@/src/lib/notifications/bookings";
 import { isoToVenueTimezoneParts, venueDateRangeUtc, venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 
 export type AdminBookingStatus = "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
 export type AdminPaymentStatus = "none" | "unpaid" | "paid" | "failed" | "refunded";
+export type AdminBookingSort = "date_asc" | "date_desc";
 
 export const ADMIN_BOOKING_STATUS_LABELS: Record<AdminBookingStatus, string> = {
   pending_payment: "Ожидает оплаты",
@@ -23,15 +27,19 @@ export const ADMIN_PAYMENT_STATUS_LABELS: Record<AdminPaymentStatus, string> = {
 export interface AdminBookingFilters {
   page: number;
   pageSize: number;
+  bookingId?: string;
+  customerEmail?: string;
   q?: string;
   status?: AdminBookingStatus;
   sport?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort?: AdminBookingSort;
 }
 
 export interface AdminBookingRow {
   id: string;
+  customerId: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -64,9 +72,14 @@ export interface AdminBookingListResult {
   totalPages: number;
 }
 
-function formatAmountKzt(amount: number): string {
+function formatAmountKztLegacy(amount: number): string {
+  if (Number.isFinite(amount)) {
+    return formatMoneyKzt(amount);
+  }
   return `${amount.toLocaleString("ru-KZ")} ₸`;
 }
+
+const formatAmountKzt = formatAmountKztLegacy;
 
 function toPaymentStatus(row: { payment: null | { status: string }; status: AdminBookingStatus }): AdminPaymentStatus {
   const raw = row.payment?.status;
@@ -108,8 +121,21 @@ function parsePricingBreakdownLines(value: unknown): string[] {
 export async function getAdminBookings(filters: AdminBookingFilters): Promise<AdminBookingListResult> {
   const page = Math.max(1, Number.isFinite(filters.page) ? filters.page : 1);
   const pageSize = Math.min(100, Math.max(10, Number.isFinite(filters.pageSize) ? filters.pageSize : 20));
+  const sortDirection: "asc" | "desc" = filters.sort === "date_desc" ? "desc" : "asc";
 
   const where: Record<string, unknown> = {};
+
+  if (filters.bookingId) {
+    where.id = filters.bookingId;
+  }
+
+  if (filters.customerEmail) {
+    where.customer = {
+      is: {
+        email: filters.customerEmail.trim().toLowerCase(),
+      },
+    };
+  }
 
   if (filters.status) {
     where.status = filters.status;
@@ -122,12 +148,15 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
   if (filters.q) {
     const q = filters.q.trim();
     if (q) {
+      const yoAwareNameQueries = buildRussianYoVariants(q);
       (where as { AND?: unknown[] }).AND = [
         ...(((where as { AND?: unknown[] }).AND ?? []) as unknown[]),
         {
           OR: [
-            { customer: { is: { name: { contains: q, mode: "insensitive" } } } },
-            { customer: { is: { email: { contains: q, mode: "insensitive" } } } },
+            ...yoAwareNameQueries.map((nameQuery) => ({
+              customer: { is: { name: { contains: nameQuery, mode: "insensitive" as const } } },
+            })),
+            { customer: { is: { phone: { contains: q } } } },
           ],
         },
       ];
@@ -153,7 +182,7 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: [{ startAt: "desc" }],
+      orderBy: [{ startAt: sortDirection }, { id: sortDirection }],
       include: {
         customer: true,
         service: {
@@ -215,6 +244,7 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
 
     return {
       id: row.id,
+      customerId: row.customer.id,
       customerName: row.customer.name,
       customerEmail: row.customer.email,
       customerPhone: row.customer.phone,
@@ -254,8 +284,26 @@ export async function setBookingStatus(args: {
   bookingId: string;
   status: "cancelled" | "completed" | "no_show";
 }) {
-  return prisma.booking.update({
+  const previous = await prisma.booking.findUnique({
+    where: { id: args.bookingId },
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+
+  if (!previous) {
+    throw new Error("Бронирование не найдено");
+  }
+
+  const updated = await prisma.booking.update({
     where: { id: args.bookingId },
     data: { status: args.status },
   });
+
+  if (args.status === "cancelled" && previous.status !== "cancelled") {
+    await notifyBookingCancelled({ bookingId: updated.id, cancelledBy: "admin" });
+  }
+
+  return updated;
 }

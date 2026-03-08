@@ -1,5 +1,7 @@
 ﻿import type { PricingTier } from "@/src/lib/domain/types";
 
+import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy";
+
 export const siteConfig = {
   name: "Padel & Squash KZ",
   siteUrl: "https://padelsquash.kz",
@@ -28,6 +30,8 @@ export const navItems = [
   { href: "/coaches", label: "Тренеры" },
   { href: "/contact", label: "Контакты" },
 ] as const;
+
+const cancellationPolicySummary = getCustomerCancellationPolicySummary();
 
 const sharedCourtSpecs = {
   padel: {
@@ -78,7 +82,7 @@ export const pricingNotes = [
   "Все бронирования оформляются на 60 минут.",
   "Аренда корта доступна только для зарегистрированных пользователей.",
   "Тренировка считается как сумма: корт + выбранный тренер.",
-  "Бесплатная отмена доступна не позднее чем за 6 часов до начала занятия.",
+  cancellationPolicySummary,
 ];
 
 export const homePageContent = {
@@ -110,7 +114,7 @@ export const homePageContent = {
     {
       question: "Как отменить бронирование?",
       answer:
-        "Отмена доступна в личном кабинете не позднее чем за 6 часов до начала. После отмены слот снова становится доступен для записи.",
+        `Отмена доступна в личном кабинете. ${cancellationPolicySummary} После отмены слот снова становится доступен для записи.`,
     },
     {
       question: "Что взять с собой на первую игру?",
@@ -133,7 +137,7 @@ export const homePageContent = {
   bookingRules: [
     "Все занятия бронируются на 60 минут и начинаются в начале часа.",
     "Для бронирования нужен аккаунт: это нужно для подтверждений, истории и отмены.",
-    "Бесплатная отмена доступна не позднее чем за 6 часов до начала.",
+    cancellationPolicySummary,
     "Если опаздываете, слот сохраняется за вами, но время окончания не сдвигается.",
     "Для регулярных игр и групповых тренировок удобнее написать администратору заранее.",
   ],
@@ -232,6 +236,6 @@ export const bookPageContent = {
     "Занятия бронируются на 60 минут и стартуют в начале часа.",
     "Для записи нужен аккаунт: так вы сможете быстро повторно бронировать и отменять занятия в личном кабинете.",
     "На тренировке сначала выберите тренера, затем система покажет только подходящее свободное время.",
-    "Бесплатная отмена доступна в личном кабинете не позднее чем за 6 часов до начала.",
+    `Отмена в личном кабинете: ${cancellationPolicySummary}`,
   ],
 } as const;

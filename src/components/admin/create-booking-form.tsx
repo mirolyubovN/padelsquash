@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatMoneyKzt as formatMoneyKztValue } from "@/src/lib/format/money";
+import { resolvePricingTier } from "@/src/lib/pricing/engine";
+
+type PricingTier = "morning" | "day" | "evening_weekend";
+type CourtPriceMatrix = Record<string, Record<PricingTier, number>>;
+type PaymentMode = "auto" | "wallet" | "cash";
 
 interface SportOption {
   id: string;
@@ -19,6 +25,7 @@ interface InstructorOption {
   id: string;
   name: string;
   sportSlugs: string[];
+  sportPrices: Record<string, number>;
 }
 
 interface LocationOption {
@@ -27,25 +34,60 @@ interface LocationOption {
   name: string;
 }
 
+interface CourtOption {
+  id: string;
+  name: string;
+  sportSlug: string;
+  locationSlug: string;
+}
+
 interface SlotOption {
   startTime: string;
   endTime: string;
   availableCourtIds: string[];
 }
 
-interface CreateBookingActionResult {
-  error: string;
+interface SelectedSlotCourt {
+  startTime: string;
+  courtId: string;
   holdId?: string;
+}
+
+interface CreatedBookingSummaryItem {
+  bookingId: string;
+  startTime: string;
+  courtId: string;
+  amountKzt: number;
+}
+
+interface CustomerSearchItem {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  balanceKzt: number;
+}
+
+export interface CreateBookingActionResult {
+  error?: string;
+  warning?: string;
+  holdId?: string;
+  insufficientSlotKey?: string;
   shortfallKzt?: number;
   currentBalanceKzt?: number;
   amountRequiredKzt?: number;
+  successCount?: number;
+  totalCount?: number;
+  createdSessions?: CreatedBookingSummaryItem[];
 }
 
 interface CreateBookingFormProps {
   sports: SportOption[];
   services: ServiceOption[];
   instructors: InstructorOption[];
+  courtPricesByLocation: Record<string, CourtPriceMatrix>;
   locations: LocationOption[];
+  courts: CourtOption[];
   defaultLocationSlug: string;
   initialLocationSlug?: string;
   initialSportSlug?: string;
@@ -56,10 +98,18 @@ interface CreateBookingFormProps {
   initialCustomerName?: string;
   initialCustomerPhone?: string;
   initialCustomerEmail?: string;
-  createAction: (formData: FormData) => Promise<CreateBookingActionResult | void>;
+  initialCustomerBalanceKzt?: number | null;
+  createAction: (formData: FormData) => Promise<CreateBookingActionResult>;
 }
 
-function getTodayDate(): string {
+interface SuccessSummary {
+  successCount: number;
+  totalCount: number;
+  warning?: string;
+  createdSessions: CreatedBookingSummaryItem[];
+}
+
+function getTodayDate() {
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, "0");
@@ -67,31 +117,44 @@ function getTodayDate(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function formatMoneyKzt(amount?: number): string | null {
-  if (!Number.isFinite(amount)) {
-    return null;
-  }
-
-  return `${Number(amount).toLocaleString("ru-KZ")} KZT`;
+function formatMoneyKzt(amount?: number | null) {
+  if (!Number.isFinite(amount)) return "—";
+  return formatMoneyKztValue(Number(amount));
 }
 
-export function CreateBookingForm({
-  sports,
-  services,
-  instructors,
-  locations,
-  defaultLocationSlug,
-  initialLocationSlug,
-  initialSportSlug,
-  initialServiceCode,
-  initialDate,
-  initialStartTime,
-  initialCourtId,
-  initialCustomerName,
-  initialCustomerPhone,
-  initialCustomerEmail,
-  createAction,
-}: CreateBookingFormProps) {
+function slotKey(startTime: string, courtId: string) {
+  return `${startTime}|${courtId}`;
+}
+
+const PREFILL_PLACEHOLDER_COURT_ID = "__prefill__";
+
+export function CreateBookingForm(props: CreateBookingFormProps) {
+  const {
+    sports,
+    services,
+    instructors,
+    courtPricesByLocation,
+    locations,
+    courts,
+    defaultLocationSlug,
+    initialLocationSlug,
+    initialSportSlug,
+    initialServiceCode,
+    initialDate,
+    initialStartTime,
+    initialCourtId,
+    initialCustomerName,
+    initialCustomerPhone,
+    initialCustomerEmail,
+    initialCustomerBalanceKzt,
+    createAction,
+  } = props;
+
+  const initialSelectedCells: SelectedSlotCourt[] =
+    initialStartTime
+      ? [{ startTime: initialStartTime, courtId: initialCourtId ?? PREFILL_PLACEHOLDER_COURT_ID }]
+      : [];
+
   const [locationSlug, setLocationSlug] = useState(initialLocationSlug ?? defaultLocationSlug);
   const [sportSlug, setSportSlug] = useState(initialSportSlug ?? sports[0]?.slug ?? "");
   const [serviceCode, setServiceCode] = useState(initialServiceCode ?? "");
@@ -100,75 +163,106 @@ export function CreateBookingForm({
   const [slots, setSlots] = useState<SlotOption[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<string>(initialStartTime ?? "");
-  const [preferredCourtId, setPreferredCourtId] = useState(initialCourtId ?? "");
+  const [selectedCells, setSelectedCells] = useState<SelectedSlotCourt[]>(initialSelectedCells);
+
   const [customerName, setCustomerName] = useState(initialCustomerName ?? "");
   const [customerPhone, setCustomerPhone] = useState(initialCustomerPhone ?? "");
   const [customerEmail, setCustomerEmail] = useState(initialCustomerEmail ?? "");
-  const [activeHoldId, setActiveHoldId] = useState("");
+  const [customerBalanceKzt, setCustomerBalanceKzt] = useState<number | null>(initialCustomerBalanceKzt ?? null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [customerSearchResults, setCustomerSearchResults] = useState<CustomerSearchItem[]>([]);
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
+  const [customerSearchError, setCustomerSearchError] = useState<string | null>(null);
+  const [customerLookupLoading, setCustomerLookupLoading] = useState(false);
+  const [customerLookupError, setCustomerLookupError] = useState<string | null>(null);
+  const suppressNextCustomerSearchRef = useRef(false);
+
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("auto");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitWarning, setSubmitWarning] = useState<string | null>(null);
   const [shortfallKzt, setShortfallKzt] = useState<number | null>(null);
   const [currentBalanceKzt, setCurrentBalanceKzt] = useState<number | null>(null);
   const [amountRequiredKzt, setAmountRequiredKzt] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const didInitializeSportRef = useRef(false);
+  const [successSummary, setSuccessSummary] = useState<SuccessSummary | null>(null);
 
-  const servicesForSport = useMemo(
-    () => services.filter((service) => service.sportSlug === sportSlug),
-    [services, sportSlug],
-  );
+  const didInitializeSportRef = useRef(false);
+  const didApplyInitialSelectionRef = useRef(false);
+
+  const servicesForSport = useMemo(() => services.filter((service) => service.sportSlug === sportSlug), [services, sportSlug]);
   const resolvedService = servicesForSport.find((service) => service.code === serviceCode) ?? servicesForSport[0] ?? null;
   const needsInstructor = resolvedService?.requiresInstructor ?? false;
-  const instructorsForSport = instructors.filter((instructor) => instructor.sportSlugs.includes(sportSlug));
-  const selectedLocation = locations.find((location) => location.slug === locationSlug) ?? locations[0];
-  const walletTopUpHref = useMemo(() => {
-    const params = new URLSearchParams();
-    if (customerEmail.trim()) {
-      params.set("customerEmail", customerEmail.trim().toLowerCase());
-    }
-    const query = params.toString();
-    return query ? `/admin/wallet?${query}` : "/admin/wallet";
-  }, [customerEmail]);
+  const instructorsForSport = useMemo(
+    () => instructors.filter((instructor) => instructor.sportSlugs.includes(sportSlug)),
+    [instructors, sportSlug],
+  );
+  const selectedTrainer = instructorsForSport.find((instructor) => instructor.id === instructorId) ?? null;
+  const selectedTrainerPrice = selectedTrainer?.sportPrices[sportSlug] ?? 0;
+  const courtNames = useMemo(() => new Map(courts.map((court) => [court.id, court.name])), [courts]);
+  const activeCourtPrices = useMemo(
+    () => courtPricesByLocation[locationSlug] ?? courtPricesByLocation[defaultLocationSlug] ?? {},
+    [courtPricesByLocation, locationSlug, defaultLocationSlug],
+  );
+  const selectedKeys = useMemo(() => new Set(selectedCells.map((cell) => slotKey(cell.startTime, cell.courtId))), [selectedCells]);
+  const hasHeldSelection = selectedCells.some((cell) => Boolean(cell.holdId));
 
-  function clearHoldState() {
-    setActiveHoldId("");
+  const timetableColumns = useMemo(() => {
+    const ids = new Set<string>();
+    for (const slot of slots) for (const id of slot.availableCourtIds) ids.add(id);
+    return Array.from(ids).map((id) => ({ id, label: courtNames.get(id) ?? id }));
+  }, [slots, courtNames]);
+
+  const pricePreview = useMemo(() => {
+    if (!resolvedService || selectedCells.length === 0) return null;
+    const lines = selectedCells
+      .map((cell) => {
+        const slot = slots.find((row) => row.startTime === cell.startTime);
+        if (!slot) return null;
+        const tier = resolvePricingTier(date, slot.startTime);
+        const courtPrice = activeCourtPrices[sportSlug]?.[tier] ?? 0;
+        const total = courtPrice + (needsInstructor ? selectedTrainerPrice : 0);
+        const courtLabel = courtNames.get(cell.courtId) ?? cell.courtId;
+        return {
+          key: `${cell.startTime}:${cell.courtId}`,
+          label: needsInstructor && selectedTrainer
+            ? `${slot.startTime}–${slot.endTime} · ${courtLabel} · ${selectedTrainer.name}`
+            : `${slot.startTime}–${slot.endTime} · ${courtLabel}`,
+          total,
+        };
+      })
+      .filter((line): line is { key: string; label: string; total: number } => Boolean(line));
+    if (lines.length === 0) return null;
+    return { lines, total: lines.reduce((sum, line) => sum + line.total, 0) };
+  }, [resolvedService, selectedCells, slots, date, activeCourtPrices, sportSlug, needsInstructor, selectedTrainerPrice, selectedTrainer, courtNames]);
+
+  const selectedCustomerLocked = Boolean(selectedCustomerId);
+
+  const clearHoldState = useCallback(() => {
     setShortfallKzt(null);
     setCurrentBalanceKzt(null);
     setAmountRequiredKzt(null);
-  }
+  }, []);
+
+  const resetSelection = useCallback(() => {
+    setSelectedCells([]);
+    clearHoldState();
+    setSubmitError(null);
+    setSubmitWarning(null);
+  }, [clearHoldState]);
 
   useEffect(() => {
-    const fallbackService =
-      servicesForSport.find((service) => service.code === initialServiceCode) ?? servicesForSport[0] ?? null;
-    setServiceCode(fallbackService?.code ?? "");
+    const fallback = servicesForSport.find((service) => service.code === initialServiceCode) ?? servicesForSport[0] ?? null;
+    setServiceCode(fallback?.code ?? "");
     setInstructorId("");
     setSlots([]);
-    if (didInitializeSportRef.current) {
-      setSelectedSlot("");
-      setPreferredCourtId("");
-    } else {
-      didInitializeSportRef.current = true;
-    }
-    setSubmitError(null);
-    clearHoldState();
-  }, [sportSlug, servicesForSport, initialServiceCode]);
+    didApplyInitialSelectionRef.current = false;
+    if (didInitializeSportRef.current) resetSelection();
+    else didInitializeSportRef.current = true;
+  }, [sportSlug, servicesForSport, initialServiceCode, resetSelection]);
 
   useEffect(() => {
-    if (!resolvedService) {
-      const first = servicesForSport[0];
-      if (first) {
-        setServiceCode(first.code);
-      }
-    }
-  }, [resolvedService, servicesForSport]);
-
-  useEffect(() => {
-    if (!resolvedService || !date || !selectedLocation) {
-      setSlots([]);
-      return;
-    }
-    if (needsInstructor && !instructorId) {
+    if (!resolvedService || !date || (needsInstructor && !instructorId)) {
       setSlots([]);
       return;
     }
@@ -176,115 +270,265 @@ export function CreateBookingForm({
     let cancelled = false;
     setSlotsLoading(true);
     setSlotsError(null);
-    setSlots([]);
+    const params = new URLSearchParams({ serviceId: resolvedService.code, location: locationSlug, date, durationMin: "60" });
+    if (needsInstructor && instructorId) params.set("instructorId", instructorId);
 
-    const params = new URLSearchParams({
-      serviceId: resolvedService.code,
-      location: locationSlug,
-      date,
-      durationMin: "60",
-    });
-    if (needsInstructor && instructorId) {
-      params.set("instructorId", instructorId);
-    }
-
-    fetch(`/api/availability?${params.toString()}`)
+    fetch(`/api/availability?${params.toString()}`, { cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { slots?: SlotOption[]; error?: string }) => {
-        if (cancelled) {
-          return;
-        }
-        if (data.error) {
-          setSlotsError(data.error);
+      .then((payload: { slots?: SlotOption[]; error?: string }) => {
+        if (cancelled) return;
+        if (payload.error) {
+          setSlotsError(payload.error);
+          setSlots([]);
         } else {
-          setSlots(data.slots ?? []);
+          setSlots(payload.slots ?? []);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setSlotsError("Не удалось загрузить слоты");
+          setSlots([]);
         }
       })
-      .finally(() => {
-        if (!cancelled) {
-          setSlotsLoading(false);
-        }
-      });
+      .finally(() => { if (!cancelled) setSlotsLoading(false); });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [resolvedService, date, locationSlug, instructorId, needsInstructor, selectedLocation]);
+    return () => { cancelled = true; };
+  }, [resolvedService, date, locationSlug, needsInstructor, instructorId]);
 
   useEffect(() => {
-    if (!initialStartTime || selectedSlot || slots.length === 0) {
+    if (slots.length === 0) return;
+    setSelectedCells((prev) =>
+      prev.filter((cell) => {
+        const isInitialPrefillCell =
+          Boolean(initialStartTime) &&
+          cell.startTime === initialStartTime &&
+          cell.courtId === (initialCourtId ?? PREFILL_PLACEHOLDER_COURT_ID);
+        if (isInitialPrefillCell) return true;
+        return slots.some((slot) => slot.startTime === cell.startTime && slot.availableCourtIds.includes(cell.courtId));
+      }),
+    );
+  }, [slots, initialStartTime, initialCourtId]);
+
+  const pinnedSelectedCells = useMemo(
+    () =>
+      selectedCells.filter(
+        (cell) => !slots.some((slot) => slot.startTime === cell.startTime && slot.availableCourtIds.includes(cell.courtId)),
+      ),
+    [selectedCells, slots],
+  );
+
+  useEffect(() => {
+    if (didApplyInitialSelectionRef.current || !initialStartTime || slots.length === 0) return;
+    const slot = slots.find((row) => row.startTime === initialStartTime);
+    if (!slot) {
+      didApplyInitialSelectionRef.current = true;
+      return;
+    }
+    const courtId = initialCourtId && slot.availableCourtIds.includes(initialCourtId) ? initialCourtId : slot.availableCourtIds[0];
+    if (courtId) setSelectedCells((prev) => prev.some((cell) => slotKey(cell.startTime, cell.courtId) === slotKey(initialStartTime, courtId)) ? prev : [...prev, { startTime: initialStartTime, courtId }]);
+    didApplyInitialSelectionRef.current = true;
+  }, [initialStartTime, initialCourtId, slots]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = new URLSearchParams(window.location.search);
+    const queryTime = query.get("time");
+    const queryCourt = query.get("court");
+    if (!queryTime || !/^\d{2}:00$/.test(queryTime)) return;
+    setSelectedCells((prev) => {
+      if (prev.length > 0) return prev;
+      return [{ startTime: queryTime, courtId: queryCourt || PREFILL_PLACEHOLDER_COURT_ID }];
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!initialStartTime) return;
+    setSelectedCells((prev) => {
+      const hasPlaceholder = prev.some(
+        (cell) => cell.startTime === initialStartTime && cell.courtId === PREFILL_PLACEHOLDER_COURT_ID,
+      );
+      if (!hasPlaceholder) return prev;
+      const matchingSlot = slots.find((slot) => slot.startTime === initialStartTime);
+      const fallbackCourtId = matchingSlot?.availableCourtIds[0];
+      if (!fallbackCourtId) return prev;
+      return prev.map((cell) =>
+        cell.startTime === initialStartTime && cell.courtId === PREFILL_PLACEHOLDER_COURT_ID
+          ? { ...cell, courtId: fallbackCourtId }
+          : cell,
+      );
+    });
+  }, [slots, initialStartTime]);
+
+  useEffect(() => {
+    const email = customerEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      setCustomerLookupLoading(false);
+      setCustomerLookupError(null);
+      return;
+    }
+    let cancelled = false;
+    setCustomerLookupLoading(true);
+    fetch(`/api/admin/customers/by-email?email=${encodeURIComponent(email)}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((payload: { found?: boolean; customer?: { name: string; phone: string; balanceKzt: number }; error?: string }) => {
+        if (cancelled) return;
+        if (!payload || payload.error) {
+          setCustomerLookupError("Не удалось проверить баланс клиента.");
+          return;
+        }
+        setCustomerLookupError(null);
+        if (!payload.found || !payload.customer) {
+          setCustomerBalanceKzt(0);
+          return;
+        }
+        setCustomerBalanceKzt(payload.customer.balanceKzt);
+        setCustomerName((prev) => (prev.trim() ? prev : payload.customer!.name));
+        setCustomerPhone((prev) => (prev.trim() ? prev : payload.customer!.phone));
+      })
+      .catch(() => { if (!cancelled) setCustomerLookupError("Не удалось проверить баланс клиента."); })
+      .finally(() => { if (!cancelled) setCustomerLookupLoading(false); });
+    return () => { cancelled = true; };
+  }, [customerEmail]);
+
+  useEffect(() => {
+    if (suppressNextCustomerSearchRef.current) {
+      suppressNextCustomerSearchRef.current = false;
+      setCustomerSearchResults([]);
+      setCustomerSearchLoading(false);
+      setCustomerSearchError(null);
       return;
     }
 
-    const matchingSlot = slots.find((slot) => slot.startTime === initialStartTime);
-    if (!matchingSlot) {
+    const query = customerSearchQuery.trim();
+    const digits = query.replace(/\D/g, "");
+    if (query.length < 2 && digits.length < 4) {
+      setCustomerSearchResults([]);
+      setCustomerSearchError(null);
+      setCustomerSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCustomerSearchLoading(true);
+    fetch(`/api/admin/customers/search?q=${encodeURIComponent(query)}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((payload: { customers?: CustomerSearchItem[]; error?: string }) => {
+        if (cancelled) return;
+        if (!payload || payload.error) {
+          setCustomerSearchError("Не удалось выполнить поиск клиента.");
+          setCustomerSearchResults([]);
+          return;
+        }
+        setCustomerSearchError(null);
+        setCustomerSearchResults(payload.customers ?? []);
+      })
+      .catch(() => { if (!cancelled) setCustomerSearchError("Не удалось выполнить поиск клиента."); })
+      .finally(() => { if (!cancelled) setCustomerSearchLoading(false); });
+    return () => { cancelled = true; };
+  }, [customerSearchQuery]);
+
+  function toggleCell(startTime: string, courtId: string) {
+    const key = slotKey(startTime, courtId);
+    setSelectedCells((prev) => {
+      const idx = prev.findIndex((cell) => slotKey(cell.startTime, cell.courtId) === key);
+      if (idx >= 0) return prev.filter((_, i) => i !== idx);
+      return [...prev, { startTime, courtId }];
+    });
+    setSubmitError(null);
+    setSubmitWarning(null);
+    clearHoldState();
+  }
+
+  function applyCustomer(customer: CustomerSearchItem) {
+    setSelectedCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setCustomerPhone(customer.phone);
+    setCustomerEmail(customer.email);
+    setCustomerBalanceKzt(customer.balanceKzt);
+    suppressNextCustomerSearchRef.current = true;
+    setCustomerSearchResults([]);
+    setCustomerSearchQuery(customer.name);
+    setCustomerSearchError(null);
+  }
+
+  function clearSelectedCustomer() {
+    setSelectedCustomerId(null);
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerEmail("");
+    setCustomerBalanceKzt(null);
+    setCustomerSearchQuery("");
+    setCustomerSearchResults([]);
+    setCustomerSearchError(null);
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!resolvedService || selectedCells.length === 0) return;
+
+    let cellsForSubmit = selectedCells.filter((cell) => cell.courtId !== PREFILL_PLACEHOLDER_COURT_ID);
+
+    if (cellsForSubmit.length === 0 && slots.length > 0) {
+      const fallbackCourtId = slots[0]?.availableCourtIds[0];
+      if (fallbackCourtId) {
+        cellsForSubmit = [{ startTime: slots[0].startTime, courtId: fallbackCourtId }];
+        setSubmitWarning("Выбранный в календаре слот недоступен. Использован ближайший свободный слот.");
+      }
+    }
+
+    if (cellsForSubmit.length === 0) {
+      setSubmitError("Выберите доступный слот и корт.");
       return;
     }
 
-    if (preferredCourtId && !matchingSlot.availableCourtIds.includes(preferredCourtId)) {
-      return;
-    }
-
-    setSelectedSlot(initialStartTime);
-  }, [initialStartTime, preferredCourtId, selectedSlot, slots]);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!resolvedService) {
-      return;
-    }
-    if (!selectedSlot) {
-      setSubmitError("Выберите временной слот");
-      return;
-    }
-
-    const form = e.currentTarget;
-    const formData = new FormData(form);
+    const formData = new FormData(event.currentTarget);
     formData.set("locationSlug", locationSlug);
     formData.set("serviceCode", resolvedService.code);
     formData.set("date", date);
-    formData.set("startTime", selectedSlot);
     formData.set("customerName", customerName);
     formData.set("customerPhone", customerPhone);
     formData.set("customerEmail", customerEmail.trim().toLowerCase());
-    if (activeHoldId) {
-      formData.set("holdId", activeHoldId);
-    }
-    if (needsInstructor) {
-      formData.set("instructorId", instructorId);
-    }
-
-    const slot = slots.find((item) => item.startTime === selectedSlot);
-    if (slot) {
-      const resolvedCourtId =
-        preferredCourtId && slot.availableCourtIds.includes(preferredCourtId)
-          ? preferredCourtId
-          : slot.availableCourtIds[0];
-      if (resolvedCourtId) {
-        formData.set("courtId", resolvedCourtId);
-      }
-    } else if (preferredCourtId) {
-      formData.set("courtId", preferredCourtId);
+    formData.set("paymentMode", paymentMode);
+    if (selectedCustomerId) formData.set("customerId", selectedCustomerId);
+    if (needsInstructor) formData.set("instructorId", instructorId);
+    for (const cell of cellsForSubmit) {
+      const key = slotKey(cell.startTime, cell.courtId);
+      formData.append("slotCourt", key);
+      if (cell.holdId) formData.append("slotHold", `${key}|${cell.holdId}`);
     }
 
     setSubmitting(true);
     setSubmitError(null);
+    setSubmitWarning(null);
     try {
       const result = await createAction(formData);
-      if (result && "error" in result && result.error) {
-        setSubmitError(result.error);
-        setActiveHoldId(result.holdId ?? "");
-        setShortfallKzt(result.shortfallKzt ?? null);
-        setCurrentBalanceKzt(result.currentBalanceKzt ?? null);
-        setAmountRequiredKzt(result.amountRequiredKzt ?? null);
-      } else {
-        setSuccess(true);
+      setSubmitWarning(result.warning ?? null);
+      setShortfallKzt(result.shortfallKzt ?? null);
+      setCurrentBalanceKzt(result.currentBalanceKzt ?? null);
+      setAmountRequiredKzt(result.amountRequiredKzt ?? null);
+      if (result.insufficientSlotKey && result.holdId) {
+        const insufficientSlotKey = result.insufficientSlotKey;
+        const holdId = result.holdId;
+        setSelectedCells((prev) => {
+          const updated = prev.map((cell) =>
+            slotKey(cell.startTime, cell.courtId) === insufficientSlotKey ? { ...cell, holdId } : cell,
+          );
+          if (updated.some((cell) => slotKey(cell.startTime, cell.courtId) === insufficientSlotKey)) {
+            return updated;
+          }
+          const [startTime, courtId] = insufficientSlotKey.split("|");
+          if (!startTime || !courtId) return updated;
+          return [...updated, { startTime, courtId, holdId }];
+        });
       }
+      if (result.successCount && result.successCount > 0) {
+        setSuccessSummary({
+          successCount: result.successCount,
+          totalCount: result.totalCount ?? result.successCount,
+          warning: result.warning,
+          createdSessions: result.createdSessions ?? [],
+        });
+      }
+      if (result.error) setSubmitError(result.error);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Ошибка создания бронирования");
       clearHoldState();
@@ -293,26 +537,22 @@ export function CreateBookingForm({
     }
   }
 
-  if (success) {
+  if (successSummary && !submitError) {
     return (
-      <div className="admin-create-booking__success" role="status">
-        <p className="admin-create-booking__success-title">Бронирование создано</p>
+      <div className="booking-flow" role="status">
+        <p className="booking-flow__success-title">
+          Создано бронирований: {successSummary.successCount} из {successSummary.totalCount}
+        </p>
+        <ul className="admin-create-booking__created-list">
+          {successSummary.createdSessions.slice(0, 10).map((item) => (
+            <li key={item.bookingId} className="admin-create-booking__created-item">
+              {item.startTime} · {courtNames.get(item.courtId) ?? item.courtId} · {formatMoneyKzt(item.amountKzt)}
+            </li>
+          ))}
+        </ul>
         <div className="admin-create-booking__success-actions">
-          <a href="/admin/bookings" className="admin-form__submit">
-            К списку бронирований
-          </a>
-          <button
-            type="button"
-            className="admin-bookings__action-button"
-            onClick={() => {
-              setSuccess(false);
-              setSelectedSlot(initialStartTime ?? "");
-              setSlots([]);
-              setDate(initialDate ?? getTodayDate());
-              setSubmitError(null);
-              clearHoldState();
-            }}
-          >
+          <a href="/admin/bookings" className="admin-form__submit">К списку бронирований</a>
+          <button type="button" className="admin-bookings__action-button" onClick={() => { setSuccessSummary(null); resetSelection(); }}>
             Создать ещё
           </button>
         </div>
@@ -321,232 +561,243 @@ export function CreateBookingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="admin-create-booking__form">
-      {locations.length > 1 ? (
-        <div className="admin-form__group">
-          <label className="admin-form__label" htmlFor="cb-location">Локация</label>
-          <select
-            id="cb-location"
-            className="admin-form__field"
-            value={locationSlug}
-            onChange={(e) => {
-              setLocationSlug(e.target.value);
-              setSubmitError(null);
-              clearHoldState();
-              setPreferredCourtId("");
-              setSelectedSlot("");
-            }}
-          >
-            {locations.map((location) => (
-              <option key={location.id} value={location.slug}>{location.name}</option>
-            ))}
-          </select>
-        </div>
-      ) : null}
+    <form onSubmit={handleSubmit} className="booking-flow admin-create-booking__form">
+      <h1 className="booking-flow__title">Создать бронирование</h1>
 
-      <div className="admin-form__group">
-        <label className="admin-form__label">Вид спорта</label>
-        <div className="admin-create-booking__sport-tabs">
+      <div className="booking-flow__section">
+        <p className="booking-flow__section-label">Шаг 1 — Что бронируем</p>
+        {locations.length > 1 ? (
+          <div className="booking-flow__tabs">
+            {locations.map((location) => (
+              <button key={location.id} type="button" className={`booking-flow__tab${locationSlug === location.slug ? " booking-flow__tab--active" : ""}`} onClick={() => { setLocationSlug(location.slug); resetSelection(); }}>
+                {location.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="booking-flow__tabs">
           {sports.map((sport) => (
-            <button
-              key={sport.slug}
-              type="button"
-              className={`admin-create-booking__sport-tab${sportSlug === sport.slug ? " admin-create-booking__sport-tab--active" : ""}`}
-              onClick={() => setSportSlug(sport.slug)}
-            >
+            <button key={sport.slug} type="button" className={`booking-flow__tab${sportSlug === sport.slug ? " booking-flow__tab--active" : ""}`} onClick={() => setSportSlug(sport.slug)}>
               {sport.name}
             </button>
           ))}
         </div>
-      </div>
 
-      {servicesForSport.length > 1 ? (
-        <div className="admin-form__group">
-          <label className="admin-form__label">Тип услуги</label>
-          <div className="admin-create-booking__sport-tabs">
-            {servicesForSport.map((service) => (
-              <button
-                key={service.code}
-                type="button"
-                className={`admin-create-booking__sport-tab${serviceCode === service.code ? " admin-create-booking__sport-tab--active" : ""}`}
-                onClick={() => {
-                  setServiceCode(service.code);
-                  setInstructorId("");
-                  setSlots([]);
-                  setSelectedSlot("");
-                  setPreferredCourtId("");
-                  setSubmitError(null);
-                  clearHoldState();
-                }}
-              >
-                {service.name}
+        <div className="booking-flow__toggle">
+          {servicesForSport.map((service) => (
+            <button key={service.code} type="button" className={`booking-flow__toggle-btn${serviceCode === service.code ? " booking-flow__toggle-btn--active" : ""}`} onClick={() => { setServiceCode(service.code); setInstructorId(""); resetSelection(); }}>
+              {service.name}
+            </button>
+          ))}
+        </div>
+
+        {needsInstructor ? (
+          <div className="booking-flow__trainer-grid">
+            {instructorsForSport.map((trainer) => (
+              <button key={trainer.id} type="button" className={`booking-flow__trainer-card${instructorId === trainer.id ? " booking-flow__trainer-card--selected" : ""}`} onClick={() => { setInstructorId(trainer.id); resetSelection(); }}>
+                <span className="booking-flow__trainer-avatar">{trainer.name.split(" ").map((part) => part[0]).slice(0, 2).join("")}</span>
+                <span className="booking-flow__trainer-info">
+                  <span className="booking-flow__trainer-name">{trainer.name}</span>
+                  <span className="booking-flow__trainer-price">{formatMoneyKzt(trainer.sportPrices[sportSlug])} / час</span>
+                </span>
               </button>
             ))}
           </div>
-        </div>
-      ) : null}
-
-      {needsInstructor ? (
-        <div className="admin-form__group">
-          <label className="admin-form__label" htmlFor="cb-instructor">Тренер</label>
-          <select
-            id="cb-instructor"
-            className="admin-form__field"
-            value={instructorId}
-            onChange={(e) => {
-              setInstructorId(e.target.value);
-              setSubmitError(null);
-              clearHoldState();
-            }}
-            required
-          >
-            <option value="">— выберите тренера —</option>
-            {instructorsForSport.map((instructor) => (
-              <option key={instructor.id} value={instructor.id}>{instructor.name}</option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
-      <div className="admin-form__group">
-        <label className="admin-form__label" htmlFor="cb-date">Дата</label>
-        <input
-          id="cb-date"
-          type="date"
-          className="admin-form__field"
-          min={getTodayDate()}
-          value={date}
-          onChange={(e) => {
-            setDate(e.target.value);
-            setSubmitError(null);
-            clearHoldState();
-            setSelectedSlot("");
-            setPreferredCourtId(initialCourtId ?? "");
-          }}
-          required
-        />
+        ) : null}
       </div>
 
-      <div className="admin-form__group">
-        <label className="admin-form__label">Время</label>
+      <div className="booking-flow__section">
+        <p className="booking-flow__section-label">Шаг 2 — Дата, время и корт</p>
+        <input id="cb-date" type="date" className="booking-flow__date-input" min={getTodayDate()} value={date} onChange={(e) => { setDate(e.target.value); resetSelection(); }} required />
+        {selectedCells.length > 0 ? <p className="booking-flow__slots-hint">Выбрано позиций: {selectedCells.length}</p> : null}
         {slotsLoading ? (
-          <p className="admin-create-booking__slots-hint">Загрузка слотов...</p>
+          <div className="booking-flow__slots-skeleton">{[1, 2, 3, 4, 5, 6].map((n) => <div key={n} className="booking-flow__slot-skeleton" />)}</div>
         ) : slotsError ? (
           <p className="admin-create-booking__slots-error">{slotsError}</p>
-        ) : slots.length === 0 && selectedSlot && preferredCourtId ? (
-          <div className="admin-create-booking__slots">
-            <button type="button" className="admin-create-booking__slot admin-create-booking__slot--active">
-              {selectedSlot} · выбранный корт
-            </button>
-          </div>
         ) : slots.length === 0 ? (
-          <p className="admin-create-booking__slots-hint">
-            {needsInstructor && !instructorId ? "Сначала выберите тренера" : "Нет доступных слотов на эту дату"}
-          </p>
+          <p className="booking-flow__section-hint">{needsInstructor && !instructorId ? "Сначала выберите тренера" : "Нет доступных слотов на эту дату"}</p>
         ) : (
-          <div className="admin-create-booking__slots">
-            {slots.map((slot) => {
-              const keepsPreferredCourt = preferredCourtId ? slot.availableCourtIds.includes(preferredCourtId) : true;
-              return (
-                <button
-                  key={slot.startTime}
-                  type="button"
-                  className={`admin-create-booking__slot${selectedSlot === slot.startTime ? " admin-create-booking__slot--active" : ""}`}
-                  onClick={() => {
-                    setSelectedSlot(slot.startTime);
-                    setSubmitError(null);
-                    clearHoldState();
-                  }}
-                >
-                  {slot.startTime}
-                  {preferredCourtId && keepsPreferredCourt ? " · выбранный корт" : ""}
-                </button>
-              );
-            })}
-          </div>
+          <>
+            {pinnedSelectedCells.length > 0 ? (
+              <div className="admin-create-booking__slots">
+                {pinnedSelectedCells.map((cell) => (
+                  <div key={slotKey(cell.startTime, cell.courtId)} className="admin-create-booking__slot-row">
+                    <span className="admin-create-booking__slot-time">{cell.startTime}</span>
+                    <button type="button" className="admin-create-booking__slot admin-create-booking__slot--active">
+                      {cell.courtId === PREFILL_PLACEHOLDER_COURT_ID ? "Выберите корт" : courtNames.get(cell.courtId) ?? cell.courtId}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="booking-flow__timetable-wrapper">
+              <table className="booking-flow__timetable">
+                <thead>
+                  <tr>
+                    <th className="booking-flow__timetable-time-header">Время</th>
+                    {timetableColumns.map((column) => <th key={column.id} className="booking-flow__timetable-col-header"><span className="booking-flow__timetable-col-name">{column.label}</span></th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {slots.map((slot) => {
+                    const tier = resolvePricingTier(date, slot.startTime);
+                    const courtPrice = activeCourtPrices[sportSlug]?.[tier] ?? 0;
+                    const amount = courtPrice + (needsInstructor ? selectedTrainerPrice : 0);
+                    return (
+                      <tr key={slot.startTime} className="booking-flow__timetable-row">
+                        <td className="booking-flow__timetable-time-cell">
+                          <span className="booking-flow__timetable-time-label admin-create-booking__slot-time">{slot.startTime}–{slot.endTime}</span>
+                          <span className="booking-flow__timetable-time-price">{formatMoneyKzt(amount)}</span>
+                        </td>
+                        {timetableColumns.map((column) => {
+                          const available = slot.availableCourtIds.includes(column.id);
+                          const active = selectedKeys.has(slotKey(slot.startTime, column.id));
+                          return (
+                            <td key={column.id} className="booking-flow__timetable-cell-wrapper">
+                              <button type="button" disabled={!available} className={`booking-flow__timetable-cell admin-create-booking__slot${active ? " booking-flow__timetable-cell--selected admin-create-booking__slot--active" : available ? " booking-flow__timetable-cell--available" : " booking-flow__timetable-cell--unavailable"}`} onClick={() => { if (available) toggleCell(slot.startTime, column.id); }}>
+                                {active ? "✓" : available ? formatMoneyKzt(amount) : null}
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
-      <fieldset className="admin-create-booking__fieldset">
-        <legend className="admin-form__label">Клиент</legend>
-        <div className="admin-form__group">
-          <label className="admin-form__label" htmlFor="cb-name">Имя</label>
+      <div className="booking-flow__section">
+        <p className="booking-flow__section-label">Шаг 3 — Клиент и подтверждение</p>
+        <div className="admin-create-booking__customer-search">
+          <label className="admin-form__label" htmlFor="cb-customer-query">Найти клиента (имя или телефон)</label>
           <input
-            id="cb-name"
-            name="customerName"
+            id="cb-customer-query"
             className="admin-form__field"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            required
-            placeholder="Иван Иванов"
-          />
-        </div>
-        <div className="admin-form__group">
-          <label className="admin-form__label" htmlFor="cb-phone">Телефон</label>
-          <input
-            id="cb-phone"
-            name="customerPhone"
-            className="admin-form__field"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            required
-            placeholder="+7 700 000 0000"
-          />
-        </div>
-        <div className="admin-form__group">
-          <label className="admin-form__label" htmlFor="cb-email">Email</label>
-          <input
-            id="cb-email"
-            name="customerEmail"
-            type="email"
-            className="admin-form__field"
-            value={customerEmail}
+            value={customerSearchQuery}
             onChange={(e) => {
-              setCustomerEmail(e.target.value);
-              setSubmitError(null);
-              clearHoldState();
+              setCustomerSearchQuery(e.target.value);
             }}
-            required
-            placeholder="ivan@example.com"
+            placeholder="Имя или телефон"
           />
+          {customerSearchLoading ? <p className="booking-flow__slots-hint">Ищем клиента...</p> : null}
+          {customerSearchError ? <p className="admin-create-booking__slots-error">{customerSearchError}</p> : null}
+          {customerSearchResults.length > 0 ? (
+            <div className="admin-create-booking__customer-results">
+              {customerSearchResults.map((customer) => (
+                <button
+                  key={`${customer.id}:${customer.phone}`}
+                  type="button"
+                  className="admin-create-booking__customer-result"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => applyCustomer(customer)}
+                >
+                  <span className="admin-create-booking__customer-result-name">{customer.name}</span>
+                  <span className="admin-create-booking__customer-result-meta">{customer.phone} · {customer.email}</span>
+                  <span className="admin-create-booking__customer-result-balance">{formatMoneyKzt(customer.balanceKzt)}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-      </fieldset>
 
-      <div className="admin-form__group">
-        <label className="admin-form__label">Оплата</label>
-        <div className="admin-create-booking__slots-hint">
-          Все новые бронирования списываются с баланса клиента. Для наличной оплаты сначала начислите сумму в разделе баланса, затем повторите создание брони.
+        <div className="admin-form__panel-grid">
+          <div className="admin-form__group">
+            <label className="admin-form__label" htmlFor="cb-name">Имя</label>
+            <input
+              id="cb-name"
+              name="customerName"
+              className={`admin-form__field${selectedCustomerLocked ? " admin-form__field--locked" : ""}`}
+              value={customerName}
+              readOnly={selectedCustomerLocked}
+              onChange={(e) => {
+                if (!selectedCustomerLocked) {
+                  setCustomerName(e.target.value);
+                }
+              }}
+              required
+            />
+          </div>
+          <div className="admin-form__group">
+            <label className="admin-form__label" htmlFor="cb-phone">Телефон</label>
+            <input
+              id="cb-phone"
+              name="customerPhone"
+              className={`admin-form__field${selectedCustomerLocked ? " admin-form__field--locked" : ""}`}
+              value={customerPhone}
+              readOnly={selectedCustomerLocked}
+              onChange={(e) => {
+                if (!selectedCustomerLocked) {
+                  setCustomerPhone(e.target.value);
+                }
+              }}
+              required
+            />
+          </div>
+          <div className="admin-form__group">
+            <label className="admin-form__label" htmlFor="cb-email">Email</label>
+            <input
+              id="cb-email"
+              name="customerEmail"
+              type="email"
+              className={`admin-form__field${selectedCustomerLocked ? " admin-form__field--locked" : ""}`}
+              value={customerEmail}
+              readOnly={selectedCustomerLocked}
+              onChange={(e) => {
+                if (!selectedCustomerLocked) {
+                  setCustomerEmail(e.target.value);
+                }
+              }}
+              required
+            />
+          </div>
         </div>
-        <div className="admin-form__actions">
-          <a href={walletTopUpHref} target="_blank" rel="noreferrer" className="admin-bookings__action-button">
-            Открыть баланс клиента
-          </a>
-        </div>
-        {activeHoldId ? (
-          <p className="admin-create-booking__slots-hint">
-            Слот удержан за клиентом на время пополнения. После начисления баланса повторите отправку этой формы без смены даты, времени и email.
-          </p>
+
+        {selectedCustomerLocked ? (
+          <div className="admin-form__actions">
+            <p className="booking-flow__section-hint">
+              Данные выбранного клиента можно изменить только в разделе Клиенты.
+            </p>
+            <button type="button" className="admin-bookings__action-button" onClick={clearSelectedCustomer}>
+              Выбрать другого клиента
+            </button>
+          </div>
         ) : null}
+
+        <div className="booking-flow__section-hint">Баланс клиента: {formatMoneyKzt(customerBalanceKzt)}</div>
+        {customerLookupLoading ? <p className="booking-flow__slots-hint">Проверяем баланс клиента...</p> : null}
+        {customerLookupError ? <p className="admin-create-booking__slots-error">{customerLookupError}</p> : null}
+
+        <div className="admin-create-booking__payment-options">
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "auto"} onChange={() => setPaymentMode("auto")} /> <span>Авто: с баланса, если не хватает — наличные</span></label>
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "wallet"} onChange={() => setPaymentMode("wallet")} /> <span>Только баланс клиента</span></label>
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "cash"} onChange={() => setPaymentMode("cash")} /> <span>Наличные в клубе</span></label>
+        </div>
+        {pricePreview ? (
+          <div className="booking-flow__breakdown">
+            {pricePreview.lines.map((line) => <div key={line.key} className="booking-flow__breakdown-row"><span>{line.label}</span><span>{formatMoneyKzt(line.total)}</span></div>)}
+            <div className="booking-flow__breakdown-row booking-flow__breakdown-row--total"><span>Итого</span><span>{formatMoneyKzt(pricePreview.total)}</span></div>
+          </div>
+        ) : null}
+
         {amountRequiredKzt !== null || currentBalanceKzt !== null || shortfallKzt !== null ? (
-          <p className="admin-create-booking__slots-hint">
+          <p className="booking-flow__section-hint">
             {amountRequiredKzt !== null ? `Нужно на бронь: ${formatMoneyKzt(amountRequiredKzt)}. ` : ""}
             {currentBalanceKzt !== null ? `Сейчас на балансе: ${formatMoneyKzt(currentBalanceKzt)}. ` : ""}
             {shortfallKzt !== null ? `Не хватает: ${formatMoneyKzt(shortfallKzt)}.` : ""}
           </p>
         ) : null}
+        {submitWarning ? <p className="booking-flow__warning admin-create-booking__warning" role="status">{submitWarning}</p> : null}
+        {submitError ? <p className="booking-flow__error-inline admin-create-booking__error" role="alert">{submitError}</p> : null}
+        <button type="submit" className="booking-flow__submit" disabled={submitting || selectedCells.length === 0}>
+          {submitting ? "Создание..." : hasHeldSelection && paymentMode === "wallet" ? "Повторить после пополнения" : "Создать бронирования"}
+        </button>
       </div>
-
-      {submitError ? (
-        <p className="admin-create-booking__error" role="alert">{submitError}</p>
-      ) : null}
-
-      <button
-        type="submit"
-        className="admin-form__submit"
-        disabled={submitting || !selectedSlot}
-      >
-        {submitting ? "Создание..." : activeHoldId ? "Повторить после пополнения" : "Создать бронирование"}
-      </button>
     </form>
   );
 }

@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { AdminConfirmActionForm } from "@/src/components/admin/admin-confirm-action-form";
+import { AdminEditModal } from "@/src/components/admin/admin-edit-modal";
 import { assertSuperAdmin } from "@/src/lib/auth/guards";
 import {
   createSportFromForm,
@@ -191,58 +192,8 @@ export default async function AdminSportsPage({
               sports.map((sport) => (
                 <tr key={sport.id} className="admin-table__row">
                   <td className="admin-table__cell">
-                    <form action={updateAction} className="admin-inline-row-form">
-                      <input type="hidden" name="sportId" value={sport.id} />
-                      <input type="hidden" name="rentalServiceId" value={sport.defaultRentalServiceId ?? ""} />
-                      <label className="admin-form__label" htmlFor={`sport-name-${sport.id}`}>Название</label>
-                      <input id={`sport-name-${sport.id}`} name="name" className="admin-form__field" defaultValue={sport.name} required />
-                      <label className="admin-form__label" htmlFor={`sport-slug-${sport.id}`}>Slug</label>
-                      <input id={`sport-slug-${sport.id}`} name="slug" className="admin-form__field" defaultValue={sport.slug} pattern="[a-z0-9-]+" required />
-                      <label className="admin-form__label" htmlFor={`sport-icon-${sport.id}`}>Иконка</label>
-                      <input id={`sport-icon-${sport.id}`} name="icon" className="admin-form__field" defaultValue={sport.icon ?? ""} />
-                      <label className="admin-form__label" htmlFor={`sport-sort-${sport.id}`}>Порядок</label>
-                      <input id={`sport-sort-${sport.id}`} name="sortOrder" type="number" step="1" className="admin-form__field" defaultValue={sport.sortOrder} required />
-                      <label className="admin-form__label" htmlFor={`sport-service-name-${sport.id}`}>Услуга аренды</label>
-                      <input
-                        id={`sport-service-name-${sport.id}`}
-                        name="rentalServiceName"
-                        className="admin-form__field"
-                        defaultValue={sport.defaultRentalServiceName ?? `Аренда корта (${sport.name})`}
-                        required
-                      />
-                      <label className="admin-form__label" htmlFor={`sport-service-code-${sport.id}`}>Код услуги</label>
-                      <input
-                        id={`sport-service-code-${sport.id}`}
-                        name="rentalServiceCode"
-                        className="admin-form__field"
-                        defaultValue={sport.defaultRentalServiceCode ?? `${sport.slug}-rental`}
-                        pattern="[a-z0-9-]+"
-                        required
-                      />
-                      <label className="admin-form__label" htmlFor={`sport-price-morning-${sport.id}`}>Будни/день, KZT</label>
-                      <input
-                        id={`sport-price-morning-${sport.id}`}
-                        name="courtPriceMorningKzt"
-                        type="number"
-                        min="0"
-                        step="1"
-                        className="admin-form__field"
-                        defaultValue={sport.courtBasePriceMorningKzt}
-                        required
-                      />
-                      <label className="admin-form__label" htmlFor={`sport-price-evening-${sport.id}`}>Вечер/выходные, KZT</label>
-                      <input
-                        id={`sport-price-evening-${sport.id}`}
-                        name="courtPriceEveningWeekendKzt"
-                        type="number"
-                        min="0"
-                        step="1"
-                        className="admin-form__field"
-                        defaultValue={sport.courtBasePriceEveningWeekendKzt}
-                        required
-                      />
-                      <button type="submit" className="admin-bookings__action-button">Сохранить конфигурацию</button>
-                    </form>
+                    <div className="admin-bookings__cell-title">{sport.name}</div>
+                    <div className="admin-bookings__cell-sub">{sport.slug} · иконка: {sport.icon ?? "—"}</div>
                   </td>
                   <td className="admin-table__cell">
                     <div>Будни/день: {sport.courtBasePriceMorningKzt.toLocaleString("ru-KZ")} ₸</div>
@@ -260,6 +211,49 @@ export default async function AdminSportsPage({
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
+                      <AdminEditModal triggerLabel="Редактировать" title={`Спорт: ${sport.name}`}>
+                        <form action={updateAction} className="admin-form">
+                          <input type="hidden" name="sportId" value={sport.id} />
+                          <input type="hidden" name="rentalServiceId" value={sport.defaultRentalServiceId ?? ""} />
+                          <div className="admin-form__panel-grid">
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`sport-name-modal-${sport.id}`}>Название</label>
+                              <input id={`sport-name-modal-${sport.id}`} name="name" className="admin-form__field" defaultValue={sport.name} required />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`sport-slug-modal-${sport.id}`}>Slug</label>
+                              <input id={`sport-slug-modal-${sport.id}`} name="slug" className="admin-form__field" defaultValue={sport.slug} pattern="[a-z0-9-]+" required />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`sport-icon-modal-${sport.id}`}>Иконка</label>
+                              <input id={`sport-icon-modal-${sport.id}`} name="icon" className="admin-form__field" defaultValue={sport.icon ?? ""} />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`sport-sort-modal-${sport.id}`}>Порядок</label>
+                              <input id={`sport-sort-modal-${sport.id}`} name="sortOrder" type="number" step="1" className="admin-form__field" defaultValue={sport.sortOrder} required />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`sport-svc-name-modal-${sport.id}`}>Услуга аренды</label>
+                              <input id={`sport-svc-name-modal-${sport.id}`} name="rentalServiceName" className="admin-form__field" defaultValue={sport.defaultRentalServiceName ?? `Аренда корта (${sport.name})`} required />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`sport-svc-code-modal-${sport.id}`}>Код услуги</label>
+                              <input id={`sport-svc-code-modal-${sport.id}`} name="rentalServiceCode" className="admin-form__field" defaultValue={sport.defaultRentalServiceCode ?? `${sport.slug}-rental`} pattern="[a-z0-9-]+" required />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`sport-price-m-modal-${sport.id}`}>Будни/день, KZT</label>
+                              <input id={`sport-price-m-modal-${sport.id}`} name="courtPriceMorningKzt" type="number" min="0" step="1" className="admin-form__field" defaultValue={sport.courtBasePriceMorningKzt} required />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label" htmlFor={`sport-price-e-modal-${sport.id}`}>Вечер/выходные, KZT</label>
+                              <input id={`sport-price-e-modal-${sport.id}`} name="courtPriceEveningWeekendKzt" type="number" min="0" step="1" className="admin-form__field" defaultValue={sport.courtBasePriceEveningWeekendKzt} required />
+                            </div>
+                          </div>
+                          <div className="admin-form__actions">
+                            <button type="submit" className="admin-form__submit">Сохранить конфигурацию</button>
+                          </div>
+                        </form>
+                      </AdminEditModal>
                       <form action={toggleActiveAction} className="admin-bookings__actions">
                         <input type="hidden" name="sportId" value={sport.id} />
                         <input type="hidden" name="nextActive" value={String(!sport.active)} />

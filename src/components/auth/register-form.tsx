@@ -166,6 +166,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
         >
           {isPending ? "Создаем аккаунт..." : "Создать аккаунт"}
         </button>
+        <p className="auth-form__hint">После регистрации нужно подтвердить email и телефон через Telegram-бота.</p>
       </form>
 
       <div className="auth-panel__links">

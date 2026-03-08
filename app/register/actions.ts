@@ -1,14 +1,14 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 import { z } from "zod";
-import { signIn } from "@/auth";
 import {
   createInitialRegisterFormState,
   getSafeRegisterNext,
   type RegisterFormState,
 } from "@/src/lib/auth/register-form-state";
+import { issueEmailVerification, issuePhoneVerificationSession } from "@/src/lib/auth/verification";
 import { prisma } from "@/src/lib/prisma";
 
 const registerSchema = z
@@ -52,7 +52,7 @@ export async function submitRegisterAction(
 
   const values = {
     name: raw.name.trim(),
-    email: raw.email.trim(),
+    email: raw.email.trim().toLowerCase(),
     phone: raw.phone.trim(),
     next: getSafeRegisterNext(raw.next),
   };
@@ -73,56 +73,83 @@ export async function submitRegisterAction(
   }
 
   const safeNext = getSafeRegisterNext(parsed.data.next);
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
 
-  try {
-    const existing = await prisma.user.findUnique({
-      where: { email: parsed.data.email },
+  const existing = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: {
+      id: true,
+      role: true,
+      passwordHash: true,
+    },
+  });
+
+  if (existing && existing.role !== "customer") {
+    return buildErrorState(values, "Этот email занят сотрудником или администратором.");
+  }
+
+  if (existing?.passwordHash.startsWith("$2")) {
+    return buildErrorState(values, "Этот email уже зарегистрирован. Используйте вход.", {
+      email: "Email уже зарегистрирован.",
     });
+  }
 
-    if (existing) {
-      if (existing.role !== "customer") {
-        return buildErrorState(values, "Этот email занят сотрудником или администратором.");
-      }
-
-      const hasCredentialsPassword = existing.passwordHash.startsWith("$2");
-      if (hasCredentialsPassword) {
-        return buildErrorState(values, "Этот email уже зарегистрирован. Используйте вход.", {
-          email: "Email уже зарегистрирован.",
-        });
-      }
-
-      await prisma.user.update({
+  const customerUser = existing
+    ? await prisma.user.update({
         where: { id: existing.id },
         data: {
           name: parsed.data.name,
           phone: parsed.data.phone,
           passwordHash,
+          emailVerifiedAt: null,
+          phoneVerifiedAt: null,
+          telegramChatId: null,
+          telegramUsername: null,
         },
-      });
-    } else {
-      await prisma.user.create({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      })
+    : await prisma.user.create({
         data: {
           name: parsed.data.name,
-          email: parsed.data.email,
+          email: normalizedEmail,
           phone: parsed.data.phone,
           passwordHash,
           role: "customer",
         },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
       });
-    }
 
-    await signIn("credentials", {
-      email: parsed.data.email,
-      password: parsed.data.password,
-      redirectTo: safeNext,
-    });
+  const [emailResult, phoneResult] = await Promise.all([
+    issueEmailVerification({
+      userId: customerUser.id,
+      email: customerUser.email,
+      name: customerUser.name,
+      nextPath: safeNext,
+    }),
+    issuePhoneVerificationSession({ userId: customerUser.id }),
+  ]);
 
-    return createInitialRegisterFormState(safeNext);
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return buildErrorState(values, "Аккаунт создан, но вход не выполнен. Войдите вручную.");
-    }
-    throw error;
+  const params = new URLSearchParams({
+    email: customerUser.email,
+    next: safeNext,
+  });
+  if (!emailResult.sent) {
+    params.set("emailDelivery", "failed");
   }
+  if (!phoneResult.telegramUrl) {
+    params.set("telegramSetup", "missing");
+  }
+
+  redirect(`/register/verify?${params.toString()}`);
+
+  return createInitialRegisterFormState(safeNext);
 }

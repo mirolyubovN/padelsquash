@@ -1,13 +1,17 @@
 import {
   canCustomerCancelBooking,
+  getCustomerCancellationDeadline,
+  getMorningCancellationWindowLabel,
   getSafeCustomerFreeCancellationHours,
 } from "@/src/lib/bookings/policy";
+import { formatMoneyKzt } from "@/src/lib/format/money";
+import { notifyBookingCancelled } from "@/src/lib/notifications/bookings";
 import { prisma } from "@/src/lib/prisma";
 import { isoToVenueTimezoneParts } from "@/src/lib/time/venue-timezone";
 import { creditUserWallet } from "@/src/lib/wallet/service";
 
 const FREE_CANCELLATION_HOURS = getSafeCustomerFreeCancellationHours();
-const CANCELLATION_WINDOW_MS = FREE_CANCELLATION_HOURS * 60 * 60 * 1000;
+const MORNING_WINDOW_LABEL = getMorningCancellationWindowLabel();
 
 export interface AccountBookingRow {
   id: string;
@@ -57,9 +61,14 @@ const PAYMENT_STATUS_LABELS: Record<AccountBookingRow["paymentStatus"], string> 
   refunded: "Возврат",
 };
 
-function formatAmountKzt(amount: number): string {
+function formatAmountKztLegacy(amount: number): string {
+  if (Number.isFinite(amount)) {
+    return formatMoneyKzt(amount);
+  }
   return `${amount.toLocaleString("ru-KZ")} ₸`;
 }
+
+const formatAmountKzt = formatAmountKztLegacy;
 
 function resolveAccountPaymentStatus(row: {
   payment: null | { status: "unpaid" | "paid" | "failed" | "refunded"; provider: string };
@@ -78,7 +87,8 @@ function getCancellationState(args: {
   now?: Date;
 }): Pick<AccountBookingRow, "canCancel" | "cancelBlockedReason" | "cancellationDeadlineText"> {
   const now = args.now ?? new Date();
-  const cancelDeadline = new Date(args.startAt.getTime() - CANCELLATION_WINDOW_MS);
+  const cancellationRule = getCustomerCancellationDeadline(args.startAt, FREE_CANCELLATION_HOURS);
+  const cancelDeadline = cancellationRule.deadlineUtc;
   const deadlineParts = isoToVenueTimezoneParts(cancelDeadline);
 
   if (args.status === "cancelled") {
@@ -91,10 +101,15 @@ function getCancellationState(args: {
     return { canCancel: false, cancelBlockedReason: "Бронирование помечено как no_show." };
   }
 
-  if (!canCustomerCancelBooking(args.startAt, now)) {
+  if (!canCustomerCancelBooking(args.startAt, now, FREE_CANCELLATION_HOURS)) {
+    const blockedReason =
+      cancellationRule.policyKind === "morning_previous_day_midnight"
+        ? `Для слотов ${MORNING_WINDOW_LABEL} отмена доступна только до 00:00 предыдущего дня.`
+        : `Отмена без штрафа доступна не позднее чем за ${FREE_CANCELLATION_HOURS} часов до начала.`;
+
     return {
       canCancel: false,
-      cancelBlockedReason: `Отмена без штрафа доступна не позднее чем за ${FREE_CANCELLATION_HOURS} часов до начала.`,
+      cancelBlockedReason: blockedReason,
       cancellationDeadlineText: `${deadlineParts.date} ${deadlineParts.time}`,
     };
   }
@@ -242,7 +257,7 @@ export async function cancelCustomerBooking(args: { userId: string; bookingId: s
     throw new Error(cancellationState.cancelBlockedReason ?? "Отмена недоступна");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const cancelledBooking = await prisma.$transaction(async (tx) => {
     if (booking.payment?.status === "paid") {
       await tx.payment.update({
         where: { id: booking.payment.id },
@@ -272,5 +287,8 @@ export async function cancelCustomerBooking(args: { userId: string; bookingId: s
       data: { status: "cancelled" },
     });
   });
+
+  await notifyBookingCancelled({ bookingId: cancelledBooking.id, cancelledBy: "customer" });
+  return cancelledBooking;
 }
 

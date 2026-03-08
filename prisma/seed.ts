@@ -222,6 +222,8 @@ async function main() {
         phone: superAdminPhone,
         passwordHash: superAdminPasswordHash,
         role: "super_admin",
+        emailVerifiedAt: new Date(),
+        phoneVerifiedAt: new Date(),
       },
     });
 
@@ -232,6 +234,8 @@ async function main() {
         phone: adminPhone,
         passwordHash: adminPasswordHash,
         role: "admin",
+        emailVerifiedAt: new Date(),
+        phoneVerifiedAt: new Date(),
       },
     });
 
@@ -317,6 +321,8 @@ async function main() {
         passwordHash: trainerPasswordHash,
         role: "trainer",
         instructorId: trainerInstructorId,
+        emailVerifiedAt: new Date(),
+        phoneVerifiedAt: new Date(),
       },
     });
 
@@ -327,6 +333,8 @@ async function main() {
         phone: customerPhone,
         passwordHash: customerPasswordHash,
         role: "customer",
+        emailVerifiedAt: new Date(),
+        phoneVerifiedAt: new Date(),
       },
     });
 

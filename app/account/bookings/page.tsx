@@ -5,7 +5,8 @@ import { AccountCancelBookingForm } from "@/src/components/account/account-cance
 import { AccountTabs } from "@/src/components/account/account-tabs";
 import { cancelCustomerBooking, getAccountBookings } from "@/src/lib/account/bookings";
 import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
-import { getSafeCustomerFreeCancellationHours } from "@/src/lib/bookings/policy";
+import { canAccessAdminPortal } from "@/src/lib/auth/roles";
+import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -22,8 +23,11 @@ export default async function AccountBookingsPage({
 }: {
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
-  const freeCancellationHours = getSafeCustomerFreeCancellationHours();
+  const cancellationPolicySummary = getCustomerCancellationPolicySummary();
   const session = await requireAuthenticatedUser("/account/bookings");
+  if (canAccessAdminPortal(session.user.role)) {
+    redirect("/admin/bookings");
+  }
   const params = await searchParams;
   const bookings = await getAccountBookings(session.user.id, 100);
   const now = new Date();
@@ -33,7 +37,7 @@ export default async function AccountBookingsPage({
 
   const errorMessage =
     params.error === "cancel_not_allowed"
-      ? `Отмена недоступна: правило ${freeCancellationHours} часов или текущий статус брони.`
+      ? `Отмена недоступна: ${cancellationPolicySummary}`
       : params.error === "cancel_failed"
         ? "Не удалось отменить бронирование."
         : null;
@@ -44,6 +48,9 @@ export default async function AccountBookingsPage({
   async function cancelAction(formData: FormData) {
     "use server";
     const actionSession = await requireAuthenticatedUser("/account/bookings");
+    if (canAccessAdminPortal(actionSession.user.role)) {
+      redirect("/admin/bookings");
+    }
     const bookingId = String(formData.get("bookingId") ?? "");
 
     if (!bookingId) {
@@ -58,7 +65,13 @@ export default async function AccountBookingsPage({
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (message.includes("час") || message.includes("нельзя") || message.includes("already")) {
+      if (
+        message.includes("час") ||
+        message.includes("нельзя") ||
+        message.includes("доступна") ||
+        message.includes("предыдущего дня") ||
+        message.includes("already")
+      ) {
         errorCode = "cancel_not_allowed";
       } else {
         errorCode = "cancel_failed";
@@ -80,7 +93,7 @@ export default async function AccountBookingsPage({
       <PageHero
         eyebrow="Личный кабинет"
         title="История бронирований"
-        description={`История ваших бронирований и статусов. Бесплатная отмена доступна не позднее чем за ${freeCancellationHours} часов до начала и только для активных статусов.`}
+        description={`История ваших бронирований и статусов. ${cancellationPolicySummary} Отмена доступна только для активных статусов.`}
       />
 
       <AccountTabs active="bookings" />

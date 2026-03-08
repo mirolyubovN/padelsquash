@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageHero } from "@/src/components/page-hero";
 import { AccountTabs } from "@/src/components/account/account-tabs";
 import { topUpWalletAction, updateAccountProfileAction } from "@/app/account/actions";
 import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
 import { getAccountDashboardData } from "@/src/lib/account/bookings";
-import { getSafeCustomerFreeCancellationHours } from "@/src/lib/bookings/policy";
+import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
-import { getRoleLabel } from "@/src/lib/auth/roles";
+import { canAccessAdminPortal, getRoleLabel } from "@/src/lib/auth/roles";
+import { formatMoneyKzt } from "@/src/lib/format/money";
 import { getAccountWalletPageData } from "@/src/lib/wallet/queries";
 
 export const metadata = buildPageMetadata({
@@ -17,10 +19,6 @@ export const metadata = buildPageMetadata({
 });
 
 export const dynamic = "force-dynamic";
-
-function formatMoneyKzt(amount: number): string {
-  return `${amount.toLocaleString("ru-KZ")} ?`;
-}
 
 function getWalletTypeLabel(type: string): string {
   if (type === "topup") return "Пополнение";
@@ -37,8 +35,11 @@ export default async function AccountPage({
 }: {
   searchParams: Promise<{ success?: string; error?: string; next?: string }>;
 }) {
-  const freeCancellationHours = getSafeCustomerFreeCancellationHours();
+  const cancellationPolicySummary = getCustomerCancellationPolicySummary();
   const session = await requireAuthenticatedUser("/account");
+  if (canAccessAdminPortal(session.user.role)) {
+    redirect("/admin");
+  }
   const params = await searchParams;
   const [data, wallet] = await Promise.all([
     getAccountDashboardData(session.user.id),
@@ -64,7 +65,7 @@ export default async function AccountPage({
       <PageHero
         eyebrow="Личный кабинет"
         title="Профиль клиента"
-        description={`Профиль пользователя, баланс и сводка по бронированиям. Бесплатная отмена доступна не позднее чем за ${freeCancellationHours} часов до начала.`}
+        description={`Профиль пользователя, баланс и сводка по бронированиям. ${cancellationPolicySummary}`}
       />
 
       <AccountTabs active="profile" />
@@ -226,7 +227,7 @@ export default async function AccountPage({
             </div>
           </div>
           <p className="account-card__text">
-            История ваших бронирований, статусы и возможность отмены по правилу {freeCancellationHours} часов.
+            История ваших бронирований, статусы и правила отмены. {cancellationPolicySummary}
           </p>
           <Link href="/account/bookings" className="account-card__link">
             Открыть историю

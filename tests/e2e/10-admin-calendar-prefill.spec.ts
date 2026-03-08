@@ -19,5 +19,6 @@ test("calendar free slot opens create booking with prefilled date and time", asy
   await freeLink.click();
   await page.waitForURL(/\/admin\/bookings\/create\?/);
   await expect(page.locator("#cb-date")).toHaveValue(date);
-  await expect(page.locator(".admin-create-booking__slot--active")).toContainText(selectedTime ?? "");
+  await expect(page.locator(".admin-create-booking__slot-time").filter({ hasText: selectedTime ?? "" }).first()).toBeVisible();
+  await expect(page.locator(".admin-create-booking__slot--active").first()).toBeVisible();
 });

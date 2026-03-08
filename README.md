@@ -1,23 +1,25 @@
 # Padel & Squash KZ
 
-Kazakhstan-focused padel/squash center platform. Full-stack web app with public booking, customer accounts, a role-separated admin panel, and a trainer self-service portal.
+Kazakhstan-focused padel/squash club platform. Full-stack web app with public booking, customer wallet balances, account self-service, a role-separated admin panel, and a trainer portal.
 
-- **Language:** Russian UI, `KZT` currency, `Asia/Almaty` timezone
-- **Location:** Almaty, Kazakhstan
+- Language: Russian UI
+- Currency: `KZT`
+- Venue timezone: `Asia/Almaty`
+- Primary location: Almaty, Kazakhstan
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Framework | Next.js 16 (App Router) + React 19 + TypeScript |
 | Database | PostgreSQL 16 (Docker) via Prisma ORM 6 |
 | Auth | Auth.js / NextAuth 5 (Credentials) |
 | Validation | Zod |
-| CSS | Tailwind CSS v4 — `@apply` only, BEM class names in JSX |
+| Styling | Tailwind CSS v4 with BEM-style JSX classes |
 | Testing | Vitest (unit + integration) + Playwright (e2e) |
-| Fonts | Oswald (display/headings, Cyrillic) + Manrope (body) |
+| Fonts | Oswald (display/headings) + Manrope (body) |
 
 ---
 
@@ -35,39 +37,41 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Update `DATABASE_URL` to point at the Docker container (see below).
-
-### 3. Start PostgreSQL (Docker)
+### 3. Start PostgreSQL
 
 ```bash
 docker compose up -d postgres
-docker compose ps   # wait for "healthy"
+docker compose ps
 ```
 
-Container: `padelsquash-postgres` · Port: `55432` (host) → `5432` (container)
+Wait until the container is healthy.
 
-### 4. Apply migrations + generate client
+- Container: `padelsquash-postgres`
+- Host port: `55432`
+- Container port: `5432`
+
+### 4. Apply migrations and generate Prisma client
 
 ```bash
 npx prisma migrate deploy
 npx prisma generate
 ```
 
-> **Windows note:** `prisma generate` fails with `EPERM` if `next dev` is running and locking the Prisma engine DLL. Stop the dev server first, generate, then restart.
+Windows note: stop `next dev` before `prisma generate` if Prisma DLL files are locked.
 
-### 5. Seed dev data
+### 5. Seed local data
 
 ```bash
 npm run db:seed
 ```
 
-### 6. Start the app
+### 6. Run the app
 
 ```bash
 npm run dev
 ```
 
-App runs at `http://localhost:3000`.
+App URL: `http://localhost:3000`
 
 ---
 
@@ -76,284 +80,293 @@ App runs at `http://localhost:3000`.
 See `.env.example` for the full list.
 
 | Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | — | Postgres connection string |
-| `NEXTAUTH_SECRET` | — | Auth.js session signing key |
+| --- | --- | --- |
+| `DATABASE_URL` | - | PostgreSQL connection string |
+| `NEXTAUTH_SECRET` | - | Auth.js session signing key |
 | `NEXTAUTH_URL` | `http://localhost:3000` | Auth redirect base URL |
 | `APP_TIMEZONE` | `Asia/Almaty` | Venue timezone |
-| `PAYMENTS_ENABLED` | `false` | `false` = all bookings auto-confirm; `true` = placeholder payment flow |
 | `CUSTOMER_FREE_CANCELLATION_HOURS` | `6` | Free cancellation cutoff in hours |
+| `CUSTOMER_MORNING_CANCELLATION_START_HOUR` | `8` | Morning-slot cancellation rule start hour (inclusive, venue time) |
+| `CUSTOMER_MORNING_CANCELLATION_END_HOUR` | `12` | Morning-slot cancellation rule end hour (inclusive, venue time) |
+| `EMAIL_VERIFICATION_TTL_HOURS` | `24` | Email confirmation link lifetime |
+| `PHONE_VERIFICATION_TTL_HOURS` | `24` | Telegram phone-confirmation session lifetime |
+| `SMTP_HOST` | - | SMTP server host for email confirmations/notifications |
+| `SMTP_PORT` | `587` | SMTP server port |
+| `SMTP_SECURE` | `false` | Use SMTPS (`true` usually with port `465`) |
+| `SMTP_USER` | - | SMTP auth user |
+| `SMTP_PASS` | - | SMTP auth password |
+| `SMTP_FROM` | - | Sender address for transactional emails |
+| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token for phone confirmation + notifications |
+| `TELEGRAM_BOT_USERNAME` | - | Telegram bot username (without `@`) for deep-links |
+| `TELEGRAM_WEBHOOK_SECRET` | - | Secret token validated on `/api/telegram/webhook` |
 | `ALLOW_DEMO_FALLBACK` | `false` | Fall back to demo data if DB is unavailable |
-| `SEED_ADMIN_EMAIL` | `admin@example.com` | Seeded super-admin email |
-| `SEED_ADMIN_PASSWORD` | `Admin123!` | Seeded super-admin password |
-| `PAYMENTS_PLACEHOLDER_ADMIN_TOKEN` | — | Token for placeholder payment mark-paid endpoint |
+| `SEED_SUPER_ADMIN_EMAIL` | `admin@example.com` | Seeded super-admin email |
+| `SEED_SUPER_ADMIN_PASSWORD` | `Admin123!` | Seeded super-admin password |
+| `SEED_ADMIN_EMAIL` | `manager@example.com` | Seeded operational admin email |
+| `SEED_ADMIN_PASSWORD` | `Manager123!` | Seeded operational admin password |
+| `SEED_TRAINER_EMAIL` | `trainer@example.com` | Seeded trainer email |
+| `SEED_TRAINER_PASSWORD` | `Trainer123!` | Seeded trainer password |
+| `SEED_CUSTOMER_EMAIL` | `customer@example.com` | Seeded customer email |
+| `SEED_CUSTOMER_PASSWORD` | `Customer123!` | Seeded customer password |
+
+Legacy note: placeholder payment env vars still exist in the repo for old stubs, but the active booking flow is wallet-first.
+
+---
+
+## Verification Setup (Local)
+
+For full registration verification flow locally, configure both email and Telegram:
+
+1. SMTP:
+- Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`.
+- If SMTP is missing, registration still works, but confirmation emails are not delivered automatically.
+
+2. Telegram bot:
+- Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME`.
+- Optional but recommended: set `TELEGRAM_WEBHOOK_SECRET`.
+- Expose your local app URL publicly (for example via tunnel) and set webhook:
+
+```bash
+curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d "{\"url\":\"https://<public-host>/api/telegram/webhook\",\"secret_token\":\"<TELEGRAM_WEBHOOK_SECRET>\"}"
+```
+
+Without webhook, phone confirmation via Telegram will not complete.
 
 ---
 
 ## User Roles
 
 | Role | Access |
-|---|---|
-| `customer` | Self-register, book courts/training, manage own bookings |
-| `trainer` | Self-service timetable at `/trainer/schedule` (own schedule + exceptions only) |
-| `admin` | Full admin panel except pricing/sports editing and revenue fields |
-| `super_admin` | Unrestricted: pricing, sports, revenue, all admin functions |
+| --- | --- |
+| `customer` | Register/login, top up balance, book courts/training, manage own bookings |
+| `trainer` | Manage own schedule and availability at `/trainer/schedule` |
+| `admin` | Operational admin panel, customer creation, manual balance adjustments, manual bookings |
+| `super_admin` | Full admin access, including sports/pricing/wallet bonus configuration |
 
 ---
 
-## Test Credentials (after `npm run db:seed`)
+## Test Credentials
 
-| Role | Email | Password | Login URL |
-|---|---|---|---|
-| `super_admin` | `admin@example.com` | `Admin123!` | `/login?next=%2Fadmin` |
-| `admin` | `admin+ops@example.com` | `Admin123!` | `/login?next=%2Fadmin` |
-| `trainer` | `trainer@example.com` | `Trainer123!` | `/login?next=%2Ftrainer%2Fschedule` |
-| `customer` | `customer@example.com` | `Customer123!` | `/login?next=%2Faccount` |
+See [docs/test-credentials.md](docs/test-credentials.md).
+
+Default seeded accounts:
+
+| Role | Login URL | Email | Password |
+| --- | --- | --- | --- |
+| `super_admin` | `/login?next=%2Fadmin` | `admin@example.com` | `Admin123!` |
+| `admin` | `/login?next=%2Fadmin` | `manager@example.com` | `Manager123!` |
+| `trainer` | `/login?next=%2Ftrainer%2Fschedule` | `trainer@example.com` | `Trainer123!` |
+| `customer` | `/login?next=%2Faccount` | `customer@example.com` | `Customer123!` |
 
 ---
 
-## Features
+## Core Product Flows
+
+### Booking
+
+`/book` is a multi-step booking flow with URL-state persistence.
+
+1. Select sport.
+2. Select service type: court rental or training.
+3. Select date.
+4. Select one or more time slots.
+5. Select courts for rental bookings or trainer for training bookings.
+6. Review the price breakdown.
+7. Confirm booking using wallet balance.
+
+Important behavior:
+
+- Guest users who hit auth mid-flow return with their selection restored.
+- If wallet balance is insufficient, the app creates a short-lived booking hold, sends the user to top up, and returns them to the same booking state.
+- Multi-slot top-up/resume preserves the full selected series, not just one slot.
+- Availability excludes the current customer's active hold when resuming, which protects against the top-up race condition.
+
+### Wallet and Balance
+
+Customer self-service bookings (`/book`) are paid from internal wallet balance.
+
+- Customers can top up from `/account`.
+- Admins can manually credit/debit balance from `/admin/wallet` for in-club/cash adjustments.
+- Admin-created manual bookings can be completed as wallet or cash/manual (based on selected payment mode).
+- Super-admins can configure the wallet top-up bonus threshold and percent.
+- Default bonus rule: `10%` bonus for top-ups from `50000 KZT`.
+- Wallet-paid customer cancellations refund back to wallet when cancellation is still allowed.
+- `no_show` means no refund.
+
+### Registration Verification
+
+- Customer registration requires **two confirmations** before login:
+  - email confirmation via one-time link
+  - phone confirmation via Telegram bot contact sharing
+- Registration flow now redirects to `/register/verify`.
+- Email verification endpoint: `/verify/email`.
+- Telegram webhook endpoint: `/api/telegram/webhook`.
+- Login for customer role is blocked until both confirmations are completed.
+
+### Admin-Created Customers
+
+Admins can create customer accounts from `/admin/wallet` using first name, last name, phone, and email.
+
+- The wallet page exposes an activation/setup link.
+- The customer finishes account setup at `/activate-account`.
+- After password setup, the activation link becomes invalid automatically.
+- "Управлять клиентом" opens a popup modal in `/admin/wallet` (instead of a long inline section).
+- "Пополнить баланс" and "Ссылка доступа" from customer rows in `/admin/wallet` also open popup modals (no scroll-jump anchors).
+- Admins and super-admins can edit customer email/phone directly from that modal.
+- Admins and super-admins can force-reset a customer password from `/admin/wallet`; this invalidates the old password and issues a new activation link.
+- Each customer row in `/admin/wallet` includes a direct link to `/admin/clients/[customerId]`.
+- Clicking a customer name/email in `/admin/bookings` also opens `/admin/clients/[customerId]`.
+- `/admin/clients/[customerId]` shows customer balance, full booking history, and recent wallet operations.
+
+### Admin Booking Operations
+
+- `/admin/calendar` blocks past-time booking creation.
+- Clicking a future free slot deep-links into `/admin/bookings/create` with prefilled date, time, and court.
+- `/admin/bookings` supports exact customer filtering via `customerEmail` query param (used by wallet deep-links).
+- Admin booking create mirrors the customer flow: sport -> service -> trainer (if needed) -> date/time -> court matrix.
+- Admin booking create now uses the same timetable UX pattern as `/book`, including visible per-slot prices and total breakdown before submit.
+- Admins can select multiple time+court cells in one submit (multi-slot and multi-court batch booking).
+- Admin can find and attach existing customers directly in create-booking by `name or phone` (with one-click autofill of profile and balance).
+- Admin booking payment mode supports:
+  - `auto` (default): wallet if enough balance, otherwise cash/manual
+  - `wallet`: wallet-only (insufficient balance returns hold/top-up flow)
+  - `cash`: manual cash payment without wallet debit
+- Client balance is shown inline on admin booking create and updates by customer email lookup.
+- New booking/cancellation notifications are dispatched to admins.
+- Training session create/cancel notifications are dispatched to the assigned trainer.
+
+---
+
+## Key Routes
 
 ### Public
 
 | Route | Description |
-|---|---|
-| `/` | Homepage: hero, pricing overview, FAQ, social links |
-| `/book` | Interactive booking form (see below) |
-| `/coaches` | Trainer listing with photo, bio, sport tags, per-sport pricing |
-| `/prices` | Pricing page |
+| --- | --- |
+| `/` | Homepage |
+| `/book` | Booking flow |
+| `/prices` | Public pricing |
+| `/coaches` | Trainer listing |
 | `/courts` | Courts listing |
-| `/contact` | Contact information |
-| `/legal/terms` | Terms of service |
-| `/legal/privacy` | Privacy policy |
-
-### Booking Form (`/book`)
-
-Progressive multi-step form with URL state persistence:
-
-1. **Sport** — tab selector (dynamic from DB)
-2. **Service type** — `Аренда корта` (court rental) or `Тренировка с тренером` (training)
-3. **Date** — date picker; auto-advances up to 14 days to find the nearest available date
-4. **Time slots** — multi-select; shows price per slot; slots filtered by sport + service + date
-5. **Court picker** *(court rental only)* — appears after slot selection; shows courts available across **all** selected slots (intersection); supports multi-court selection
-6. **Trainer selector** *(training only)* — shows trainers available for the sport with per-sport price
-7. **Confirm** — price breakdown (courtPrice × numCourts × numSlots), login/register gate for guests
-
-**Multi-court booking:** selecting N courts × M slots creates N×M individual bookings in one submit.
+| `/contact` | Contact page |
+| `/register` | Customer registration |
+| `/register/verify` | Registration verification status + resend actions |
+| `/login` | Login |
+| `/activate-account` | Password setup for admin-created customers |
+| `/verify/email` | Email confirmation landing page |
 
 ### Customer Account
 
 | Route | Description |
-|---|---|
-| `/account` | Profile summary |
-| `/account/bookings` | Booking history + free cancellation action |
-| `/register` | New account registration |
-| `/login` | Login |
-| `/forgot-password` | Password reset |
+| --- | --- |
+| `/account` | Profile, wallet balance, top-up, recent wallet activity |
+| `/account/bookings` | Booking history and cancellations |
 
-### Trainer Portal
+### Trainer
 
 | Route | Description |
-|---|---|
+| --- | --- |
 | `/trainer` | Trainer dashboard |
-| `/trainer/schedule` | Own availability slots + schedule exceptions (scoped to logged-in trainer only) |
+| `/trainer/schedule` | Own availability and exceptions |
 
-### Admin Panel
+### Admin
 
 | Route | Description |
-|---|---|
-| `/admin` | Dashboard: stats, recent bookings |
-| `/admin/bookings` | All bookings: filter, search, pagination, status updates (confirm/cancel/complete/no-show) |
+| --- | --- |
+| `/admin` | Dashboard |
+| `/admin/bookings` | Booking list and status updates |
+| `/admin/clients/[customerId]` | Customer profile with balance, bookings, and wallet history |
 | `/admin/bookings/create` | Manual booking creation |
-| `/admin/calendar` | Calendar view of bookings |
-| `/admin/courts` | Court CRUD: name, sport, active toggle, delete (history-protected) |
-| `/admin/courts/[id]/exceptions` | Per-court schedule exceptions |
-| `/admin/instructors` | Trainer CRUD: name, per-sport prices, bio, photo URL, sport assignments |
-| `/admin/instructors/[id]/schedule` | Trainer weekly schedule intervals (sport-scoped) + exceptions |
-| `/admin/services` | Service type CRUD (court rental / training per sport) |
-| `/admin/sports` | Sport CRUD: slug, name, icon, sort order |
-| `/admin/opening-hours` | Venue opening hours by day of week |
-| `/admin/pricing/base` | Component pricing matrix (court/instructor price by sport × period) |
-| `/admin/pricing/rules` | Advanced pricing rules |
-| `/admin/exceptions` | Global schedule exceptions (venue / court / instructor) |
+| `/admin/calendar` | Day calendar of court bookings |
+| `/admin/wallet` | Customer search/create, balance adjustments, bonus settings |
+| `/admin/sports` | Centralized sport setup |
+| `/admin/courts` | Court management |
+| `/admin/instructors` | Trainer management |
+| `/admin/opening-hours` | Opening hours |
+| `/admin/exceptions` | Schedule exceptions |
+
+### Integrations / Webhooks
+
+| Route | Description |
+| --- | --- |
+| `/api/telegram/webhook` | Telegram bot webhook (phone confirmation flow) |
 
 ---
 
 ## Booking Rules
 
-- **Session length:** fixed 60 minutes
-- **Start times:** whole-hour only (`09:00`, `10:00`, …)
-- **Authentication:** required for all booking types
-- **Court rental pricing:** `courtPrice[sport][period] × numCourts`
-- **Training pricing:** `courtPrice[sport][period] + trainerPrice[sport]`
-- **Periods:** `morning`, `day`, `evening_weekend` (resolved from booking time)
-- **Cancellation:** free up to `CUSTOMER_FREE_CANCELLATION_HOURS` hours before start (default 6h)
-- **Concurrency:** `SERIALIZABLE` isolation + PostgreSQL advisory locks prevent double-booking
+- Session length: fixed 60 minutes
+- Start times: whole-hour only
+- Authentication: required to confirm bookings
+- Customer self-service booking payment: wallet balance only (`/book`); admin manual bookings can be wallet or cash/manual.
+- Cancellation:
+  - Morning slots (`08:00-12:00`) can be cancelled only until `00:00` of the previous day.
+  - Other slots follow `CUSTOMER_FREE_CANCELLATION_HOURS` before start.
+- Concurrency: transactional booking persistence plus hold-based resume flow prevent double-booking
 
 ---
 
-## Database Schema (key models)
+## Database Highlights
 
-| Model | Key Fields |
-|---|---|
-| `User` | id, name, email, phone, passwordHash, role, instructorId? |
-| `Location` | id, slug, name, address, timezone, active |
-| `Sport` | id, slug, name, icon?, active, sortOrder |
-| `Court` | id, name, sportId, locationId, active |
-| `Instructor` | id, name, bio?, **photoUrl?**, active |
-| `InstructorSport` | instructorId + sportId → **pricePerHour** (unique per pair) |
-| `InstructorLocation` | instructorId + locationId → active |
-| `Service` | id, code, name, sportId, locationId?, requiresCourt, requiresInstructor |
-| `ResourceSchedule` | resourceType, resourceId, dayOfWeek, startTime, endTime, **sportId?** |
-| `ScheduleException` | resourceType, resourceId?, date, startTime, endTime, type |
-| `OpeningHour` | locationId + dayOfWeek → openTime/closeTime (unique) |
-| `ComponentPrice` | locationId + sportId + componentType + period + currency → amount (unique) |
-| `Booking` | customerId, serviceId, locationId, startAt, endAt, status, priceTotal |
-| `BookingResource` | bookingId, resourceType (court/instructor), resourceId |
-| `Payment` | bookingId, provider, status, amount |
+Key models:
 
-### Sport-scoped trainer schedules
-
-`ResourceSchedule.sportId` is optional:
-- `null` — interval applies to all sports the trainer teaches
-- set — interval applies to that sport only
-
-The availability engine filters: `WHERE sportId = service.sportId OR sportId IS NULL`
-
-This lets a trainer be available Mon–Wed for padel and Thu–Sat for squash independently.
+| Model | Purpose |
+| --- | --- |
+| `User` | Auth identity, role, wallet balance |
+| `WalletTransaction` | Immutable wallet ledger |
+| `WalletBonusConfig` | Configurable top-up bonus rule |
+| `BookingHold` | Short-lived slot holds during top-up/resume |
+| `Sport` | Dynamic sports catalog |
+| `Court` | Courts by sport/location |
+| `Instructor` / `InstructorSport` | Trainers and sport-specific rates |
+| `Service` | Rental/training service definitions |
+| `ComponentPrice` | Base court/instructor pricing matrix |
+| `Booking` / `BookingResource` | Confirmed bookings and linked resources |
+| `Payment` | Booking payment records (`wallet` provider for active flow) |
 
 ---
 
 ## Project Structure
 
-```
-app/                        Next.js App Router pages + API routes
-  (root pages)/             /, /book, /coaches, /prices, /courts, /contact
-  account/                  /account, /account/bookings
-  admin/                    full admin panel
-  trainer/                  trainer self-service portal
-  api/availability/         GET  /api/availability
-  api/bookings/             POST /api/bookings
-  api/payments/             POST /api/payments/placeholder/mark-paid
+```text
+app/
+  account/                  Customer account and wallet pages
+  admin/                    Admin panel
+  trainer/                  Trainer portal
+  activate-account/         Admin-created customer activation flow
+  api/availability/         Availability API
+  api/bookings/             Booking create API
+  api/bookings/holds/       Hold creation API for top-up resume
 
 src/
   components/
-    booking/                live-booking-form.tsx (client component)
-    admin/                  AdminPageShell, AdminNav, etc.
-    site-header.tsx
-    site-footer.tsx
+    admin/                  Admin UI
+    booking/                Booking form UI
   lib/
-    admin/resources.ts      all admin CRUD + validation
-    availability/
-      db.ts                 fetches DB context for availability engine
-      engine.ts             slot generation + overlap checks
-    bookings/
-      persistence.ts        booking creation (overlap check + pricing + payment)
-      concurrency.ts        advisory lock helpers
-      policy.ts             cancellation cutoff
-    account/bookings.ts     customer booking history + cancellation
-    auth/
-      guards.ts             assertAdmin / assertSuperAdmin helpers
-      roles.ts              canManagePricing / canViewRevenue helpers
-    content/site-data.ts    all public-site copy (single source of truth)
-    domain/types.ts         shared domain type interfaces
-    locations/service.ts    location resolution
-    pricing/engine.ts       period resolution + price calculation
-    settings/service.ts     opening hours + pricing settings
-    time/venue-timezone.ts  timezone-aware date helpers
+    account/                Customer booking/account logic
+    admin/                  Admin CRUD and validation services
+    auth/                   Auth helpers and activation-link logic
+    availability/           Availability DB + engine
+    bookings/               Booking persistence, holds, URL state
+    content/                Public site copy
+    settings/               Opening hours and pricing settings
+    wallet/                 Wallet queries and balance services
 
 prisma/
-  schema.prisma             DB schema
-  migrations/               all committed SQL migrations
-  seed.ts                   dev/test seed data
+  schema.prisma             Database schema
+  migrations/               Committed migrations
+  seed.ts                   Local/dev seed data
 
 docs/
-  devops-postgres.md        Docker + Postgres local runbook
-  test-credentials.md       seeded test accounts
-  next-session-prompt.md    context handoff for new sessions
-  production-readiness-checklist.md
-
-tests/
-  unit/                     Vitest unit tests
-  integration/              Vitest integration tests (real DB)
-  e2e/                      Playwright e2e tests
-
-types/                      local type augmentations (next-auth.d.ts)
-docker-compose.yml          local Postgres container
-auth.ts                     Auth.js / NextAuth config
+  devops-postgres.md        Local Postgres runbook
+  test-credentials.md       Seeded test accounts
 ```
 
 ---
 
-## Automated Tests
-
-```bash
-npm run test:unit          # Vitest unit tests
-npm run test:integration   # Vitest + real DB (reseeds first)
-npm run test:e2e           # Playwright (reseeds first)
-```
-
-Run lint and e2e **separately** (they race on `test-results/`):
-
-```bash
-npm run lint
-npm run test:e2e
-```
-
-One-time Playwright browser install:
-
-```bash
-npx playwright install chromium
-```
-
-**Important:** Keep `NEXTAUTH_URL` and Playwright `baseURL` both on `localhost` (not `127.0.0.1`) to avoid session cookie failures in e2e tests.
-
-### Test coverage
-
-- **Unit:** availability engine, pricing engine, booking validation, cancellation policy
-- **Integration:** availability API (DB-backed), booking persistence + overlap prevention, concurrent booking conflict
-- **E2E:** customer registration → court booking → slot disappears → cancellation; training booking with trainer pricing; admin booking status updates; admin resource CRUD flows
-
----
-
-## Database Operations
-
-```bash
-# Apply all pending migrations
-npx prisma migrate deploy
-
-# Create a new migration from schema changes
-npx prisma migrate dev --name <descriptive_name>
-
-# Regenerate Prisma client (stop dev server first on Windows)
-npx prisma generate
-
-# Seed dev data
-npm run db:seed
-
-# Open Prisma Studio
-npx prisma studio
-
-# Full reset (destroys all data)
-docker compose down -v
-docker compose up -d postgres
-npx prisma migrate deploy
-npm run db:seed
-```
-
-### Migrations applied
-
-| Migration | Description |
-|---|---|
-| `20260305081139_sport_table_transitional` | Sport enum → Sport table (transitional) |
-| `20260305083000_sport_table_finalize` | Finalize Sport table, drop enum |
-| `20260305103000_location_multi_center` | Add Location model, scope all resources |
-| `20260305130000_role_super_admin_trainer` | Expand UserRole enum, add trainer link |
-| `20260305140000_instructor_photo_schedule_sport` | Add photoUrl to Instructor, sportId to ResourceSchedule |
-
----
-
-## Commands Reference
+## Commands
 
 ```bash
 npm run dev
@@ -370,19 +383,16 @@ npx prisma generate
 npx playwright install chromium
 docker compose up -d postgres
 docker compose ps
-docker compose stop postgres
-docker compose down -v
 ```
+
+Important: keep `NEXTAUTH_URL` and Playwright `baseURL` on `localhost`, not `127.0.0.1`, to avoid auth cookie issues in e2e tests.
 
 ---
 
-## Known Gaps / Not Yet Production-Ready
+## Known Gaps
 
-- Real payment provider (Kaspi / Freedom) — stubs exist, no live integration
-- Real refund API — DB status only, no provider call
-- File upload for trainer photos — currently URL-only field
-- CI pipeline (lint / build / test on push)
-- Monitoring, error tracking, alerting
-- Backup / restore procedures
-- Deployment infrastructure docs (beyond local Docker runbook)
-- Multi-location admin UI (schema supports it; admin UX defaults to single location)
+- Real payment provider integration (Kaspi/Freedom) is still stubbed; current production logic is internal wallet-based.
+- Some deep admin validation strings in `src/lib/admin/resources.ts` still need a full encoding cleanup pass.
+- File upload for trainer photos is still URL-based only.
+- CI and deployment documentation are still minimal.
+- Monitoring, alerts, backups, and production ops procedures are not complete.

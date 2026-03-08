@@ -166,6 +166,76 @@ describe("booking persistence (DB integration)", () => {
     expect(Number(hold?.amountRequired ?? 0)).toBeGreaterThan(5_000);
   });
 
+  it("creates a confirmed booking with cash mode when wallet balance is insufficient", async () => {
+    await getSeededPadelRentalService();
+    const [courtA] = await getSeededPadelCourts(1);
+    const date = nextWeekdayIsoDate(51);
+    const user = await createCustomerWithWallet("it-cash-mode", 1_000);
+    const balanceBefore = await getUserWalletBalance(user.id);
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date,
+      startTime: "14:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      paymentMode: "cash",
+      customerUserId: user.id,
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    const balanceAfter = await getUserWalletBalance(user.id);
+    const activeHold = await prisma.bookingHold.findFirst({
+      where: { customerId: user.id, status: "active" },
+    });
+
+    expect(created.booking.status).toBe("confirmed");
+    expect(created.payment.provider).toBe("manual");
+    expect(created.payment.message).toContain("налич");
+    expect(balanceAfter).toBe(balanceBefore);
+    expect(activeHold).toBeNull();
+  });
+
+  it("falls back to cash in auto payment mode when wallet balance is insufficient", async () => {
+    await getSeededPadelRentalService();
+    const [courtA] = await getSeededPadelCourts(1);
+    const date = nextWeekdayIsoDate(52);
+    const user = await createCustomerWithWallet("it-auto-cash", 1_000);
+    const balanceBefore = await getUserWalletBalance(user.id);
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date,
+      startTime: "15:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      paymentMode: "auto",
+      customerUserId: user.id,
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    const balanceAfter = await getUserWalletBalance(user.id);
+    const activeHold = await prisma.bookingHold.findFirst({
+      where: { customerId: user.id, status: "active" },
+    });
+
+    expect(created.booking.status).toBe("confirmed");
+    expect(created.payment.provider).toBe("manual");
+    expect(created.payment.message).toContain("налич");
+    expect(balanceAfter).toBe(balanceBefore);
+    expect(activeHold).toBeNull();
+  });
+
   it("rejects bookings in the past even when a direct request is made", async () => {
     const [courtA] = await getSeededPadelCourts(1);
     const user = await createCustomerWithWallet("it-past-booking");

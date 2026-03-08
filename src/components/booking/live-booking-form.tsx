@@ -10,6 +10,7 @@ import {
   type BookingUrlSelectedCell,
   type BookingUrlState,
 } from "@/src/lib/bookings/url-state";
+import { formatMoneyKzt as formatMoneyKztValue } from "@/src/lib/format/money";
 import { resolvePricingTier } from "@/src/lib/pricing/engine";
 
 type ServiceKind = BookingServiceKind;
@@ -155,9 +156,14 @@ function getSportLabel(slug: string): string {
   return slug;
 }
 
-function formatMoneyKzt(amount: number): string {
+function formatMoneyKztLegacy(amount: number): string {
+  if (Number.isFinite(amount)) {
+    return formatMoneyKztValue(amount);
+  }
   return `${amount.toLocaleString("ru-KZ")} ₸`;
 }
+
+const formatMoneyKzt = formatMoneyKztLegacy;
 
 function formatCourtLabel(courtId: string, courtNames: Record<string, string>): string {
   return courtNames[courtId] ?? courtId;

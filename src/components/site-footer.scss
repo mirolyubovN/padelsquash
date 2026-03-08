@@ -56,14 +56,34 @@
 }
 
 .site-footer__social-link {
-  @apply inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold;
-  border-color: rgba(16, 37, 46, 0.1);
-  background-color: rgba(255, 255, 255, 0.5);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem 0.5rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+  transition: border-color 0.2s, color 0.2s, background-color 0.2s;
 }
 
-.site-footer__social-icon {
-  @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold;
-  background-color: rgba(16, 37, 46, 0.08);
+.site-footer__social-link:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.site-footer__social-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  background-color: var(--accent);
+  color: #0f172a;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .site-footer__bottom {

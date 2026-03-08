@@ -23,3 +23,12 @@
 - When suggesting follow-up work, avoid inventing business logic the product owner has not asked for; if a status like `no_show` already means "no refund", preserve that simple rule unless explicitly told otherwise.
 - Do not trust terminal mojibake as harmless display noise when editing copy-heavy pages; if the source file contains sequences like `РЎ`/`Рџ`, treat it as a real UTF-8 corruption issue and repair the literals before continuing feature work.
 - When repairing encoding issues on Windows, verify file bytes with a UTF-8-safe reader (`node`/`fs`) before and after edits; PowerShell output can look corrupted even when the file is correct, and DB-backed mojibake may require a separate in-place data fix.
+- When a frontend issue presents as "no styles", verify the actual global stylesheet entry path before changing bundlers or broader tooling; missing or split style imports can be a simpler root cause than the compiler itself.
+- When the user calls out missing admin UX after a targeted fix, widen the pass from isolated bug work to operator workflow review, and add direct navigation paths (one-click handoff to related records) instead of only backend capability changes.
+- For dense admin list pages, default per-row management actions to modal workflows instead of expanding long inline sections; preserve quick context and avoid forcing scroll jumps.
+- For audit and wallet ledger writes with optional actor foreign keys, validate actor existence before insert and fall back to `null` when the actor ID is stale (for example after reseed or user recreation).
+- When users ask to “make admin flow the same as customer flow,” do not stop at backend parity; match the actual UI patterns (pricing visibility, step structure, and controls) and keep search affordances operator-friendly (name/phone first).
+- In Russian customer search UX, normalize `е/ё` variants in search APIs and protect result selection from input blur side effects so one click reliably applies the client.
+- When fixing search quality in one admin screen, sweep every other customer-search entry point in the same release (wallet list, booking list, create-booking autocomplete) and reuse one shared normalizer.
+- When admin flow selects an existing customer, lock identity fields in booking forms and require edits through dedicated customer-management surfaces (wallet/profile), not inline booking edits.
+- Customer account routes must explicitly guard by role; admin/super-admin users should be redirected to admin portals instead of rendering customer account pages.

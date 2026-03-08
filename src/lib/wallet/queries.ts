@@ -1,4 +1,5 @@
 import { prisma } from "@/src/lib/prisma";
+import { buildRussianYoVariants } from "@/src/lib/search/russian";
 import { getWalletBonusSettings } from "@/src/lib/wallet/service";
 
 export interface WalletTransactionListItem {
@@ -20,6 +21,7 @@ export interface AdminWalletCustomerListItem {
   name: string;
   email: string;
   phone: string;
+  passwordHash: string;
   balanceKzt: number;
   bookingsCount: number;
   createdAtIso: string;
@@ -75,6 +77,7 @@ export async function getAccountWalletPageData(userId: string, limit = 12) {
 
 export async function getAdminWalletPageData(limit = 30, customerQuery?: string, customerLimit = 40) {
   const normalizedCustomerQuery = customerQuery?.trim();
+  const yoAwareNameQueries = normalizedCustomerQuery ? buildRussianYoVariants(normalizedCustomerQuery) : [];
 
   const [bonusSettings, transactions, customers] = await Promise.all([
     getWalletBonusSettings(),
@@ -109,9 +112,10 @@ export async function getAdminWalletPageData(limit = 30, customerQuery?: string,
         ...(normalizedCustomerQuery
           ? {
               OR: [
-                { name: { contains: normalizedCustomerQuery, mode: "insensitive" } },
-                { email: { contains: normalizedCustomerQuery, mode: "insensitive" } },
-                { phone: { contains: normalizedCustomerQuery, mode: "insensitive" } },
+                ...yoAwareNameQueries.map((nameQuery) => ({
+                  name: { contains: nameQuery, mode: "insensitive" as const },
+                })),
+                { phone: { contains: normalizedCustomerQuery } },
               ],
             }
           : {}),
@@ -155,6 +159,7 @@ export async function getAdminWalletPageData(limit = 30, customerQuery?: string,
       name: row.name,
       email: row.email,
       phone: row.phone,
+      passwordHash: row.passwordHash,
       balanceKzt: Number(row.walletBalance),
       bookingsCount: row._count.bookings,
       createdAtIso: row.createdAt.toISOString(),

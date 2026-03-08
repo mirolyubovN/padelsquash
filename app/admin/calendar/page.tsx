@@ -66,6 +66,11 @@ export default async function AdminCalendarPage({
     return `/admin/bookings/create?${query.toString()}`;
   }
 
+  function buildBookingLink(bookingId: string): string {
+    const query = new URLSearchParams({ bookingId });
+    return `/admin/bookings?${query.toString()}#booking-${bookingId}`;
+  }
+
   function buildNavLink(targetDate: string): string {
     const query = new URLSearchParams({ date: targetDate });
     if (locationSlug) query.set("location", locationSlug);
@@ -74,7 +79,18 @@ export default async function AdminCalendarPage({
 
   function isPastSlot(hour: number): boolean {
     const hh = String(hour).padStart(2, "0");
-    return venueDateTimeToUtc(date, `${hh}:00`) <= now;
+    const slotStartAt = venueDateTimeToUtc(date, `${hh}:00`);
+    if (slotStartAt > now) {
+      return false;
+    }
+
+    const slotEndAt = new Date(slotStartAt.getTime() + 60 * 60 * 1000);
+    return slotEndAt <= now;
+  }
+
+  function isPastBooking(booking: CalendarBooking): boolean {
+    const endHour = String(booking.endHour).padStart(2, "0");
+    return venueDateTimeToUtc(date, `${endHour}:00`) <= now;
   }
 
   const bookingsByCourtHour = new Map<string, CalendarBooking>();
@@ -160,13 +176,14 @@ export default async function AdminCalendarPage({
                           return <td key={court.id} className="admin-calendar__cell admin-calendar__cell--continuation" />;
                         }
                         const rowSpan = booking.endHour - booking.startHour;
+                        const pastBookingClass = isPastBooking(booking) ? " admin-calendar__cell--past-session" : "";
                         return (
                           <td
                             key={court.id}
                             rowSpan={rowSpan}
-                            className={`admin-calendar__cell admin-calendar__cell--booked admin-calendar__cell--${booking.status.replace("_", "-")}`}
+                            className={`admin-calendar__cell admin-calendar__cell--booked admin-calendar__cell--${booking.status.replace("_", "-")}${pastBookingClass}`}
                           >
-                            <Link href={`/admin/bookings?q=${encodeURIComponent(booking.customerName)}`} className="admin-calendar__booking">
+                            <Link href={buildBookingLink(booking.id)} className="admin-calendar__booking">
                               <span className="admin-calendar__booking-name">{booking.customerName}</span>
                               <span className="admin-calendar__booking-service">{booking.serviceName}</span>
                               {booking.instructorName ? (
@@ -222,6 +239,7 @@ export default async function AdminCalendarPage({
       <div className="admin-calendar__legend">
         <span className="admin-calendar__legend-item admin-calendar__legend-item--confirmed">Подтверждено</span>
         <span className="admin-calendar__legend-item admin-calendar__legend-item--pending-payment">Ожидает оплаты</span>
+        <span className="admin-calendar__legend-item admin-calendar__legend-item--past">Прошедшие сессии</span>
         <span className="admin-calendar__legend-item admin-calendar__legend-item--blocked">Заблокировано</span>
         <span className="admin-calendar__legend-item admin-calendar__legend-item--free">Свободно</span>
       </div>

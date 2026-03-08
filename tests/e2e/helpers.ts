@@ -37,7 +37,7 @@ export async function loginAsAdmin(page: Page) {
   await page.locator("#login-password").fill(ADMIN_PASSWORD);
   await page.getByRole("button", { name: "Войти" }).click();
   await page.waitForURL(/\/admin/);
-  await expect(page.getByText("admin@example.com")).toBeVisible();
+  await expect(page.locator(".admin-shell__email", { hasText: ADMIN_EMAIL }).first()).toBeVisible();
 }
 
 export async function registerCustomer(page: Page, options: { email: string; next?: string; name?: string; phone?: string; password?: string }) {

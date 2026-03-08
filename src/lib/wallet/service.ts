@@ -104,6 +104,19 @@ export function calculateWalletTopUpBonus(amountKzt: number, settings: WalletBon
   return Math.floor((amountKzt * settings.bonusPercent) / 100);
 }
 
+async function resolveWalletActorUserId(tx: Prisma.TransactionClient, actorUserId?: string): Promise<string | null> {
+  if (!actorUserId) {
+    return null;
+  }
+
+  const actor = await tx.user.findUnique({
+    where: { id: actorUserId },
+    select: { id: true },
+  });
+
+  return actor?.id ?? null;
+}
+
 async function appendWalletTransaction(args: {
   tx: Prisma.TransactionClient;
   userId: string;
@@ -116,19 +129,22 @@ async function appendWalletTransaction(args: {
   holdId?: string;
   metadataJson?: Prisma.InputJsonValue;
 }): Promise<WalletTransaction> {
+  const actorUserId = await resolveWalletActorUserId(args.tx, args.actorUserId);
+  const transactionData = {
+    userId: args.userId,
+    actorUserId,
+    type: args.type,
+    amount: toDecimalAmount(args.amountKzt),
+    balanceAfter: toDecimalAmount(args.balanceAfterKzt),
+    currency: "KZT",
+    note: args.note,
+    bookingId: args.bookingId,
+    holdId: args.holdId,
+    metadataJson: args.metadataJson,
+  } satisfies Prisma.WalletTransactionUncheckedCreateInput;
+
   return args.tx.walletTransaction.create({
-    data: {
-      userId: args.userId,
-      actorUserId: args.actorUserId,
-      type: args.type,
-      amount: toDecimalAmount(args.amountKzt),
-      balanceAfter: toDecimalAmount(args.balanceAfterKzt),
-      currency: "KZT",
-      note: args.note,
-      bookingId: args.bookingId,
-      holdId: args.holdId,
-      metadataJson: args.metadataJson,
-    },
+    data: transactionData,
   });
 }
 

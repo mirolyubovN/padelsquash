@@ -1321,3 +1321,41 @@
 - Verification:
   - `npx.cmd eslint app/page.tsx src/lib/content/site-content.ts src/lib/settings/service.ts prisma/seed.ts src/lib/admin/resources.ts` (warnings only for existing `<img>` usage in `app/page.tsx`)
   - `npx.cmd tsc --noEmit`
+
+
+## Plan (2026-03-07 - Turbopack styles entry fix)
+
+- [x] Re-check the root layout style imports after the user correction to keep Turbopack.
+- [x] Replace the aliased global Sass import with a direct relative import from app/layout.tsx.
+- [x] Verify the touched layout file still passes lint.
+
+## Review (2026-03-07 - Turbopack styles entry fix)
+
+- Kept Turbopack and treated the issue as a stylesheet entry/integration problem instead of a bundler swap.
+- Root layout now imports the shared Sass bundle via a direct relative path: ../src/styles/index.scss.
+- app/layout.tsx lint check passed.
+- Manual Sass plus Tailwind pipeline checks still confirm the shared stylesheet bundle itself compiles to real CSS.
+
+## Plan (2026-03-08 - admin UX quick wins batch)
+
+- [x] Read README and inspect current admin navigation/calendar/bookings/money formatting/exception options code paths.
+- [x] Move admin nav order so dashboard is first and calendar is second.
+- [x] Change admin calendar booking clicks to deep-link to the exact booking instead of customer search.
+- [x] Add bookings sorting control by date and make nearest-first the default behavior.
+- [x] Extend bookings query/filter handling to support deep-linking by booking id.
+- [x] Fix KZT money formatting helpers so tenge symbol renders correctly.
+- [x] Fix exception target option labels that were showing `???`.
+- [x] Run targeted verification and capture review notes.
+
+## Review (2026-03-08 - admin UX quick wins batch)
+
+- Dashboard is now always first in the admin sidebar, with Calendar second.
+- Calendar booking tiles now link to `/admin/bookings?bookingId=<id>#booking-<id>`.
+- Admin bookings now support `bookingId` filtering plus date sort (`date_asc` default, `date_desc` optional).
+- Added a date-sort dropdown on `/admin/bookings` and booking-row anchors for direct jumps.
+- Introduced shared formatter `src/lib/format/money.ts` and switched key admin/account booking flows to it.
+- Fixed exception resource labels and exception-target option labels in `src/lib/admin/resources.ts`.
+- Verification:
+  - `npx.cmd eslint app/account/page.tsx app/admin/wallet/page.tsx app/admin/calendar/page.tsx app/admin/bookings/page.tsx src/lib/admin/bookings.ts src/lib/account/bookings.ts src/components/booking/live-booking-form.tsx src/components/admin/create-booking-form.tsx src/components/admin/admin-nav-config.ts src/lib/admin/resources.ts src/lib/format/money.ts` ✅
+  - `npx.cmd tsc --noEmit` ✅
+  - `npx.cmd playwright test tests/e2e/10-admin-calendar-prefill.spec.ts` ❌ (existing strict-locator issue in `tests/e2e/helpers.ts` on duplicated `admin@example.com` text)
