@@ -6,6 +6,8 @@ import {
   type AdminBookingStatus,
   ADMIN_BOOKING_STATUS_LABELS,
   getAdminBookings,
+  markBookingPaid,
+  setBookingPaymentState,
   setBookingStatus,
 } from "@/src/lib/admin/bookings";
 import { getAdminSportOptions } from "@/src/lib/admin/resources";
@@ -22,7 +24,37 @@ export const metadata = buildPageMetadata({
 
 export const dynamic = "force-dynamic";
 
-type BookingActionName = "cancelled" | "completed" | "no_show";
+type BookingActionName =
+  | "cancelled"
+  | "completed"
+  | "no_show"
+  | "pay_wallet"
+  | "pay_manual"
+  | "set_status"
+  | "set_payment";
+
+function defaultPaymentStateForRow(row: Awaited<ReturnType<typeof getAdminBookings>>["rows"][number]) {
+  if (row.paymentStatus === "paid" && row.paymentProvider === "wallet") {
+    return "paid_wallet";
+  }
+  if (row.paymentStatus === "refunded") {
+    return "refunded_manual";
+  }
+  if (row.paymentStatus === "paid") {
+    return "paid_manual";
+  }
+  return "unpaid_manual";
+}
+
+function isAdminBookingStatus(value: string): value is AdminBookingStatus {
+  return (
+    value === "pending_payment" ||
+    value === "confirmed" ||
+    value === "cancelled" ||
+    value === "completed" ||
+    value === "no_show"
+  );
+}
 
 function normalizeSearchParams(params: {
   bookingId?: string;
@@ -136,6 +168,8 @@ export default async function AdminBookingsPage({
 
     const bookingId = String(formData.get("bookingId") ?? "");
     const action = String(formData.get("action") ?? "") as BookingActionName;
+    const nextStatus = String(formData.get("nextStatus") ?? "");
+    const nextPaymentState = String(formData.get("nextPaymentState") ?? "");
 
     if (!bookingId) {
       throw new Error("bookingId обязателен");
@@ -143,11 +177,35 @@ export default async function AdminBookingsPage({
 
     if (action === "cancelled" || action === "completed" || action === "no_show") {
       await setBookingStatus({ bookingId, status: action });
+    } else if (action === "set_status") {
+      if (!isAdminBookingStatus(nextStatus)) {
+        throw new Error("Некорректный статус бронирования");
+      }
+      await setBookingStatus({ bookingId, status: nextStatus });
+    } else if (action === "pay_wallet") {
+      await markBookingPaid({ bookingId, method: "wallet" });
+    } else if (action === "pay_manual") {
+      await markBookingPaid({ bookingId, method: "cash" });
+    } else if (action === "set_payment") {
+      if (
+        nextPaymentState !== "unpaid_manual" &&
+        nextPaymentState !== "paid_manual" &&
+        nextPaymentState !== "paid_wallet" &&
+        nextPaymentState !== "refunded_manual"
+      ) {
+        throw new Error("Некорректный статус оплаты");
+      }
+
+      await setBookingPaymentState({
+        bookingId,
+        state: nextPaymentState,
+      });
     } else {
       throw new Error("Неизвестное действие");
     }
 
     revalidatePath("/admin/bookings");
+    revalidatePath("/admin");
   }
 
   return (
@@ -286,17 +344,13 @@ export default async function AdminBookingsPage({
             ) : (
               bookings.rows.map((row) => (
                 <tr key={row.id} id={`booking-${row.id}`} className="admin-table__row">
-                    <td className="admin-table__cell">
-                      <div className="admin-bookings__cell-title">
-                        <Link href={`/admin/clients/${row.customerId}`}>
-                          {row.customerName}
-                        </Link>
-                      </div>
-                      <div className="admin-bookings__cell-sub">
-                        <Link href={`/admin/clients/${row.customerId}`}>
-                          {row.customerEmail}
-                        </Link>
-                      </div>
+                  <td className="admin-table__cell">
+                    <div className="admin-bookings__cell-title">
+                      <Link href={`/admin/clients/${row.customerId}`}>{row.customerName}</Link>
+                    </div>
+                    <div className="admin-bookings__cell-sub">
+                      <Link href={`/admin/clients/${row.customerId}`}>{row.customerEmail}</Link>
+                    </div>
                     <div className="admin-bookings__cell-sub">{row.customerPhone}</div>
                   </td>
                   <td className="admin-table__cell">
@@ -304,12 +358,12 @@ export default async function AdminBookingsPage({
                     <div className="admin-bookings__cell-sub">
                       {row.serviceCode} · {row.serviceSportName}
                     </div>
-                    {row.courtLabels.length > 0 && (
+                    {row.courtLabels.length > 0 ? (
                       <div className="admin-bookings__cell-sub">Корт: {row.courtLabels.join(", ")}</div>
-                    )}
-                    {row.instructorLabels.length > 0 && (
+                    ) : null}
+                    {row.instructorLabels.length > 0 ? (
                       <div className="admin-bookings__cell-sub">Тренер: {row.instructorLabels.join(", ")}</div>
-                    )}
+                    ) : null}
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__cell-title">{row.date}</div>
@@ -330,35 +384,39 @@ export default async function AdminBookingsPage({
                   {canSeeRevenue ? (
                     <td className="admin-table__cell">
                       <div className="admin-bookings__cell-title">{row.amountKzt}</div>
-                      {row.pricingBreakdownLines.length > 0 && (
+                      {row.pricingBreakdownLines.length > 0 ? (
                         <div className="admin-bookings__cell-sub">{row.pricingBreakdownLines[0]}</div>
-                      )}
+                      ) : null}
                     </td>
                   ) : null}
                   <td className="admin-table__cell">
-                    {row.status === "pending_payment" || row.status === "confirmed" ? (
+                    {row.status === "pending_payment" ? (
                       <form action={bookingAction} className="admin-bookings__actions">
                         <input type="hidden" name="bookingId" value={row.id} />
-                        {row.status === "confirmed" ? (
-                          <>
-                            <button
-                              type="submit"
-                              name="action"
-                              value="completed"
-                              className="admin-bookings__action-button"
-                            >
-                              Завершено
-                            </button>
-                            <button
-                              type="submit"
-                              name="action"
-                              value="no_show"
-                              className="admin-bookings__action-button"
-                            >
-                              Неявка
-                            </button>
-                          </>
-                        ) : null}
+                        <button type="submit" name="action" value="pay_wallet" className="admin-bookings__action-button">
+                          Списать с баланса
+                        </button>
+                        <button type="submit" name="action" value="pay_manual" className="admin-bookings__action-button">
+                          Оплачено вручную (нал/карта)
+                        </button>
+                        <button
+                          type="submit"
+                          name="action"
+                          value="cancelled"
+                          className="admin-bookings__action-button admin-bookings__action-button--danger"
+                        >
+                          Отменить
+                        </button>
+                      </form>
+                    ) : row.status === "confirmed" ? (
+                      <form action={bookingAction} className="admin-bookings__actions">
+                        <input type="hidden" name="bookingId" value={row.id} />
+                        <button type="submit" name="action" value="completed" className="admin-bookings__action-button">
+                          Завершено
+                        </button>
+                        <button type="submit" name="action" value="no_show" className="admin-bookings__action-button">
+                          Неявка
+                        </button>
                         <button
                           type="submit"
                           name="action"
@@ -371,6 +429,52 @@ export default async function AdminBookingsPage({
                     ) : (
                       <span className="admin-bookings__no-actions">—</span>
                     )}
+                    <details className="admin-bookings__details">
+                      <summary className="admin-bookings__details-summary">Исправить</summary>
+                      <div className="admin-bookings__details-body">
+                        <form action={bookingAction} className="admin-bookings__details-form">
+                          <input type="hidden" name="bookingId" value={row.id} />
+                          <label className="admin-bookings__details-label">
+                            <span>Статус брони</span>
+                          </label>
+                          <select
+                            name="nextStatus"
+                            aria-label="Статус брони"
+                            defaultValue={row.status}
+                            className="admin-form__field admin-bookings__details-field"
+                          >
+                            {Object.entries(ADMIN_BOOKING_STATUS_LABELS).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                          <button type="submit" name="action" value="set_status" className="admin-bookings__action-button">
+                            Сохранить статус
+                          </button>
+                        </form>
+                        <form action={bookingAction} className="admin-bookings__details-form">
+                          <input type="hidden" name="bookingId" value={row.id} />
+                          <label className="admin-bookings__details-label">
+                            <span>Статус оплаты</span>
+                          </label>
+                          <select
+                            name="nextPaymentState"
+                            aria-label="Статус оплаты"
+                            defaultValue={defaultPaymentStateForRow(row)}
+                            className="admin-form__field admin-bookings__details-field"
+                          >
+                            <option value="unpaid_manual">Не оплачено</option>
+                            <option value="paid_manual">Оплачено вручную (нал/карта)</option>
+                            <option value="paid_wallet">Оплачено с баланса</option>
+                            <option value="refunded_manual">Возврат</option>
+                          </select>
+                          <button type="submit" name="action" value="set_payment" className="admin-bookings__action-button">
+                            Сохранить оплату
+                          </button>
+                        </form>
+                      </div>
+                    </details>
                   </td>
                 </tr>
               ))

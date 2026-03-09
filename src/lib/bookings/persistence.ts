@@ -34,6 +34,7 @@ interface CreateBookingPersistentInput {
 }
 
 export type BookingPaymentMode = "wallet" | "cash" | "auto";
+type BookingSettlementMode = "wallet_paid" | "cash_paid" | "manual_unpaid";
 
 interface CreateBookingHoldSlotInput {
   startTime: string;
@@ -453,14 +454,16 @@ export async function createBookingInDb(
       }
 
       const currentBalanceKzt = Number(customerUser.walletBalance);
-      const effectivePaymentMode: "wallet" | "cash" =
-        requestedPaymentMode === "auto"
-          ? currentBalanceKzt >= pricing.total
-            ? "wallet"
-            : "cash"
-          : requestedPaymentMode;
+      const effectiveSettlementMode: BookingSettlementMode =
+        requestedPaymentMode === "cash"
+          ? "cash_paid"
+          : requestedPaymentMode === "auto"
+            ? currentBalanceKzt >= pricing.total
+              ? "wallet_paid"
+              : "manual_unpaid"
+            : "wallet_paid";
 
-      if (effectivePaymentMode === "wallet" && currentBalanceKzt < pricing.total) {
+      if (requestedPaymentMode === "wallet" && currentBalanceKzt < pricing.total) {
         const hold =
           activeHold ??
           (await createBookingHold(
@@ -496,7 +499,7 @@ export async function createBookingInDb(
           locationId: input.locationId,
           startAt,
           endAt,
-          status: "confirmed",
+          status: effectiveSettlementMode === "manual_unpaid" ? "pending_payment" : "confirmed",
           currency: pricing.currency,
           priceTotal: pricing.total,
           pricingBreakdownJson,
@@ -512,8 +515,8 @@ export async function createBookingInDb(
           },
           payment: {
             create: {
-              provider: effectivePaymentMode === "wallet" ? "wallet" : "manual",
-              status: "paid",
+              provider: effectiveSettlementMode === "wallet_paid" ? "wallet" : "manual",
+              status: effectiveSettlementMode === "manual_unpaid" ? "unpaid" : "paid",
               amount: pricing.total,
               currency: pricing.currency,
               providerPaymentId: null,
@@ -527,7 +530,7 @@ export async function createBookingInDb(
         },
       });
 
-      if (effectivePaymentMode === "wallet") {
+      if (effectiveSettlementMode === "wallet_paid") {
         await debitUserWallet({
           tx,
           userId: customerUser.id,
@@ -578,9 +581,11 @@ export async function createBookingInDb(
           currency: booking.payment!.currency,
           providerPaymentId: booking.payment!.providerPaymentId,
           message:
-            effectivePaymentMode === "wallet"
+            effectiveSettlementMode === "wallet_paid"
               ? "Оплачено с внутреннего баланса"
-              : "Оплачено наличными в клубе",
+              : effectiveSettlementMode === "cash_paid"
+                ? "Оплачено в клубе (наличные или карта)"
+                : "Ожидает оплаты",
         },
       };
     },

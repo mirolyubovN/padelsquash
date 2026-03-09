@@ -32,3 +32,4 @@
 - When fixing search quality in one admin screen, sweep every other customer-search entry point in the same release (wallet list, booking list, create-booking autocomplete) and reuse one shared normalizer.
 - When admin flow selects an existing customer, lock identity fields in booking forms and require edits through dedicated customer-management surfaces (wallet/profile), not inline booking edits.
 - Customer account routes must explicitly guard by role; admin/super-admin users should be redirected to admin portals instead of rendering customer account pages.
+- When a user says a booking/payment fix is getting overcomplicated, stop expanding the domain model and keep the correction inside the existing per-booking flow unless they explicitly ask for a new aggregate entity.

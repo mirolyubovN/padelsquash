@@ -402,6 +402,8 @@ export default async function AdminCreateBookingPage({
             startTime: selection.startTime,
             courtId: selection.courtId,
             amountKzt: created.booking.priceTotal,
+            bookingStatus: created.booking.status,
+            paymentStatus: created.payment.status,
           });
         } catch (error) {
           if (error instanceof InsufficientWalletBalanceError) {
@@ -438,11 +440,20 @@ export default async function AdminCreateBookingPage({
         };
       }
 
+      const groupTotalKzt = createdSessions.reduce((sum, session) => sum + session.amountKzt, 0);
+      const groupPaidKzt = createdSessions.reduce(
+        (sum, session) => sum + (session.paymentStatus === "paid" ? session.amountKzt : 0),
+        0,
+      );
+
       if (failures.length > 0) {
         return {
           warning: `Создано ${createdSessions.length} из ${selectedSlotCourts.length}. ${failures[0]}`,
           successCount: createdSessions.length,
           totalCount: selectedSlotCourts.length,
+          groupTotalKzt,
+          groupPaidKzt,
+          groupRemainingKzt: groupTotalKzt - groupPaidKzt,
           createdSessions,
         };
       }
@@ -450,6 +461,9 @@ export default async function AdminCreateBookingPage({
       return {
         successCount: createdSessions.length,
         totalCount: selectedSlotCourts.length,
+        groupTotalKzt,
+        groupPaidKzt,
+        groupRemainingKzt: groupTotalKzt - groupPaidKzt,
         createdSessions,
       };
     } catch (error) {

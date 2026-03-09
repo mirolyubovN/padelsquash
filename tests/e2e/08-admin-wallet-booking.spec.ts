@@ -41,5 +41,5 @@ test("admin can top up balance and retry the same held booking", async ({ page }
 
   await page.bringToFront();
   await page.getByRole("button", { name: "Повторить после пополнения" }).click();
-  await expect(page.getByText("Создано бронирований: 1 из 1")).toBeVisible();
+  await expect(page.getByText("Создано позиций: 1 из 1")).toBeVisible();
 });

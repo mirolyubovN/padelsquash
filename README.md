@@ -188,8 +188,8 @@ Important behavior:
 Customer self-service bookings (`/book`) are paid from internal wallet balance.
 
 - Customers can top up from `/account`.
-- Admins can manually credit/debit balance from `/admin/wallet` for in-club/cash adjustments.
-- Admin-created manual bookings can be completed as wallet or cash/manual (based on selected payment mode).
+- Admins can manually credit/debit balance from `/admin/wallet` for in-club cash/card adjustments.
+- Admin-created manual bookings can be completed as wallet or manual in-club payment (cash/card), based on selected payment mode.
 - Super-admins can configure the wallet top-up bonus threshold and percent.
 - Default bonus rule: `10%` bonus for top-ups from `50000 KZT`.
 - Wallet-paid customer cancellations refund back to wallet when cancellation is still allowed.
@@ -230,9 +230,9 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 - Admins can select multiple time+court cells in one submit (multi-slot and multi-court batch booking).
 - Admin can find and attach existing customers directly in create-booking by `name or phone` (with one-click autofill of profile and balance).
 - Admin booking payment mode supports:
-  - `auto` (default): wallet if enough balance, otherwise cash/manual
+  - `auto` (default): wallet if enough balance, otherwise create the booking as unpaid (`pending_payment`)
   - `wallet`: wallet-only (insufficient balance returns hold/top-up flow)
-  - `cash`: manual cash payment without wallet debit
+  - `cash`: manual in-club payment (cash or card) without wallet debit
 - Client balance is shown inline on admin booking create and updates by customer email lookup.
 - New booking/cancellation notifications are dispatched to admins.
 - Training session create/cancel notifications are dispatched to the assigned trainer.
@@ -300,7 +300,7 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 - Session length: fixed 60 minutes
 - Start times: whole-hour only
 - Authentication: required to confirm bookings
-- Customer self-service booking payment: wallet balance only (`/book`); admin manual bookings can be wallet or cash/manual.
+- Customer self-service booking payment: wallet balance only (`/book`); admin manual bookings can be wallet or manual in-club payment (cash/card).
 - Cancellation:
   - Morning slots (`08:00-12:00`) can be cancelled only until `00:00` of the previous day.
   - Other slots follow `CUSTOMER_FREE_CANCELLATION_HOURS` before start.

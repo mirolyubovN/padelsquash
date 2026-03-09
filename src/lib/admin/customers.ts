@@ -47,8 +47,8 @@ function resolvePaymentStatus(raw: string | null, bookingStatus: AdminBookingSta
   if (raw === "unpaid" || raw === "paid" || raw === "failed" || raw === "refunded") {
     return raw;
   }
-  if (!raw && bookingStatus === "confirmed") {
-    return "paid";
+  if (bookingStatus === "pending_payment") {
+    return "unpaid";
   }
   return "none";
 }
@@ -150,7 +150,9 @@ export async function getAdminCustomerProfile(customerId: string): Promise<Admin
   });
 
   const totalBookings = bookings.length;
-  const upcomingBookings = bookings.filter((booking) => booking.status === "confirmed").length;
+  const upcomingBookings = bookings.filter(
+    (booking) => booking.status === "confirmed" || booking.status === "pending_payment",
+  ).length;
   const cancelledBookings = bookings.filter((booking) => booking.status === "cancelled").length;
   const completedBookings = bookings.filter((booking) => booking.status === "completed").length;
   const noShowBookings = bookings.filter((booking) => booking.status === "no_show").length;

@@ -14,6 +14,7 @@ import {
   getSeededPadelTrainingService,
   nextWeekdayIsoDate,
 } from "./helpers";
+import { getAdminBookings, markBookingPaid, setBookingPaymentState, setBookingStatus } from "@/src/lib/admin/bookings";
 import { formatTimeInVenueTimezone, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
 
 describe("booking persistence (DB integration)", () => {
@@ -166,7 +167,7 @@ describe("booking persistence (DB integration)", () => {
     expect(Number(hold?.amountRequired ?? 0)).toBeGreaterThan(5_000);
   });
 
-  it("creates a confirmed booking with cash mode when wallet balance is insufficient", async () => {
+  it("creates a confirmed booking with manual in-club payment when wallet balance is insufficient", async () => {
     await getSeededPadelRentalService();
     const [courtA] = await getSeededPadelCourts(1);
     const date = nextWeekdayIsoDate(51);
@@ -196,12 +197,12 @@ describe("booking persistence (DB integration)", () => {
 
     expect(created.booking.status).toBe("confirmed");
     expect(created.payment.provider).toBe("manual");
-    expect(created.payment.message).toContain("налич");
+    expect(created.payment.message).toContain("наличные или карта");
     expect(balanceAfter).toBe(balanceBefore);
     expect(activeHold).toBeNull();
   });
 
-  it("falls back to cash in auto payment mode when wallet balance is insufficient", async () => {
+  it("creates an unpaid pending booking in auto payment mode when wallet balance is insufficient", async () => {
     await getSeededPadelRentalService();
     const [courtA] = await getSeededPadelCourts(1);
     const date = nextWeekdayIsoDate(52);
@@ -229,11 +230,177 @@ describe("booking persistence (DB integration)", () => {
       where: { customerId: user.id, status: "active" },
     });
 
-    expect(created.booking.status).toBe("confirmed");
+    expect(created.booking.status).toBe("pending_payment");
     expect(created.payment.provider).toBe("manual");
-    expect(created.payment.message).toContain("налич");
+    expect(created.payment.status).toBe("unpaid");
+    expect(created.payment.message).toContain("Ожидает оплаты");
     expect(balanceAfter).toBe(balanceBefore);
     expect(activeHold).toBeNull();
+
+    const adminList = await getAdminBookings({
+      page: 1,
+      pageSize: 20,
+      bookingId: created.booking.id,
+      sort: "date_asc",
+    });
+
+    expect(adminList.rows[0]?.paymentStatus).toBe("unpaid");
+  });
+
+  it("can settle an unpaid pending booking from admin actions", async () => {
+    await getSeededPadelRentalService();
+    const [courtA] = await getSeededPadelCourts(1);
+    const date = nextWeekdayIsoDate(53);
+    const user = await createCustomerWithWallet("it-admin-settle", 1_000);
+    const balanceBefore = await getUserWalletBalance(user.id);
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date,
+      startTime: "16:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      paymentMode: "auto",
+      customerUserId: user.id,
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    await markBookingPaid({
+      bookingId: created.booking.id,
+      method: "cash",
+    });
+
+    const settled = await prisma.booking.findUnique({
+      where: { id: created.booking.id },
+      select: {
+        status: true,
+        payment: {
+          select: {
+            provider: true,
+            status: true,
+          },
+        },
+      },
+    });
+    const balanceAfter = await getUserWalletBalance(user.id);
+
+    expect(settled?.status).toBe("confirmed");
+    expect(settled?.payment?.provider).toBe("manual");
+    expect(settled?.payment?.status).toBe("paid");
+    expect(balanceAfter).toBe(balanceBefore);
+  });
+
+  it("allows admin to correct payment and booking status after a mistake", async () => {
+    await getSeededPadelRentalService();
+    const [courtA] = await getSeededPadelCourts(1);
+    const date = nextWeekdayIsoDate(55);
+    const user = await createCustomerWithWallet("it-admin-correct-status", 1_000);
+    const balanceBefore = await getUserWalletBalance(user.id);
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date,
+      startTime: "17:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      paymentMode: "auto",
+      customerUserId: user.id,
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    await setBookingPaymentState({
+      bookingId: created.booking.id,
+      state: "paid_manual",
+    });
+
+    await setBookingStatus({
+      bookingId: created.booking.id,
+      status: "completed",
+    });
+
+    await setBookingStatus({
+      bookingId: created.booking.id,
+      status: "confirmed",
+    });
+
+    const corrected = await prisma.booking.findUnique({
+      where: { id: created.booking.id },
+      select: {
+        status: true,
+        payment: {
+          select: {
+            provider: true,
+            status: true,
+          },
+        },
+      },
+    });
+    const balanceAfter = await getUserWalletBalance(user.id);
+
+    expect(corrected?.status).toBe("confirmed");
+    expect(corrected?.payment?.provider).toBe("manual");
+    expect(corrected?.payment?.status).toBe("paid");
+    expect(balanceAfter).toBe(balanceBefore);
+  });
+
+  it("allows admin to revert a wallet-paid booking back to unpaid and restore the balance", async () => {
+    await getSeededPadelRentalService();
+    const [courtA] = await getSeededPadelCourts(1);
+    const date = nextWeekdayIsoDate(56);
+    const user = await createCustomerWithWallet("it-admin-revert-payment", 100_000);
+    const balanceBefore = await getUserWalletBalance(user.id);
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date,
+      startTime: "18:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      customerUserId: user.id,
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    const debitedBalance = await getUserWalletBalance(user.id);
+    expect(debitedBalance).toBeLessThan(balanceBefore);
+
+    await setBookingPaymentState({
+      bookingId: created.booking.id,
+      state: "unpaid_manual",
+    });
+
+    const corrected = await prisma.booking.findUnique({
+      where: { id: created.booking.id },
+      select: {
+        status: true,
+        payment: {
+          select: {
+            provider: true,
+            status: true,
+          },
+        },
+      },
+    });
+    const balanceAfter = await getUserWalletBalance(user.id);
+
+    expect(corrected?.status).toBe("pending_payment");
+    expect(corrected?.payment?.provider).toBe("manual");
+    expect(corrected?.payment?.status).toBe("unpaid");
+    expect(balanceAfter).toBe(balanceBefore);
   });
 
   it("rejects bookings in the past even when a direct request is made", async () => {

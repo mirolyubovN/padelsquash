@@ -2,6 +2,12 @@ import { prisma } from "@/src/lib/prisma";
 import { buildRussianYoVariants } from "@/src/lib/search/russian";
 import { formatMoneyKzt } from "@/src/lib/format/money";
 import { notifyBookingCancelled } from "@/src/lib/notifications/bookings";
+import {
+  cancelBookingWithRefundInTx,
+  settlePendingBookingPaymentInTx,
+  setAdminBookingPaymentStateInTx,
+  type AdminBookingPaymentState,
+} from "@/src/lib/bookings/operations";
 import { isoToVenueTimezoneParts, venueDateRangeUtc, venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 
 export type AdminBookingStatus = "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
@@ -72,32 +78,19 @@ export interface AdminBookingListResult {
   totalPages: number;
 }
 
-function formatAmountKztLegacy(amount: number): string {
-  if (Number.isFinite(amount)) {
-    return formatMoneyKzt(amount);
-  }
-  return `${amount.toLocaleString("ru-KZ")} ₸`;
-}
-
-const formatAmountKzt = formatAmountKztLegacy;
-
 function toPaymentStatus(row: { payment: null | { status: string }; status: AdminBookingStatus }): AdminPaymentStatus {
   const raw = row.payment?.status;
   if (raw === "unpaid" || raw === "paid" || raw === "failed" || raw === "refunded") {
     return raw;
   }
-  if (!raw) {
-    return row.status === "confirmed" ? "paid" : "none";
+  if (row.status === "pending_payment") {
+    return "unpaid";
   }
   return "none";
 }
 
-function toPaymentProvider(row: { payment: null | { provider: string }; status: AdminBookingStatus }): string {
-  if (row.payment?.provider) {
-    return row.payment.provider;
-  }
-
-  return row.status === "confirmed" ? "wallet" : "—";
+function toPaymentProvider(row: { payment: null | { provider: string } }): string {
+  return row.payment?.provider ?? "—";
 }
 
 function parsePricingBreakdownLines(value: unknown): string[] {
@@ -113,7 +106,7 @@ function parsePricingBreakdownLines(value: unknown): string[] {
         componentType === "court" ? "Корт" : componentType === "instructor" ? "Тренер" : componentType;
       const tierLabel =
         tier === "morning" ? "утро" : tier === "day" ? "день" : tier === "evening_weekend" ? "вечер/выходные" : tier;
-      return `${componentLabel}: ${formatAmountKzt(amount)} (${tierLabel})`;
+      return `${componentLabel}: ${formatMoneyKzt(amount)} (${tierLabel})`;
     })
     .filter((line): line is string => Boolean(line));
 }
@@ -260,8 +253,8 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
       statusLabel: ADMIN_BOOKING_STATUS_LABELS[status],
       paymentStatus,
       paymentStatusLabel: ADMIN_PAYMENT_STATUS_LABELS[paymentStatus],
-      paymentProvider: toPaymentProvider({ payment: row.payment, status }),
-      amountKzt: formatAmountKzt(amountRaw),
+      paymentProvider: toPaymentProvider({ payment: row.payment }),
+      amountKzt: formatMoneyKzt(amountRaw),
       amountRaw,
       currency: row.currency,
       courtLabels,
@@ -282,28 +275,59 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
 
 export async function setBookingStatus(args: {
   bookingId: string;
-  status: "cancelled" | "completed" | "no_show";
+  status: AdminBookingStatus;
 }) {
-  const previous = await prisma.booking.findUnique({
+  if (args.status === "cancelled") {
+    const updated = await prisma.$transaction((tx) =>
+      cancelBookingWithRefundInTx({
+        tx,
+        bookingId: args.bookingId,
+      }),
+    );
+
+    await notifyBookingCancelled({ bookingId: updated.id, cancelledBy: "admin" });
+    return updated;
+  }
+
+  const existing = await prisma.booking.findUnique({
     where: { id: args.bookingId },
     select: {
       id: true,
-      status: true,
     },
   });
 
-  if (!previous) {
+  if (!existing) {
     throw new Error("Бронирование не найдено");
   }
 
-  const updated = await prisma.booking.update({
+  return prisma.booking.update({
     where: { id: args.bookingId },
     data: { status: args.status },
   });
+}
 
-  if (args.status === "cancelled" && previous.status !== "cancelled") {
-    await notifyBookingCancelled({ bookingId: updated.id, cancelledBy: "admin" });
-  }
+export async function markBookingPaid(args: {
+  bookingId: string;
+  method: "wallet" | "cash";
+}) {
+  return prisma.$transaction((tx) =>
+    settlePendingBookingPaymentInTx({
+      tx,
+      bookingId: args.bookingId,
+      method: args.method,
+    }),
+  );
+}
 
-  return updated;
+export async function setBookingPaymentState(args: {
+  bookingId: string;
+  state: AdminBookingPaymentState;
+}) {
+  return prisma.$transaction((tx) =>
+    setAdminBookingPaymentStateInTx({
+      tx,
+      bookingId: args.bookingId,
+      state: args.state,
+    }),
+  );
 }

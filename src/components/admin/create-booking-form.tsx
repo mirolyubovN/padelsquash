@@ -58,6 +58,8 @@ interface CreatedBookingSummaryItem {
   startTime: string;
   courtId: string;
   amountKzt: number;
+  bookingStatus: string;
+  paymentStatus: string;
 }
 
 interface CustomerSearchItem {
@@ -78,6 +80,9 @@ export interface CreateBookingActionResult {
   amountRequiredKzt?: number;
   successCount?: number;
   totalCount?: number;
+  groupTotalKzt?: number;
+  groupPaidKzt?: number;
+  groupRemainingKzt?: number;
   createdSessions?: CreatedBookingSummaryItem[];
 }
 
@@ -105,6 +110,9 @@ interface CreateBookingFormProps {
 interface SuccessSummary {
   successCount: number;
   totalCount: number;
+  groupTotalKzt?: number;
+  groupPaidKzt?: number;
+  groupRemainingKzt?: number;
   warning?: string;
   createdSessions: CreatedBookingSummaryItem[];
 }
@@ -524,6 +532,9 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
         setSuccessSummary({
           successCount: result.successCount,
           totalCount: result.totalCount ?? result.successCount,
+          groupTotalKzt: result.groupTotalKzt,
+          groupPaidKzt: result.groupPaidKzt,
+          groupRemainingKzt: result.groupRemainingKzt,
           warning: result.warning,
           createdSessions: result.createdSessions ?? [],
         });
@@ -541,12 +552,29 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
     return (
       <div className="booking-flow" role="status">
         <p className="booking-flow__success-title">
-          Создано бронирований: {successSummary.successCount} из {successSummary.totalCount}
+          Создано позиций: {successSummary.successCount} из {successSummary.totalCount}
         </p>
+        {successSummary.groupTotalKzt !== undefined ? (
+          <div className="booking-flow__breakdown">
+            <div className="booking-flow__breakdown-row">
+              <span>Итого по бронированию</span>
+              <span>{formatMoneyKzt(successSummary.groupTotalKzt)}</span>
+            </div>
+            <div className="booking-flow__breakdown-row">
+              <span>Оплачено сейчас</span>
+              <span>{formatMoneyKzt(successSummary.groupPaidKzt ?? 0)}</span>
+            </div>
+            <div className="booking-flow__breakdown-row booking-flow__breakdown-row--total">
+              <span>Осталось к оплате</span>
+              <span>{formatMoneyKzt(successSummary.groupRemainingKzt ?? 0)}</span>
+            </div>
+          </div>
+        ) : null}
         <ul className="admin-create-booking__created-list">
           {successSummary.createdSessions.slice(0, 10).map((item) => (
             <li key={item.bookingId} className="admin-create-booking__created-item">
-              {item.startTime} · {courtNames.get(item.courtId) ?? item.courtId} · {formatMoneyKzt(item.amountKzt)}
+              {item.startTime} · {courtNames.get(item.courtId) ?? item.courtId} · {formatMoneyKzt(item.amountKzt)} ·{" "}
+              {item.paymentStatus === "paid" ? "оплачено" : "не оплачено"}
             </li>
           ))}
         </ul>
@@ -774,9 +802,9 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
         {customerLookupError ? <p className="admin-create-booking__slots-error">{customerLookupError}</p> : null}
 
         <div className="admin-create-booking__payment-options">
-          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "auto"} onChange={() => setPaymentMode("auto")} /> <span>Авто: с баланса, если не хватает — наличные</span></label>
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "auto"} onChange={() => setPaymentMode("auto")} /> <span>Авто: списать доступный баланс, остаток оставить неоплаченным</span></label>
           <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "wallet"} onChange={() => setPaymentMode("wallet")} /> <span>Только баланс клиента</span></label>
-          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "cash"} onChange={() => setPaymentMode("cash")} /> <span>Наличные в клубе</span></label>
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "cash"} onChange={() => setPaymentMode("cash")} /> <span>Оплата в клубе (наличные или карта)</span></label>
         </div>
         {pricePreview ? (
           <div className="booking-flow__breakdown">

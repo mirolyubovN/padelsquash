@@ -1359,3 +1359,36 @@
   - `npx.cmd eslint app/account/page.tsx app/admin/wallet/page.tsx app/admin/calendar/page.tsx app/admin/bookings/page.tsx src/lib/admin/bookings.ts src/lib/account/bookings.ts src/components/booking/live-booking-form.tsx src/components/admin/create-booking-form.tsx src/components/admin/admin-nav-config.ts src/lib/admin/resources.ts src/lib/format/money.ts` ✅
   - `npx.cmd tsc --noEmit` ✅
   - `npx.cmd playwright test tests/e2e/10-admin-calendar-prefill.spec.ts` ❌ (existing strict-locator issue in `tests/e2e/helpers.ts` on duplicated `admin@example.com` text)
+## Plan (2026-03-09 - admin grouped booking payment correction)
+
+- [x] Read README and trace the current admin booking create/payment/listing flows to reproduce the incorrect all-paid behavior for multi-court booking.
+- [ ] Add a grouped admin-booking persistence path so one admin submit creates a booking group with explicit paid vs unpaid child sessions instead of unrelated rows.
+- [ ] Change admin payment allocation rules so auto uses available wallet balance first, leaves the remainder unpaid, and wallet remains full-balance-only with hold/retry behavior.
+- [ ] Update admin booking/client views and actions to show grouped total cost, paid amount, remaining amount, and allow cancelling the whole group or individual sessions.
+- [ ] Add regression coverage for grouped booking creation, partial wallet coverage, correct payment badges, and group cancellation behavior.
+- [ ] Run targeted verification (prisma generate/migrate if needed, lint, typecheck, targeted integration tests, targeted e2e) and record the review results.
+
+## Review (2026-03-09 - admin grouped booking payment correction)
+
+- In progress## Review (2026-03-09 - admin payment correction simplified)
+
+- Scope corrected after user feedback: no grouped bookings; keep each booking entry separate.
+- Admin auto payment now uses wallet when possible and otherwise creates the booking as pending_payment with manual/unpaid payment state.
+- Admin bookings page now exposes per-booking settlement actions: pay from wallet, mark cash paid, or cancel.
+- Admin/customer/account payment badges now rely on real payment rows instead of inferring confirmed = paid.
+- Verification:
+  - npx tsc --noEmit PASS
+  - npx eslint ... PASS (README is intentionally outside eslint config and reports one ignore warning)
+  - npm run test:integration -- tests/integration/booking-persistence.test.ts PASS
+  - npx playwright test tests/e2e/08-admin-wallet-booking.spec.ts PASS
+## 2026-03-09 Admin booking payment corrections
+- [ ] Fix admin booking status correction action handler and complete status/payment correction UI
+- [ ] Rename manual payment wording to mention cash or card across admin booking flow and messages
+- [ ] Add integration coverage for admin correction flow and rerun targeted verification
+
+### Review 2026-03-09
+- [x] Fix admin booking status correction action handler and complete status/payment correction UI
+- [x] Rename manual payment wording to mention cash or card across admin booking flow and messages
+- [x] Add integration coverage for admin correction flow and rerun targeted verification
+- Verification: npx tsc --noEmit; npx eslint app/admin/bookings/page.tsx src/components/admin/create-booking-form.tsx src/lib/bookings/persistence.ts tests/integration/booking-persistence.test.ts tests/e2e/03-admin-bookings-action.spec.ts tests/e2e/12-admin-multi-booking.spec.ts tests/e2e/13-admin-bookings-customer-link.spec.ts; npm run test:integration -- tests/integration/booking-persistence.test.ts; npx playwright test tests/e2e/03-admin-bookings-action.spec.ts tests/e2e/12-admin-multi-booking.spec.ts tests/e2e/13-admin-bookings-customer-link.spec.ts
+- Notes: existing unrelated diff remains in package-lock.json. prisma/schema.prisma shows only a line-ending warning in git diff output, not a content change.

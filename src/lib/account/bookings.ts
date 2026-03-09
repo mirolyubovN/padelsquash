@@ -5,10 +5,10 @@ import {
   getSafeCustomerFreeCancellationHours,
 } from "@/src/lib/bookings/policy";
 import { formatMoneyKzt } from "@/src/lib/format/money";
+import { cancelBookingWithRefundInTx } from "@/src/lib/bookings/operations";
 import { notifyBookingCancelled } from "@/src/lib/notifications/bookings";
 import { prisma } from "@/src/lib/prisma";
 import { isoToVenueTimezoneParts } from "@/src/lib/time/venue-timezone";
-import { creditUserWallet } from "@/src/lib/wallet/service";
 
 const FREE_CANCELLATION_HOURS = getSafeCustomerFreeCancellationHours();
 const MORNING_WINDOW_LABEL = getMorningCancellationWindowLabel();
@@ -78,7 +78,7 @@ function resolveAccountPaymentStatus(row: {
     return row.payment.status;
   }
 
-  return row.status === "confirmed" ? "paid" : "none";
+  return row.status === "pending_payment" ? "unpaid" : "none";
 }
 
 function getCancellationState(args: {
@@ -257,36 +257,12 @@ export async function cancelCustomerBooking(args: { userId: string; bookingId: s
     throw new Error(cancellationState.cancelBlockedReason ?? "Отмена недоступна");
   }
 
-  const cancelledBooking = await prisma.$transaction(async (tx) => {
-    if (booking.payment?.status === "paid") {
-      await tx.payment.update({
-        where: { id: booking.payment.id },
-        data: { status: "refunded" },
-      });
-    }
-
-    const hasWalletCharge = booking.walletTransactions.some((row) => row.type === "booking_charge");
-    const alreadyRefundedToWallet = booking.walletTransactions.some((row) => row.type === "booking_refund");
-
-    if (hasWalletCharge && !alreadyRefundedToWallet) {
-      await creditUserWallet({
-        tx,
-        userId: args.userId,
-        amountKzt: Number(booking.priceTotal),
-        type: "booking_refund",
-        bookingId: booking.id,
-        note: "Возврат на баланс после отмены бронирования",
-        metadataJson: {
-          source: "booking_cancellation",
-        },
-      });
-    }
-
-    return tx.booking.update({
-      where: { id: booking.id },
-      data: { status: "cancelled" },
-    });
-  });
+  const cancelledBooking = await prisma.$transaction((tx) =>
+    cancelBookingWithRefundInTx({
+      tx,
+      bookingId: booking.id,
+    }),
+  );
 
   await notifyBookingCancelled({ bookingId: cancelledBooking.id, cancelledBy: "customer" });
   return cancelledBooking;

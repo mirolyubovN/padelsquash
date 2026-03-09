@@ -20,10 +20,10 @@ test("admin can create multiple bookings in one submit by selecting several slot
   await page.locator("#cb-name").fill("Клиент мульти-бронь");
   await page.locator("#cb-phone").fill("+77070000122");
   await page.locator("#cb-email").fill(customerEmail);
-  await page.getByLabel("Наличные в клубе").check();
+  await page.getByLabel("Оплата в клубе (наличные или карта)").check();
 
   await page.getByRole("button", { name: "Создать бронирования" }).click();
 
-  await expect(page.getByText("Создано бронирований: 2 из 2")).toBeVisible();
+  await expect(page.getByText("Создано позиций: 2 из 2")).toBeVisible();
   await expect(page.getByRole("link", { name: "К списку бронирований" })).toBeVisible();
 });

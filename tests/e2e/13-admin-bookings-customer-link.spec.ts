@@ -20,10 +20,10 @@ test("admin bookings client link opens dedicated customer profile with balance a
   await page.locator("#cb-name").fill("Клиент карточки админ");
   await page.locator("#cb-phone").fill("+77070000133");
   await page.locator("#cb-email").fill(customerEmail);
-  await page.getByLabel("Наличные в клубе").check();
+  await page.getByLabel("Оплата в клубе (наличные или карта)").check();
 
   await page.getByRole("button", { name: "Создать бронирования" }).click();
-  await expect(page.getByText("Создано бронирований: 1 из 1")).toBeVisible();
+  await expect(page.getByText("Создано позиций: 1 из 1")).toBeVisible();
 
   await page.getByRole("link", { name: "К списку бронирований" }).click();
   await page.goto(`/admin/bookings?customerEmail=${encodeURIComponent(customerEmail)}`);
