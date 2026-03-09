@@ -38,6 +38,8 @@ async function upsertBookingPayment(args: {
 export async function cancelBookingWithRefundInTx(args: {
   tx: BookingOpsTx;
   bookingId: string;
+  cancelledBy?: string;
+  cancellationReason?: string;
 }) {
   const booking = await args.tx.booking.findUnique({
     where: { id: args.bookingId },
@@ -107,7 +109,12 @@ export async function cancelBookingWithRefundInTx(args: {
 
   return args.tx.booking.update({
     where: { id: booking.id },
-    data: { status: "cancelled" },
+    data: {
+      status: "cancelled",
+      cancelledBy: args.cancelledBy ?? null,
+      cancelledAt: new Date(),
+      cancellationReason: args.cancellationReason ?? null,
+    },
   });
 }
 

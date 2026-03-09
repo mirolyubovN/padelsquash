@@ -261,6 +261,7 @@ export async function cancelCustomerBooking(args: { userId: string; bookingId: s
     cancelBookingWithRefundInTx({
       tx,
       bookingId: booking.id,
+      cancelledBy: "customer",
     }),
   );
 

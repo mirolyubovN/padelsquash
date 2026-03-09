@@ -128,6 +128,7 @@ export interface AdminInstructorSessionRow {
   id: string;
   date: string;
   time: string;
+  startAtIso: string;
   serviceName: string;
   customerName: string;
   customerEmail: string;
@@ -1271,6 +1272,7 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       id: row.id,
       date: formatDateInVenueTimezone(row.startAt),
       time: formatTimeInVenueTimezone(row.startAt),
+      startAtIso: row.startAt.toISOString(),
       serviceName: row.service.name,
       customerName: row.customer.name,
       customerEmail: row.customer.email,

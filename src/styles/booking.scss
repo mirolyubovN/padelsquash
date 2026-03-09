@@ -318,6 +318,20 @@
   color: #ffffff;
 }
 
+/* Wallet balance info */
+.booking-flow__wallet-info {
+  @apply flex items-center justify-between rounded border px-3 py-2.5 text-sm;
+  border-color: rgba(132, 204, 22, 0.25);
+  background-color: var(--accent-soft);
+}
+
+.booking-flow__wallet-info--insufficient {
+  border-color: rgba(239, 68, 68, 0.25);
+  background-color: rgba(239, 68, 68, 0.05);
+  color: #b91c1c;
+  @apply flex-col items-start gap-1;
+}
+
 /* Auth gate */
 .booking-flow__auth-gate {
   @apply flex flex-col gap-4 rounded-lg border p-5;
@@ -344,6 +358,25 @@
   background-color: var(--accent);
   border-color: var(--accent);
   color: #0f172a;
+}
+
+/* Hold timer */
+.booking-flow__hold-timer {
+  @apply rounded border px-3 py-2 text-sm font-medium;
+  border-color: rgba(132, 204, 22, 0.3);
+  background-color: var(--accent-soft);
+}
+
+.booking-flow__hold-timer--expiring {
+  border-color: rgba(239, 68, 68, 0.3);
+  background-color: rgba(239, 68, 68, 0.06);
+  color: #b91c1c;
+  animation: hold-timer-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes hold-timer-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.7; }
 }
 
 /* Submit area */

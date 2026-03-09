@@ -16,6 +16,7 @@ import {
   updateInstructorFromForm,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { InstructorPhotoInput } from "@/src/components/admin/instructor-photo-input";
 
 export const metadata = buildPageMetadata({
   title: "Админ: тренеры | Padel & Squash KZ",
@@ -192,15 +193,9 @@ export default async function AdminInstructorsPage({
               </div>
               <div className="admin-form__group">
                 <label className="admin-form__label" htmlFor="instructor-photo-url">
-                  Фото (URL изображения)
+                  Фото
                 </label>
-                <input
-                  id="instructor-photo-url"
-                  name="photoUrl"
-                  type="url"
-                  className="admin-form__field"
-                  placeholder="https://..."
-                />
+                <InstructorPhotoInput inputId="instructor-photo-url" />
               </div>
             </div>
             <div className="admin-form__actions">
@@ -262,12 +257,14 @@ export default async function AdminInstructorsPage({
                     </span>
                   </td>
                   <td className="admin-table__cell">
-                    <Link
-                      href={`/admin/instructors/${instructor.id}/schedule`}
-                      className="admin-inline-links__item"
-                    >
-                      Открыть
-                    </Link>
+                    <div className="admin-bookings__actions">
+                      <Link href={`/admin/instructors/${instructor.id}`} className="admin-inline-links__item">
+                        Профиль
+                      </Link>
+                      <Link href={`/admin/instructors/${instructor.id}/schedule`} className="admin-inline-links__item">
+                        График
+                      </Link>
+                    </div>
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
@@ -301,8 +298,8 @@ export default async function AdminInstructorsPage({
                               <input id={`bio-${instructor.id}`} name="bio" className="admin-form__field" defaultValue={instructor.bio ?? ""} placeholder="Направление, опыт, формат занятий" />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`photo-${instructor.id}`}>Фото (URL)</label>
-                              <input id={`photo-${instructor.id}`} name="photoUrl" type="url" className="admin-form__field" defaultValue={instructor.photoUrl ?? ""} placeholder="https://..." />
+                              <label className="admin-form__label">Фото</label>
+                              <InstructorPhotoInput defaultValue={instructor.photoUrl ?? ""} inputId={`photo-${instructor.id}`} />
                             </div>
                             <div className="admin-form__actions">
                               <button type="submit" className="admin-form__submit">Сохранить</button>
@@ -320,8 +317,8 @@ export default async function AdminInstructorsPage({
                               <input id={`bio-basic-${instructor.id}`} name="bio" className="admin-form__field" defaultValue={instructor.bio ?? ""} placeholder="Направление, опыт, формат занятий" />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`photo-basic-${instructor.id}`}>Фото (URL)</label>
-                              <input id={`photo-basic-${instructor.id}`} name="photoUrl" type="url" className="admin-form__field" defaultValue={instructor.photoUrl ?? ""} placeholder="https://..." />
+                              <label className="admin-form__label">Фото</label>
+                              <InstructorPhotoInput defaultValue={instructor.photoUrl ?? ""} inputId={`photo-basic-${instructor.id}`} />
                             </div>
                             <div className="admin-form__actions">
                               <button type="submit" className="admin-form__submit">Сохранить</button>

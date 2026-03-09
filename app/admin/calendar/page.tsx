@@ -3,7 +3,9 @@ import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   getCalendarDayData,
+  getCalendarWeekData,
   getAdjacentDate,
+  getMondayOfWeek,
   formatCalendarDate,
   type CalendarBooking,
   type CalendarException,
@@ -37,7 +39,7 @@ function getTodayVenueDate(): string {
 export default async function AdminCalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; location?: string }>;
+  searchParams: Promise<{ date?: string; location?: string; view?: string }>;
 }) {
   await assertAdmin();
 
@@ -45,6 +47,81 @@ export default async function AdminCalendarPage({
   const today = getTodayVenueDate();
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? "") ? (params.date as string) : today;
   const locationSlug = params.location;
+  const view = params.view === "week" ? "week" : "day";
+
+  // Week view branch
+  if (view === "week") {
+    const monday = getMondayOfWeek(date);
+    const prevMonday = getAdjacentDate(monday, -7);
+    const nextMonday = getAdjacentDate(monday, +7);
+    const todayMonday = getMondayOfWeek(today);
+    const weekData = await getCalendarWeekData(monday, locationSlug);
+
+    const DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+    const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+
+    function buildWeekNavLink(targetMonday: string) {
+      const q = new URLSearchParams({ view: "week", date: targetMonday });
+      if (locationSlug) q.set("location", locationSlug);
+      return `/admin/calendar?${q.toString()}`;
+    }
+
+    function buildDayLink(dayDate: string) {
+      const q = new URLSearchParams({ date: dayDate });
+      if (locationSlug) q.set("location", locationSlug);
+      return `/admin/calendar?${q.toString()}`;
+    }
+
+    return (
+      <AdminPageShell title="Расписание" description="Недельный обзор занятости кортов">
+        <div className="admin-calendar__nav">
+          <Link href={buildWeekNavLink(prevMonday)} className="admin-calendar__nav-btn">← Пред. неделя</Link>
+          {monday !== todayMonday ? (
+            <Link href={buildWeekNavLink(todayMonday)} className="admin-calendar__nav-today">Текущая неделя</Link>
+          ) : (
+            <span className="admin-calendar__nav-today admin-calendar__nav-today--active">Текущая неделя</span>
+          )}
+          <Link href={buildWeekNavLink(nextMonday)} className="admin-calendar__nav-btn">След. неделя →</Link>
+          <Link href={buildDayLink(today)} className="admin-calendar__view-toggle">Вид: день</Link>
+        </div>
+
+        <div className="admin-calendar__week-grid">
+          {weekData.days.map((cell, i) => {
+            const d = new Date(`${cell.date}T12:00:00Z`);
+            const dayLabel = DAY_NAMES[i];
+            const dateLabel = `${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]}`;
+            const isToday = cell.date === today;
+            const occupancyClass =
+              cell.occupancy === 2
+                ? "admin-calendar__week-cell--full"
+                : cell.occupancy === 1
+                  ? "admin-calendar__week-cell--partial"
+                  : "admin-calendar__week-cell--free";
+
+            return (
+              <Link
+                key={cell.date}
+                href={buildDayLink(cell.date)}
+                className={`admin-calendar__week-cell ${occupancyClass}${isToday ? " admin-calendar__week-cell--today" : ""}`}
+              >
+                <span className="admin-calendar__week-day">{dayLabel}</span>
+                <span className="admin-calendar__week-date">{dateLabel}</span>
+                <span className="admin-calendar__week-stat">
+                  {cell.bookingCount}/{cell.courtCount}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="admin-calendar__legend">
+          <span className="admin-calendar__legend-item admin-calendar__legend-item--free">Свободно</span>
+          <span className="admin-calendar__legend-item admin-calendar__legend-item--partial">Частично занято</span>
+          <span className="admin-calendar__legend-item admin-calendar__legend-item--confirmed">Полностью занято</span>
+        </div>
+      </AdminPageShell>
+    );
+  }
 
   const data = await getCalendarDayData(date, locationSlug);
 
@@ -73,6 +150,13 @@ export default async function AdminCalendarPage({
 
   function buildNavLink(targetDate: string): string {
     const query = new URLSearchParams({ date: targetDate });
+    if (locationSlug) query.set("location", locationSlug);
+    return `/admin/calendar?${query.toString()}`;
+  }
+
+  function buildWeekViewLink(): string {
+    const monday = getMondayOfWeek(date);
+    const query = new URLSearchParams({ view: "week", date: monday });
     if (locationSlug) query.set("location", locationSlug);
     return `/admin/calendar?${query.toString()}`;
   }
@@ -140,6 +224,7 @@ export default async function AdminCalendarPage({
           <input type="date" name="date" defaultValue={date} className="admin-form__field admin-calendar__date-input" />
           <button type="submit" className="admin-bookings__action-button">Перейти</button>
         </form>
+        <Link href={buildWeekViewLink()} className="admin-calendar__view-toggle">Вид: неделя</Link>
       </div>
 
       {data.courts.length === 0 ? (
@@ -212,7 +297,7 @@ export default async function AdminCalendarPage({
 
                       if (isPastSlot(hour)) {
                         return (
-                          <td key={court.id} className="admin-calendar__cell admin-calendar__cell--free">
+                          <td key={court.id} className="admin-calendar__cell admin-calendar__cell--free admin-calendar__cell_passed">
                             <span className="admin-calendar__free-slot" aria-disabled="true">
                               Прошло
                             </span>

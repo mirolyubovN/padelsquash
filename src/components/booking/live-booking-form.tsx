@@ -264,6 +264,8 @@ export function LiveBookingForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitWarning, setSubmitWarning] = useState<string | null>(null);
   const [submitSuccessSummary, setSubmitSuccessSummary] = useState<BookingSuccessSummary | null>(null);
+  const [holdExpiresAtMs, setHoldExpiresAtMs] = useState<number | null>(null);
+  const [holdSecondsLeft, setHoldSecondsLeft] = useState<number | null>(null);
 
   const skipInitialUrlSyncRef = useRef(true);
   const skipNextContextResetRef = useRef(false);
@@ -299,6 +301,8 @@ export function LiveBookingForm({
       ),
     );
   }, [selectedCells]);
+  // String key so effect deps use value comparison (arrays always differ by reference)
+  const selectedHoldIdsKey = selectedHoldIds.join(",");
   const hasLocationStep = locations.length > 1;
   const selectedLocation = locations.find((l) => l.slug === selectedLocationSlug) ?? locations[0];
 
@@ -519,7 +523,7 @@ export function LiveBookingForm({
     }
     void load();
     return () => { cancelled = true; };
-  }, [resolvedService, date, reloadKey, selectedLocationSlug, selectedInstructorId, selectedHoldIds]);
+  }, [resolvedService, date, reloadKey, selectedLocationSlug, selectedInstructorId, selectedHoldIdsKey]);
 
   // Auto-advance to nearest date with slots
   useEffect(() => {
@@ -552,7 +556,7 @@ export function LiveBookingForm({
     }
     void findNext();
     return () => { cancelled = true; };
-  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey, selectedLocationSlug, selectedInstructorId, selectedHoldIds]);
+  }, [resolvedService, availabilityLoading, availabilityError, availability, date, autoSearchKey, selectedLocationSlug, selectedInstructorId, selectedHoldIdsKey]);
 
   // Available time slots
   const availableTimeSlots = useMemo(
@@ -699,6 +703,13 @@ export function LiveBookingForm({
         holdId: holdsBySlotKey.get(`${cell.timeKey.split("|")[0]}:${cell.resourceId}`) ?? cell.holdId,
       })),
     );
+    // Start hold expiration countdown using the earliest expiresAt
+    const earliestExpiresAt = payload.data.holds
+      .map((h) => new Date(h.expiresAtIso).getTime())
+      .reduce((min, t) => Math.min(min, t), Infinity);
+    if (Number.isFinite(earliestExpiresAt)) {
+      setHoldExpiresAtMs(earliestExpiresAt);
+    }
     setSubmitWarning("Слоты временно удержаны для вас. Пополните баланс и вернитесь к подтверждению.");
     setSubmitError(
       `Недостаточно средств для всей серии: требуется ${formatMoneyKzt(payload.data.totalAmountRequiredKzt)}.`,
@@ -824,6 +835,32 @@ export function LiveBookingForm({
     }
     setReloadKey((k) => k + 1);
   }
+
+  // ── Hold expiration timer ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!holdExpiresAtMs) {
+      setHoldSecondsLeft(null);
+      return;
+    }
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((holdExpiresAtMs - Date.now()) / 1000));
+      setHoldSecondsLeft(remaining);
+      if (remaining === 0) {
+        // Hold expired — clear selection
+        setSelectedCells((prev) => prev.map((c) => ({ ...c, holdId: undefined })));
+        setHoldExpiresAtMs(null);
+        setHoldSecondsLeft(null);
+        setSubmitError("Время удержания истекло. Выберите время заново.");
+        setSubmitWarning(null);
+        setReloadKey((k) => k + 1);
+      }
+    };
+
+    tick(); // run immediately
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [holdExpiresAtMs]);
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -1093,6 +1130,16 @@ export function LiveBookingForm({
                 </div>
               ) : null}
 
+              {/* Wallet balance */}
+              {isAuthenticated && initialWalletBalanceKzt != null && pricePreview ? (
+                <div className={`booking-flow__wallet-info${initialWalletBalanceKzt < pricePreview.total ? " booking-flow__wallet-info--insufficient" : ""}`}>
+                  <span>Ваш баланс: {formatMoneyKzt(initialWalletBalanceKzt)}</span>
+                  {initialWalletBalanceKzt < pricePreview.total ? (
+                    <span>Не хватает: {formatMoneyKzt(pricePreview.total - initialWalletBalanceKzt)}</span>
+                  ) : null}
+                </div>
+              ) : null}
+
               {/* Auth gate or submit */}
               {!isAuthenticated ? (
                 <div className="booking-flow__auth-gate">
@@ -1123,6 +1170,11 @@ export function LiveBookingForm({
                     </p>
                   ) : null}
 
+                  {holdSecondsLeft !== null && holdSecondsLeft > 0 ? (
+                    <p className={`booking-flow__hold-timer${holdSecondsLeft < 120 ? " booking-flow__hold-timer--expiring" : ""}`}>
+                      Бронь удерживается: {Math.floor(holdSecondsLeft / 60)} мин {holdSecondsLeft % 60} сек
+                    </p>
+                  ) : null}
                   {submitWarning ? (
                     <p className="booking-flow__warning" role="status">{submitWarning}</p>
                   ) : null}

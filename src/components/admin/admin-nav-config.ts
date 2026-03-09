@@ -14,9 +14,11 @@ const ALL_ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/instructors", label: "Тренеры" },
   { href: "/admin/courts", label: "Корты" },
   { href: "/admin/exceptions", label: "Исключения" },
-  { href: "/admin/wallet", label: "Клиенты" },
+  { href: "/admin/clients", label: "Клиенты" },
+  { href: "/admin/wallet", label: "Кошелёк" },
   { href: "/admin/opening-hours", label: "Часы работы", pricingSensitive: true },
   { href: "/admin/sports", label: "Виды спорта", pricingSensitive: true },
+  { href: "/admin/audit", label: "Журнал действий" },
 ];
 
 export function getAdminNavItems(role: AppRole): AdminNavItem[] {

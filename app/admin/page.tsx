@@ -26,10 +26,10 @@ export default async function AdminIndexPage() {
           <p className="admin-dashboard__stat-label">Брони сегодня</p>
           <p className="admin-dashboard__stat-value">{dashboard.todayBookingsCount}</p>
         </article>
-        <article className="admin-dashboard__stat-card">
+        <Link href="/admin/bookings?status=pending_payment" className="admin-dashboard__stat-card admin-dashboard__stat-card--link">
           <p className="admin-dashboard__stat-label">Ожидают оплаты</p>
           <p className="admin-dashboard__stat-value">{dashboard.pendingPaymentsCount}</p>
-        </article>
+        </Link>
         <article className="admin-dashboard__stat-card">
           <p className="admin-dashboard__stat-label">Активные корты / тренеры</p>
           <p className="admin-dashboard__stat-value">
@@ -90,7 +90,7 @@ export default async function AdminIndexPage() {
         ) : (
           <div className="admin-dashboard__recent-list">
             {dashboard.recentBookings.map((row) => (
-              <div key={row.id} className="admin-dashboard__recent-item">
+              <Link key={row.id} href={`/admin/bookings?bookingId=${row.id}`} className="admin-dashboard__recent-item admin-dashboard__recent-item--link">
                 <div>
                   <p className="admin-dashboard__recent-title">{row.serviceName}</p>
                   <p className="admin-dashboard__recent-sub">
@@ -98,7 +98,7 @@ export default async function AdminIndexPage() {
                   </p>
                 </div>
                 <span className="admin-bookings__chip">{row.statusLabel}</span>
-              </div>
+              </Link>
             ))}
           </div>
         )}

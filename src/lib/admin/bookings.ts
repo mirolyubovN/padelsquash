@@ -8,75 +8,20 @@ import {
   setAdminBookingPaymentStateInTx,
   type AdminBookingPaymentState,
 } from "@/src/lib/bookings/operations";
-import { isoToVenueTimezoneParts, venueDateRangeUtc, venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
+import { isoToVenueTimezoneParts, venueDateRangeUtc, venueDateTimeToUtc, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
+import { logAuditEvent } from "@/src/lib/audit/log";
+import {
+  ADMIN_BOOKING_STATUS_LABELS,
+  ADMIN_PAYMENT_STATUS_LABELS,
+  type AdminBookingStatus,
+  type AdminPaymentStatus,
+  type AdminBookingFilters,
+  type AdminBookingRow,
+  type AdminBookingListResult,
+} from "@/src/lib/admin/booking-types";
 
-export type AdminBookingStatus = "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
-export type AdminPaymentStatus = "none" | "unpaid" | "paid" | "failed" | "refunded";
-export type AdminBookingSort = "date_asc" | "date_desc";
-
-export const ADMIN_BOOKING_STATUS_LABELS: Record<AdminBookingStatus, string> = {
-  pending_payment: "Ожидает оплаты",
-  confirmed: "Подтверждено",
-  cancelled: "Отменено",
-  completed: "Завершено",
-  no_show: "Неявка",
-};
-
-export const ADMIN_PAYMENT_STATUS_LABELS: Record<AdminPaymentStatus, string> = {
-  none: "—",
-  unpaid: "Не оплачено",
-  paid: "Оплачено",
-  failed: "Ошибка оплаты",
-  refunded: "Возврат",
-};
-
-export interface AdminBookingFilters {
-  page: number;
-  pageSize: number;
-  bookingId?: string;
-  customerEmail?: string;
-  q?: string;
-  status?: AdminBookingStatus;
-  sport?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  sort?: AdminBookingSort;
-}
-
-export interface AdminBookingRow {
-  id: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  serviceName: string;
-  serviceCode: string;
-  serviceSport: string;
-  serviceSportName: string;
-  date: string;
-  time: string;
-  startAtIso: string;
-  endAtIso: string;
-  status: AdminBookingStatus;
-  statusLabel: string;
-  paymentStatus: AdminPaymentStatus;
-  paymentStatusLabel: string;
-  paymentProvider: string;
-  amountKzt: string;
-  amountRaw: number;
-  currency: string;
-  courtLabels: string[];
-  instructorLabels: string[];
-  pricingBreakdownLines: string[];
-}
-
-export interface AdminBookingListResult {
-  rows: AdminBookingRow[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+export type { AdminBookingStatus, AdminPaymentStatus, AdminBookingSort, AdminBookingFilters, AdminBookingRow, AdminBookingListResult } from "@/src/lib/admin/booking-types";
+export { ADMIN_BOOKING_STATUS_LABELS, ADMIN_PAYMENT_STATUS_LABELS } from "@/src/lib/admin/booking-types";
 
 function toPaymentStatus(row: { payment: null | { status: string }; status: AdminBookingStatus }): AdminPaymentStatus {
   const raw = row.payment?.status;
@@ -188,6 +133,7 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
             },
           },
         },
+        location: { select: { slug: true } },
         payment: true,
         resources: true,
       },
@@ -235,17 +181,27 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
       .filter((resource) => resource.resourceType === "instructor")
       .map((resource) => instructorNames.get(resource.resourceId) ?? resource.resourceId);
 
+    const courtIds = row.resources
+      .filter((resource) => resource.resourceType === "court")
+      .map((resource) => resource.resourceId);
+
     return {
       id: row.id,
       customerId: row.customer.id,
       customerName: row.customer.name,
       customerEmail: row.customer.email,
       customerPhone: row.customer.phone,
+      serviceId: row.service.id,
       serviceName: row.service.name,
       serviceCode: row.service.code,
       serviceSport: row.service.sport.slug,
       serviceSportName: row.service.sport.name,
+      requiresCourt: row.service.requiresCourt,
+      locationId: row.locationId,
+      locationSlug: row.location.slug,
+      courtIds,
       date: whenStart.date,
+      dateIso: toVenueIsoDate(row.startAt),
       time: `${whenStart.time} - ${whenEnd.time}`,
       startAtIso: row.startAt.toISOString(),
       endAtIso: row.endAt.toISOString(),
@@ -276,34 +232,77 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
 export async function setBookingStatus(args: {
   bookingId: string;
   status: AdminBookingStatus;
+  actorUserId?: string;
+  cancellationReason?: string;
 }) {
   if (args.status === "cancelled") {
     const updated = await prisma.$transaction((tx) =>
       cancelBookingWithRefundInTx({
         tx,
         bookingId: args.bookingId,
+        cancelledBy: "admin",
+        cancellationReason: args.cancellationReason,
       }),
     );
 
     await notifyBookingCancelled({ bookingId: updated.id, cancelledBy: "admin" });
+    await logAuditEvent({
+      actorUserId: args.actorUserId,
+      action: "booking.cancel",
+      entityType: "booking",
+      entityId: updated.id,
+      detail: { cancelledBy: "admin", reason: args.cancellationReason ?? null },
+    });
     return updated;
   }
 
   const existing = await prisma.booking.findUnique({
     where: { id: args.bookingId },
-    select: {
-      id: true,
-    },
+    select: { id: true, status: true },
   });
 
   if (!existing) {
     throw new Error("Бронирование не найдено");
   }
 
-  return prisma.booking.update({
+  const result = await prisma.booking.update({
     where: { id: args.bookingId },
     data: { status: args.status },
   });
+
+  await logAuditEvent({
+    actorUserId: args.actorUserId,
+    action: "booking.status_change",
+    entityType: "booking",
+    entityId: args.bookingId,
+    detail: { oldStatus: existing.status, newStatus: args.status },
+  });
+
+  return result;
+}
+
+export interface BulkSetStatusResult {
+  updated: number;
+  failed: number;
+  total: number;
+}
+
+export async function bulkSetBookingStatus(args: {
+  bookingIds: string[];
+  status: AdminBookingStatus;
+  actorUserId?: string;
+}): Promise<BulkSetStatusResult> {
+  let updated = 0;
+  let failed = 0;
+  for (const bookingId of args.bookingIds) {
+    try {
+      await setBookingStatus({ bookingId, status: args.status, actorUserId: args.actorUserId });
+      updated++;
+    } catch {
+      failed++;
+    }
+  }
+  return { updated, failed, total: args.bookingIds.length };
 }
 
 export async function markBookingPaid(args: {

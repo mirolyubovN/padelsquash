@@ -1,7 +1,7 @@
 import { formatMoneyKzt } from "@/src/lib/format/money";
 import { prisma } from "@/src/lib/prisma";
 import { isoToVenueTimezoneParts } from "@/src/lib/time/venue-timezone";
-import { ADMIN_BOOKING_STATUS_LABELS, ADMIN_PAYMENT_STATUS_LABELS, type AdminBookingStatus, type AdminPaymentStatus } from "@/src/lib/admin/bookings";
+import { ADMIN_BOOKING_STATUS_LABELS, ADMIN_PAYMENT_STATUS_LABELS, type AdminBookingStatus, type AdminPaymentStatus } from "@/src/lib/admin/booking-types";
 
 interface AdminCustomerBookingRow {
   id: string;
@@ -34,6 +34,8 @@ export interface AdminCustomerProfile {
   phone: string;
   createdAtIso: string;
   balanceKzt: string;
+  passwordHash: string;
+  needsPasswordSetup: boolean;
   totalBookings: number;
   upcomingBookings: number;
   cancelledBookings: number;
@@ -157,6 +159,9 @@ export async function getAdminCustomerProfile(customerId: string): Promise<Admin
   const completedBookings = bookings.filter((booking) => booking.status === "completed").length;
   const noShowBookings = bookings.filter((booking) => booking.status === "no_show").length;
 
+  const needsPasswordSetup =
+    user.passwordHash.startsWith("admin-created-") || user.passwordHash.startsWith("admin-reset-");
+
   return {
     id: user.id,
     name: user.name,
@@ -164,6 +169,8 @@ export async function getAdminCustomerProfile(customerId: string): Promise<Admin
     phone: user.phone,
     createdAtIso: user.createdAt.toISOString(),
     balanceKzt: formatMoneyKzt(Number(user.walletBalance)),
+    passwordHash: user.passwordHash,
+    needsPasswordSetup,
     totalBookings,
     upcomingBookings,
     cancelledBookings,

@@ -194,6 +194,102 @@ export async function getCalendarDayData(date: string, locationSlug?: string): P
   };
 }
 
+/** Returns the ISO date (YYYY-MM-DD) of Monday of the week containing `date`. */
+export function getMondayOfWeek(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  const day = d.getUTCDay(); // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day; // offset to Monday
+  d.setUTCDate(d.getUTCDate() + diff);
+  return toVenueIsoDate(d);
+}
+
+export interface CalendarWeekCell {
+  date: string; // YYYY-MM-DD
+  bookingCount: number;
+  courtCount: number;
+  /** 0=free, 1=partial, 2=full */
+  occupancy: 0 | 1 | 2;
+}
+
+export interface CalendarWeekData {
+  weekStart: string; // Monday
+  days: CalendarWeekCell[]; // 7 items Mon-Sun
+  courts: CalendarCourt[];
+}
+
+export async function getCalendarWeekData(mondayDate: string, locationSlug?: string): Promise<CalendarWeekData> {
+  // Resolve location
+  let locationId: string;
+  try {
+    const loc = locationSlug
+      ? await prisma.location.findFirst({ where: { slug: locationSlug, active: true }, select: { id: true } })
+      : await prisma.location.findFirst({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true } });
+    locationId = loc?.id ?? "";
+  } catch {
+    locationId = "";
+  }
+
+  // Build the 7 date strings Mon–Sun
+  const days: string[] = [];
+  const base = new Date(`${mondayDate}T12:00:00Z`);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(base);
+    d.setUTCDate(base.getUTCDate() + i);
+    days.push(toVenueIsoDate(d));
+  }
+
+  const weekStartUtc = venueDateRangeUtc(days[0]).startUtc;
+  const weekEndUtc = venueDateRangeUtc(days[6]).endUtc;
+
+  const [courts, bookings] = await Promise.all([
+    prisma.court.findMany({
+      where: { active: true, ...(locationId ? { locationId } : {}) },
+      orderBy: [{ sport: { sortOrder: "asc" } }, { name: "asc" }],
+      select: { id: true, name: true, sport: { select: { slug: true, name: true } } },
+    }),
+    prisma.booking.findMany({
+      where: {
+        startAt: { gte: weekStartUtc },
+        endAt: { lte: weekEndUtc },
+        status: { in: ["pending_payment", "confirmed"] },
+        ...(locationId ? { locationId } : {}),
+      },
+      select: {
+        startAt: true,
+        resources: { select: { resourceType: true, resourceId: true } },
+      },
+    }),
+  ]);
+
+  const courtCount = courts.length;
+  const courtIds = new Set(courts.map((c) => c.id));
+
+  // Count bookings per day date string
+  const bookingsByDay = new Map<string, Set<string>>(); // date → Set<courtId>
+  for (const b of bookings) {
+    const dayStr = toVenueIsoDate(b.startAt);
+    if (!bookingsByDay.has(dayStr)) bookingsByDay.set(dayStr, new Set());
+    for (const r of b.resources) {
+      if (r.resourceType === "court" && courtIds.has(r.resourceId)) {
+        bookingsByDay.get(dayStr)!.add(r.resourceId);
+      }
+    }
+  }
+
+  const weekCells: CalendarWeekCell[] = days.map((date) => {
+    const bookedCourts = bookingsByDay.get(date)?.size ?? 0;
+    const occupancy: 0 | 1 | 2 =
+      courtCount === 0 || bookedCourts === 0 ? 0 : bookedCourts >= courtCount ? 2 : 1;
+    return { date, bookingCount: bookedCourts, courtCount, occupancy };
+  });
+
+  return {
+    weekStart: mondayDate,
+    days: weekCells,
+    courts: courts.map((c) => ({ id: c.id, name: c.name, sportSlug: c.sport.slug, sportName: c.sport.name })),
+  };
+}
+
 export function getAdjacentDate(date: string, delta: number): string {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + delta);

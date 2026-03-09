@@ -291,6 +291,9 @@ model Booking {
   currency             String        @default("KZT")
   priceTotal           Decimal       @db.Decimal(10, 2)
   pricingBreakdownJson Json
+  cancelledBy          String?       // "customer" | "admin" | "system" | "trainer"
+  cancelledAt          DateTime?
+  cancellationReason   String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -442,4 +445,19 @@ model BookingHold {
   @@index([locationId, startAt, endAt, status, expiresAt])
   @@index([courtId, startAt, endAt])
   @@index([instructorId, startAt, endAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String   // e.g. "booking.cancel", "booking.status_change", "court.delete"
+  entityType  String   // "booking", "court", "instructor", "sport"
+  entityId    String
+  detail      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
 }

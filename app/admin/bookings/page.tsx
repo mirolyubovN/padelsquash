@@ -1,15 +1,19 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
+import { AdminBookingsTable } from "@/src/components/admin/admin-bookings-table";
 import {
   type AdminBookingSort,
   type AdminBookingStatus,
   ADMIN_BOOKING_STATUS_LABELS,
+  bulkSetBookingStatus,
   getAdminBookings,
   markBookingPaid,
   setBookingPaymentState,
   setBookingStatus,
 } from "@/src/lib/admin/bookings";
+import { rescheduleBooking } from "@/src/lib/bookings/reschedule";
+import { logAuditEvent } from "@/src/lib/audit/log";
 import { getAdminSportOptions } from "@/src/lib/admin/resources";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import { canViewRevenue } from "@/src/lib/auth/roles";
@@ -33,18 +37,6 @@ type BookingActionName =
   | "set_status"
   | "set_payment";
 
-function defaultPaymentStateForRow(row: Awaited<ReturnType<typeof getAdminBookings>>["rows"][number]) {
-  if (row.paymentStatus === "paid" && row.paymentProvider === "wallet") {
-    return "paid_wallet";
-  }
-  if (row.paymentStatus === "refunded") {
-    return "refunded_manual";
-  }
-  if (row.paymentStatus === "paid") {
-    return "paid_manual";
-  }
-  return "unpaid_manual";
-}
 
 function isAdminBookingStatus(value: string): value is AdminBookingStatus {
   return (
@@ -208,6 +200,36 @@ export default async function AdminBookingsPage({
     revalidatePath("/admin");
   }
 
+  async function bulkUpdateAction(ids: string[], status: AdminBookingStatus) {
+    "use server";
+    const session = await assertAdmin();
+    const result = await bulkSetBookingStatus({ bookingIds: ids, status, actorUserId: session.user.id });
+    revalidatePath("/admin/bookings");
+    revalidatePath("/admin");
+    return result;
+  }
+
+  async function rescheduleAction(args: {
+    bookingId: string;
+    newDate: string;
+    newStartTime: string;
+    newCourtId?: string;
+  }) {
+    "use server";
+    const session = await assertAdmin();
+    const result = await rescheduleBooking({ ...args, actorUserId: session.user.id });
+    await logAuditEvent({
+      actorUserId: session.user.id,
+      action: "booking.status_change",
+      entityType: "booking",
+      entityId: args.bookingId,
+      detail: { event: "reschedule", newDate: args.newDate, newStartTime: args.newStartTime, priceDiff: result.priceDiff },
+    });
+    revalidatePath("/admin/bookings");
+    revalidatePath("/admin/calendar");
+    return result;
+  }
+
   return (
     <AdminPageShell
       title="Бронирования"
@@ -321,167 +343,13 @@ export default async function AdminBookingsPage({
         {params.bookingId ? <p className="admin-list-toolbar__meta">Показана бронь: {params.bookingId}</p> : null}
       </div>
 
-      <div className="admin-table">
-        <table className="admin-table__table">
-          <thead>
-            <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Клиент</th>
-              <th className="admin-table__cell admin-table__cell--head">Услуга</th>
-              <th className="admin-table__cell admin-table__cell--head">Дата / время</th>
-              <th className="admin-table__cell admin-table__cell--head">Статус</th>
-              <th className="admin-table__cell admin-table__cell--head">Оплата</th>
-              {canSeeRevenue ? <th className="admin-table__cell admin-table__cell--head">Сумма</th> : null}
-              <th className="admin-table__cell admin-table__cell--head">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bookings.rows.length === 0 ? (
-              <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={canSeeRevenue ? 7 : 6}>
-                  Бронирований пока нет.
-                </td>
-              </tr>
-            ) : (
-              bookings.rows.map((row) => (
-                <tr key={row.id} id={`booking-${row.id}`} className="admin-table__row">
-                  <td className="admin-table__cell">
-                    <div className="admin-bookings__cell-title">
-                      <Link href={`/admin/clients/${row.customerId}`}>{row.customerName}</Link>
-                    </div>
-                    <div className="admin-bookings__cell-sub">
-                      <Link href={`/admin/clients/${row.customerId}`}>{row.customerEmail}</Link>
-                    </div>
-                    <div className="admin-bookings__cell-sub">{row.customerPhone}</div>
-                  </td>
-                  <td className="admin-table__cell">
-                    <div className="admin-bookings__cell-title">{row.serviceName}</div>
-                    <div className="admin-bookings__cell-sub">
-                      {row.serviceCode} · {row.serviceSportName}
-                    </div>
-                    {row.courtLabels.length > 0 ? (
-                      <div className="admin-bookings__cell-sub">Корт: {row.courtLabels.join(", ")}</div>
-                    ) : null}
-                    {row.instructorLabels.length > 0 ? (
-                      <div className="admin-bookings__cell-sub">Тренер: {row.instructorLabels.join(", ")}</div>
-                    ) : null}
-                  </td>
-                  <td className="admin-table__cell">
-                    <div className="admin-bookings__cell-title">{row.date}</div>
-                    <div className="admin-bookings__cell-sub">{row.time}</div>
-                  </td>
-                  <td className="admin-table__cell">
-                    <span className={`admin-bookings__chip admin-bookings__chip--status-${row.status.replaceAll("_", "-")}`}>
-                      {row.statusLabel}
-                    </span>
-                  </td>
-                  <td className="admin-table__cell">
-                    <span
-                      className={`admin-bookings__chip admin-bookings__chip--payment-${row.paymentStatus.replaceAll("_", "-")}`}
-                    >
-                      {row.paymentStatusLabel}
-                    </span>
-                  </td>
-                  {canSeeRevenue ? (
-                    <td className="admin-table__cell">
-                      <div className="admin-bookings__cell-title">{row.amountKzt}</div>
-                      {row.pricingBreakdownLines.length > 0 ? (
-                        <div className="admin-bookings__cell-sub">{row.pricingBreakdownLines[0]}</div>
-                      ) : null}
-                    </td>
-                  ) : null}
-                  <td className="admin-table__cell">
-                    {row.status === "pending_payment" ? (
-                      <form action={bookingAction} className="admin-bookings__actions">
-                        <input type="hidden" name="bookingId" value={row.id} />
-                        <button type="submit" name="action" value="pay_wallet" className="admin-bookings__action-button">
-                          Списать с баланса
-                        </button>
-                        <button type="submit" name="action" value="pay_manual" className="admin-bookings__action-button">
-                          Оплачено вручную (нал/карта)
-                        </button>
-                        <button
-                          type="submit"
-                          name="action"
-                          value="cancelled"
-                          className="admin-bookings__action-button admin-bookings__action-button--danger"
-                        >
-                          Отменить
-                        </button>
-                      </form>
-                    ) : row.status === "confirmed" ? (
-                      <form action={bookingAction} className="admin-bookings__actions">
-                        <input type="hidden" name="bookingId" value={row.id} />
-                        <button type="submit" name="action" value="completed" className="admin-bookings__action-button">
-                          Завершено
-                        </button>
-                        <button type="submit" name="action" value="no_show" className="admin-bookings__action-button">
-                          Неявка
-                        </button>
-                        <button
-                          type="submit"
-                          name="action"
-                          value="cancelled"
-                          className="admin-bookings__action-button admin-bookings__action-button--danger"
-                        >
-                          Отменить
-                        </button>
-                      </form>
-                    ) : (
-                      <span className="admin-bookings__no-actions">—</span>
-                    )}
-                    <details className="admin-bookings__details">
-                      <summary className="admin-bookings__details-summary">Исправить</summary>
-                      <div className="admin-bookings__details-body">
-                        <form action={bookingAction} className="admin-bookings__details-form">
-                          <input type="hidden" name="bookingId" value={row.id} />
-                          <label className="admin-bookings__details-label">
-                            <span>Статус брони</span>
-                          </label>
-                          <select
-                            name="nextStatus"
-                            aria-label="Статус брони"
-                            defaultValue={row.status}
-                            className="admin-form__field admin-bookings__details-field"
-                          >
-                            {Object.entries(ADMIN_BOOKING_STATUS_LABELS).map(([value, label]) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
-                          <button type="submit" name="action" value="set_status" className="admin-bookings__action-button">
-                            Сохранить статус
-                          </button>
-                        </form>
-                        <form action={bookingAction} className="admin-bookings__details-form">
-                          <input type="hidden" name="bookingId" value={row.id} />
-                          <label className="admin-bookings__details-label">
-                            <span>Статус оплаты</span>
-                          </label>
-                          <select
-                            name="nextPaymentState"
-                            aria-label="Статус оплаты"
-                            defaultValue={defaultPaymentStateForRow(row)}
-                            className="admin-form__field admin-bookings__details-field"
-                          >
-                            <option value="unpaid_manual">Не оплачено</option>
-                            <option value="paid_manual">Оплачено вручную (нал/карта)</option>
-                            <option value="paid_wallet">Оплачено с баланса</option>
-                            <option value="refunded_manual">Возврат</option>
-                          </select>
-                          <button type="submit" name="action" value="set_payment" className="admin-bookings__action-button">
-                            Сохранить оплату
-                          </button>
-                        </form>
-                      </div>
-                    </details>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <AdminBookingsTable
+        rows={bookings.rows}
+        canSeeRevenue={canSeeRevenue}
+        bookingAction={bookingAction}
+        bulkAction={bulkUpdateAction}
+        rescheduleAction={rescheduleAction}
+      />
 
       <div className="admin-pagination">
         <Link

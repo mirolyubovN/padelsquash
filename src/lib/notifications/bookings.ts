@@ -5,7 +5,7 @@ import { sendEmailMessage } from "@/src/lib/notifications/email";
 import { sendTelegramMessage } from "@/src/lib/notifications/telegram";
 
 type BookingNotificationEvent = "created" | "cancelled";
-type CancellationSource = "customer" | "admin";
+type CancellationSource = "customer" | "admin" | "trainer";
 
 interface BookingNotificationContext {
   bookingId: string;
@@ -32,7 +32,9 @@ interface NotificationRecipient {
 }
 
 function buildCancellationSourceLabel(source: CancellationSource): string {
-  return source === "admin" ? "администратором" : "клиентом";
+  if (source === "admin") return "администратором";
+  if (source === "trainer") return "тренером";
+  return "клиентом";
 }
 
 function buildSharedLines(context: BookingNotificationContext): string[] {
