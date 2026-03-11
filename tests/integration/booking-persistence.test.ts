@@ -4,6 +4,7 @@ import {
   createBookingInDb,
   InsufficientWalletBalanceError,
 } from "@/src/lib/bookings/persistence";
+import { rescheduleBooking } from "@/src/lib/bookings/reschedule";
 import { prisma } from "@/src/lib/prisma";
 import { getUserWalletBalance } from "@/src/lib/wallet/service";
 import {
@@ -131,6 +132,72 @@ describe("booking persistence (DB integration)", () => {
     const priceB = Number(trainerB.pricePerHour);
     const totalDiff = Math.abs(morningA.booking.priceTotal - morningB.booking.priceTotal);
     expect(totalDiff).toBe(Math.abs(priceA - priceB));
+  });
+
+  it("returns full training price breakdowns and booking audit history for admin bookings", async () => {
+    await getSeededPadelTrainingService();
+    const [courtA] = await getSeededPadelCourts(1);
+    const [trainerA] = await getSeededPadelInstructors(1);
+    const date = nextWeekdayIsoDate(47);
+    const customer = await createCustomerWithWallet("it-admin-bookings-history", 1_000);
+    const admin = await prisma.user.create({
+      data: {
+        name: "Audit Admin",
+        email: `audit-admin-${Date.now()}@example.com`,
+        phone: "+77070001122",
+        passwordHash: "test-password-hash",
+        role: "admin",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-coaching",
+      locationId: courtA.locationId,
+      date,
+      startTime: "11:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      instructorId: trainerA.id,
+      paymentMode: "auto",
+      customerUserId: customer.id,
+      customer: {
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+      },
+    });
+
+    await markBookingPaid({
+      bookingId: created.booking.id,
+      method: "cash",
+      actorUserId: admin.id,
+    });
+
+    await setBookingStatus({
+      bookingId: created.booking.id,
+      status: "completed",
+      actorUserId: admin.id,
+    });
+
+    const adminList = await getAdminBookings({
+      page: 1,
+      pageSize: 20,
+      bookingId: created.booking.id,
+      sort: "date_asc",
+    });
+
+    expect(adminList.rows).toHaveLength(1);
+    expect(adminList.rows[0]?.pricingBreakdownLines).toHaveLength(2);
+    expect(adminList.rows[0]?.pricingBreakdownLines).toEqual(
+      expect.arrayContaining([expect.stringContaining("Корт"), expect.stringContaining("Тренер")]),
+    );
+    expect(adminList.rows[0]?.historyItems.length).toBeGreaterThanOrEqual(2);
+    expect(adminList.rows[0]?.historyItems[0]?.actorLabel).toContain("Audit Admin");
+    expect(adminList.rows[0]?.historyItems.some((item) => item.action === "booking.payment_change")).toBe(true);
+    expect(adminList.rows[0]?.historyItems.some((item) => item.action === "booking.status_change")).toBe(true);
   });
 
   it("creates a temporary hold when the wallet balance is insufficient", async () => {
@@ -295,6 +362,79 @@ describe("booking persistence (DB integration)", () => {
     expect(balanceAfter).toBe(balanceBefore);
   });
 
+  it("refunds the client wallet when an admin settles a pending booking from wallet and then cancels it", async () => {
+    await getSeededPadelRentalService();
+    const [courtA] = await getSeededPadelCourts(1);
+    const date = nextWeekdayIsoDate(54);
+    const user = await createCustomerWithWallet("it-admin-wallet-cancel-refund", 1_000);
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date,
+      startTime: "17:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      paymentMode: "auto",
+      customerUserId: user.id,
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { walletBalance: 100_000 },
+    });
+
+    await markBookingPaid({
+      bookingId: created.booking.id,
+      method: "wallet",
+    });
+
+    const balanceAfterSettlement = await getUserWalletBalance(user.id);
+    expect(balanceAfterSettlement).toBeLessThan(100_000);
+
+    await setBookingStatus({
+      bookingId: created.booking.id,
+      status: "cancelled",
+    });
+
+    const cancelled = await prisma.booking.findUnique({
+      where: { id: created.booking.id },
+      select: {
+        status: true,
+        payment: {
+          select: {
+            provider: true,
+            status: true,
+          },
+        },
+        walletTransactions: {
+          where: {
+            type: {
+              in: ["booking_charge", "booking_refund"],
+            },
+          },
+          select: {
+            type: true,
+          },
+        },
+      },
+    });
+    const balanceAfterCancellation = await getUserWalletBalance(user.id);
+
+    expect(cancelled?.status).toBe("cancelled");
+    expect(cancelled?.payment?.provider).toBe("wallet");
+    expect(cancelled?.payment?.status).toBe("refunded");
+    expect(cancelled?.walletTransactions.map((row) => row.type)).toEqual(
+      expect.arrayContaining(["booking_charge", "booking_refund"]),
+    );
+    expect(balanceAfterCancellation).toBe(100_000);
+  });
+
   it("allows admin to correct payment and booking status after a mistake", async () => {
     await getSeededPadelRentalService();
     const [courtA] = await getSeededPadelCourts(1);
@@ -427,6 +567,41 @@ describe("booking persistence (DB integration)", () => {
         },
       }),
     ).rejects.toThrow("Нельзя создать бронирование на прошедшее время");
+  });
+
+  it("rejects rescheduling to a past date/time", async () => {
+    const [courtA] = await getSeededPadelCourts(1);
+    const user = await createCustomerWithWallet("it-past-reschedule");
+    const futureDate = nextWeekdayIsoDate(57);
+    const now = new Date();
+    const currentHour = Number(formatTimeInVenueTimezone(now).split(":")[0] ?? "0");
+    const pastDate =
+      currentHour > 0 ? toVenueIsoDate(now) : toVenueIsoDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    const pastStartTime = `${String(currentHour > 0 ? currentHour - 1 : 23).padStart(2, "0")}:00`;
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date: futureDate,
+      startTime: "12:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      customerUserId: user.id,
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    await expect(
+      rescheduleBooking({
+        bookingId: created.booking.id,
+        newDate: pastDate,
+        newStartTime: pastStartTime,
+        newCourtId: courtA.id,
+      }),
+    ).rejects.toThrow("Нельзя перенести бронирование на прошедшее время");
   });
 
   it("converts an active hold into a confirmed booking after top-up", async () => {

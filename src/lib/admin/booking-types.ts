@@ -33,6 +33,15 @@ export interface AdminBookingFilters {
   sort?: AdminBookingSort;
 }
 
+export interface AdminBookingHistoryItem {
+  id: string;
+  action: string;
+  actionLabel: string;
+  occurredAtLabel: string;
+  actorLabel: string;
+  detailSummary: string | null;
+}
+
 export interface AdminBookingRow {
   id: string;
   customerId: string;
@@ -64,6 +73,7 @@ export interface AdminBookingRow {
   courtLabels: string[];
   instructorLabels: string[];
   pricingBreakdownLines: string[];
+  historyItems: AdminBookingHistoryItem[];
 }
 
 export interface AdminBookingListResult {

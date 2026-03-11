@@ -1317,7 +1317,7 @@
 - Restored clean UTF-8 copy in `src/lib/content/site-content.ts`, `src/lib/settings/service.ts`, `prisma/seed.ts`, and `app/page.tsx`.
 - Repaired the current homepage redesign file in place instead of reverting it to `HEAD`, so the new layout/classes remain intact while all visible Russian copy renders correctly again.
 - Cleaned the user-facing admin labels/constants in `src/lib/admin/resources.ts` that were still showing mojibake in resource/sport/exception labels.
-- Updated live Prisma sport names in place (`padel` -> `�����`, `squash` -> `�����`) so existing database-backed pages stop rendering corrupted sport labels without a destructive reseed.
+- Updated live Prisma sport names in place (`padel` -> `�����`, `squash` -> `�����`) so existing database-backed pages stop rendering corrupted sport labels without a destructive reseed.
 - Verification:
   - `npx.cmd eslint app/page.tsx src/lib/content/site-content.ts src/lib/settings/service.ts prisma/seed.ts src/lib/admin/resources.ts` (warnings only for existing `<img>` usage in `app/page.tsx`)
   - `npx.cmd tsc --noEmit`
@@ -1392,3 +1392,114 @@
 - [x] Add integration coverage for admin correction flow and rerun targeted verification
 - Verification: npx tsc --noEmit; npx eslint app/admin/bookings/page.tsx src/components/admin/create-booking-form.tsx src/lib/bookings/persistence.ts tests/integration/booking-persistence.test.ts tests/e2e/03-admin-bookings-action.spec.ts tests/e2e/12-admin-multi-booking.spec.ts tests/e2e/13-admin-bookings-customer-link.spec.ts; npm run test:integration -- tests/integration/booking-persistence.test.ts; npx playwright test tests/e2e/03-admin-bookings-action.spec.ts tests/e2e/12-admin-multi-booking.spec.ts tests/e2e/13-admin-bookings-customer-link.spec.ts
 - Notes: existing unrelated diff remains in package-lock.json. prisma/schema.prisma shows only a line-ending warning in git diff output, not a content change.
+## Plan (2026-03-09 - admin client booking refund workflow)
+
+- [x] Trace why admin cancellation from the client profile does not restore balance after a manual debit.
+- [x] Add booking-linked pay/cancel actions to `/admin/clients/[customerId]` so admins can settle bookings from the correct workflow instead of using a generic wallet debit.
+- [x] Clarify the client balance adjustment copy so manual wallet operations are not mistaken for booking payment.
+- [x] Add regression coverage for admin wallet settlement plus cancellation refund on the customer profile workflow.
+- [x] Run targeted verification and record the review results.
+
+## Review (2026-03-09 - admin client booking refund workflow)
+
+- Root cause: the client profile only exposed a generic wallet debit, which writes `admin_debit` ledger rows without a `bookingId`; cancellation refunds only act on booking-linked `booking_charge` rows, so those manual debits are intentionally not auto-refunded.
+- Added booking-linked actions directly to `/admin/clients/[customerId]` for pending and confirmed bookings: pay from wallet, mark paid manually, and cancel with the existing refund-aware booking action.
+- Renamed the balance section to manual balance correction and added guidance to use booking actions for booking payment so operators do not mix the two workflows.
+- Added integration coverage for the exact admin flow: create pending booking, settle from wallet, cancel, verify `booking_charge` + `booking_refund` rows and full wallet restoration.
+- Verification: `npx tsc --noEmit`; `npx eslint app/admin/clients/[customerId]/page.tsx tests/integration/booking-persistence.test.ts`; `npm run test:integration -- tests/integration/booking-persistence.test.ts`
+
+## Plan (2026-03-09 - admin bookings correction modal)
+
+- [x] Inspect the admin bookings correction UI and reuse the existing admin modal pattern instead of inline details.
+- [x] Replace the `admin-bookings__details` editor with a popup modal for booking status/payment corrections.
+- [x] Remove the old details-specific styles and add modal form styles that match the rest of the admin UI.
+- [x] Run targeted verification and record the results.
+
+## Review (2026-03-09 - admin bookings correction modal)
+
+- Replaced the inline `details` editor on `/admin/bookings` with the existing `AdminEditModal` popup pattern used across other admin edit flows.
+- Moved booking-status and payment-status correction forms into one modal so the actions no longer expand rows inline.
+- Removed the old `admin-bookings__details*` styles and added `admin-bookings__edit-*` modal form styles in `src/styles/admin.scss`.
+- Verification: `npx eslint src/components/admin/admin-bookings-table.tsx`; `npx tsc --noEmit`
+
+## Plan (2026-03-09 - admin reschedule availability fix)
+
+- [x] Read the local Next.js route-handler reference and inspect the reschedule modal plus `/api/availability` request contract.
+- [x] Identify and fix the admin reschedule request mismatch so the modal sends the service code expected by the availability API.
+- [x] Run targeted verification and record the results.
+
+## Review (2026-03-09 - admin reschedule availability fix)
+
+- Root cause: the admin reschedule modal was sending the booking row’s Prisma service ID to `/api/availability`, but that route resolves availability by service code (for example `padel-rental`), so the request failed before any slots could load.
+- Renamed the modal prop to `serviceCode` and updated the bookings table to pass `row.serviceCode`, which makes the request contract explicit and removes the ID/code mix-up.
+- Removed the now-unused `currentTime` prop from the modal interface while touching the component.
+- Verification: `npx eslint src/components/admin/admin-reschedule-modal.tsx src/components/admin/admin-bookings-table.tsx`; `npx tsc --noEmit`
+
+## Plan (2026-03-09 - admin reschedule UX parity)
+
+- [x] Compare the reschedule modal against the admin create-booking date/time/court selector and identify the UX gaps.
+- [x] Refactor the reschedule modal to block past dates and use court names with a timetable-style selection flow instead of raw IDs in a dropdown.
+- [x] Add a server-side past-time guard to rescheduling so invalid moves are rejected even if the client is bypassed.
+- [x] Run targeted verification and record the results.
+
+## Review (2026-03-09 - admin reschedule UX parity)
+
+- Reworked the reschedule modal to follow the admin create-booking selection pattern more closely: venue-today date floor, timetable-style time/court matrix, and human-readable court names instead of a raw-ID dropdown.
+- Wired `/admin/bookings` to pass active court names into the modal so available-court cells render the same labels admins see elsewhere.
+- Added a server-side guard in `src/lib/bookings/reschedule.ts` to reject attempts to move a booking into the past, even if the client input is bypassed.
+- Added integration coverage for the new server-side rule in `tests/integration/booking-persistence.test.ts`.
+- Verification: `npx eslint app/admin/bookings/page.tsx src/components/admin/admin-bookings-table.tsx src/components/admin/admin-reschedule-modal.tsx src/lib/bookings/reschedule.ts tests/integration/booking-persistence.test.ts`; `npx tsc --noEmit`; `npm run test:integration -- tests/integration/booking-persistence.test.ts`
+
+## Plan (2026-03-09 - reschedule modal width and labels)
+
+- [x] Inspect the current reschedule modal layout and identify remaining raw-ID/low-context render paths.
+- [x] Widen the popup and add explicit current/new booking summary rows with human-readable data.
+- [x] Ensure visible reschedule selections render court labels instead of ID fallbacks.
+- [x] Run targeted verification and record the results.
+
+## Review (2026-03-09 - reschedule modal width and labels)
+
+- Expanded the reschedule popup to near full-width and increased the timetable viewport so it behaves more like the create-booking flow.
+- Added a summary block in the popup showing the current booking service, current date/time/court, and the selected new date/time/court.
+- Updated the visible selected-court label rendering to use human-readable court names in the popup instead of surfacing IDs in the UI.
+- Verification: `npx eslint src/components/admin/admin-bookings-table.tsx src/components/admin/admin-reschedule-modal.tsx`; `npx tsc --noEmit`
+
+## Plan (2026-03-09 - reschedule court-name follow-up)
+
+- [x] Trace the remaining raw court GUID visible in the reschedule modal after the width/summary pass.
+- [x] Remove raw ID fallbacks from the visible bookings table and reschedule modal court labels, using the canonical court-name map instead.
+- [x] Run targeted verification and record the result.
+
+## Review (2026-03-09 - reschedule court-name follow-up)
+
+- Root cause: the reschedule popup still had two raw-ID render paths after the previous pass: timetable headers used `courtNamesById[courtId] ?? courtId`, and the modal summary inherited `row.courtLabels[0]`, which could already be a GUID fallback from server data.
+- `/admin/bookings` now passes the full court-name map for all courts, not only active ones, and the bookings table resolves visible court labels from `row.courtIds` before rendering the table cell or opening the reschedule popup.
+- The reschedule modal now accepts `currentCourtId`, resolves current/selected/timetable labels from the court-name map, and falls back to neutral `Корт N` labels instead of ever exposing raw GUIDs in the UI.
+- Verification: `npx eslint app/admin/bookings/page.tsx src/components/admin/admin-bookings-table.tsx src/components/admin/admin-reschedule-modal.tsx`; `npx tsc --noEmit`
+
+## Plan (2026-03-09 - admin bookings pricing/actions/history follow-up)
+
+- [x] Inspect the current `/admin/bookings` amount column, row actions, and audit logging paths to identify the missing training breakdown and mutation-history gaps.
+- [x] Extend admin booking data/mutations so training rows expose the full court+trainer price breakdown and every booking/payment mutation records actor + timestamp details.
+- [x] Replace the row-level action-button pile with one manage entry that keeps the full action set available and surfaces per-booking edit history.
+- [x] Run targeted verification and record the results.
+
+## Review (2026-03-09 - admin bookings pricing/actions/history follow-up)
+
+- The amount column now renders the full pricing breakdown instead of only the first line, so training bookings show both the court component and the trainer component under the total.
+- `/admin/bookings` now passes actor context into every booking status/payment mutation, and `src/lib/admin/bookings.ts` records/retrieves per-booking audit history with action labels, actor identity, timestamps, and short summaries for payment/status/reschedule changes.
+- The row-level action pile was replaced with a single `Управлять` modal entry that groups quick actions, manual corrections, and booking history in one operator flow.
+- Added integration coverage proving training bookings expose both pricing components and that admin payment/status edits appear in the returned booking history.
+- Verification: `npx eslint app/admin/bookings/page.tsx src/components/admin/admin-booking-actions-modal.tsx src/components/admin/admin-bookings-table.tsx src/lib/admin/bookings.ts src/lib/admin/booking-types.ts tests/integration/booking-persistence.test.ts`; `npx tsc --noEmit`; `npm run test:integration -- tests/integration/booking-persistence.test.ts`
+
+## Plan (2026-03-09 - admin bookings docs update)
+
+- [x] Find the operator-facing docs that describe `/admin/bookings`.
+- [x] Update the docs to reflect the current pricing breakdown, manage modal, and booking history behavior.
+- [x] Record the review result.
+
+## Review (2026-03-09 - admin bookings docs update)
+
+- Updated `README.md` so the `/admin/bookings` operator flow now documents the full training price breakdown, the single `Управлять` modal entry, and the per-booking actor/timestamp history shown in that modal.
+- Updated the admin routes table entry for `/admin/bookings` to describe the current manage-modal and audit-aware behavior instead of the older generic “status updates” wording.
+- Verification: `rg -n "full pricing breakdown|Управлять|per-booking history|manage modal, full price breakdown" README.md`

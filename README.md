@@ -225,6 +225,9 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 - `/admin/calendar` blocks past-time booking creation.
 - Clicking a future free slot deep-links into `/admin/bookings/create` with prefilled date, time, and court.
 - `/admin/bookings` supports exact customer filtering via `customerEmail` query param (used by wallet deep-links).
+- `/admin/bookings` amount rows show the full pricing breakdown under the total; training bookings list both the court charge and the trainer charge.
+- `/admin/bookings` uses one `Управлять` modal per row instead of exposing all action buttons inline.
+- The `Управлять` modal groups quick actions (pay, cancel, complete, no-show, reschedule), manual status/payment correction, and per-booking history with actor + timestamp details.
 - Admin booking create mirrors the customer flow: sport -> service -> trainer (if needed) -> date/time -> court matrix.
 - Admin booking create now uses the same timetable UX pattern as `/book`, including visible per-slot prices and total breakdown before submit.
 - Admins can select multiple time+court cells in one submit (multi-slot and multi-court batch booking).
@@ -276,7 +279,7 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 | Route | Description |
 | --- | --- |
 | `/admin` | Dashboard |
-| `/admin/bookings` | Booking list and status updates |
+| `/admin/bookings` | Booking list with manage modal, full price breakdown, and per-booking audit history |
 | `/admin/clients/[customerId]` | Customer profile with balance, bookings, and wallet history |
 | `/admin/bookings/create` | Manual booking creation |
 | `/admin/calendar` | Day calendar of court bookings |

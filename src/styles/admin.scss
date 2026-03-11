@@ -990,31 +990,41 @@
 /* ── Reschedule modal ────────────────────────────────────────────── */
 
 .admin-reschedule-modal {
-  width: min(36rem, 95vw);
+  width: min(88rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
 }
 
 .admin-reschedule-modal__form {
   @apply flex flex-col gap-4 my-4;
 }
 
-.admin-reschedule-modal__slots {
-  @apply flex flex-wrap gap-2;
+.admin-reschedule-modal__summary {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
 }
 
-.admin-reschedule-modal__slot {
-  @apply rounded border px-3 py-1.5 text-sm font-medium transition-all;
-  border-color: var(--line);
-  background-color: var(--background);
+.admin-reschedule-modal__summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+  font-size: 0.875rem;
+  color: #475569;
 }
 
-.admin-reschedule-modal__slot:hover {
-  border-color: var(--accent);
+.admin-reschedule-modal__summary-row strong {
+  color: #0f172a;
+  text-align: right;
 }
 
-.admin-reschedule-modal__slot--selected {
-  background-color: var(--accent);
-  border-color: var(--accent);
-  color: #ffffff;
+.admin-reschedule-modal__timetable {
+  width: 100%;
+  max-height: min(30rem, 65vh);
+  overflow: auto;
 }
 
 /* ── Admin create-booking form ───────────────────────────────────── */
@@ -1727,6 +1737,12 @@ tbody tr:hover .admin-table__cell {
   margin-top: 0.125rem;
 }
 
+.admin-bookings__price-lines {
+  display: grid;
+  gap: 0.125rem;
+  margin-top: 0.25rem;
+}
+
 .admin-bookings__chip {
   display: inline-flex;
   align-items: center;
@@ -1870,70 +1886,163 @@ tbody tr:hover .admin-table__cell {
   opacity: 0.7;
 }
 
-.admin-bookings__details {
-  min-width: 4rem;
-}
-
-.admin-bookings__details-summary {
-  cursor: pointer;
-  padding: 0.3125rem 0.625rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.375rem;
-  background: #f8fafc;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #64748b;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.admin-bookings__details-summary:hover {
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-.admin-bookings__details-body {
-  margin-top: 0.5rem;
+.admin-bookings__edit-modal {
   display: grid;
-  gap: 0.375rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  background: #f8fafc;
-  font-size: 0.6875rem;
-  color: #64748b;
+  gap: 1rem;
 }
 
-.admin-bookings__details-form {
+.admin-bookings__edit-modal-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.admin-bookings__edit-form {
   display: grid;
-  gap: 0.375rem;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
 }
 
-.admin-bookings__details-label {
-  font-size: 0.6875rem;
+.admin-bookings__edit-form:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.admin-bookings__edit-label {
+  font-size: 0.75rem;
   font-weight: 600;
   color: #475569;
 }
 
-.admin-bookings__details-field {
-  min-width: min(100%, 14rem);
+.admin-bookings__edit-field {
+  width: 100%;
+  min-width: 0;
 }
 
-.admin-bookings__details-row {
+.admin-bookings__manage-modal {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+}
+
+.admin-bookings__manage-section {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.admin-bookings__manage-section--summary {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.admin-bookings__manage-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.admin-bookings__manage-summary-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .admin-bookings__manage-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.admin-bookings__manage-kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.admin-bookings__manage-value {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.admin-bookings__manage-sub,
+.admin-bookings__manage-meta,
+.admin-bookings__manage-empty {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.admin-bookings__manage-actions {
+  display: grid;
   gap: 0.5rem;
-  align-items: start;
 }
 
-.admin-bookings__details-row + .admin-bookings__details-row {
-  border-top: 1px solid #e2e8f0;
-  padding-top: 0.5rem;
+@media (min-width: 768px) {
+  .admin-bookings__manage-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.admin-bookings__details-breakdown {
-  border-top: 1px solid #e2e8f0;
-  padding-top: 0.5rem;
-  margin-top: 0.125rem;
+.admin-bookings__manage-action-form {
+  min-width: 0;
+}
+
+.admin-bookings__manage-action-form form,
+.admin-bookings__manage-action-form .admin-bookings__action-button {
+  width: 100%;
+}
+
+.admin-bookings__history-list {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.admin-bookings__history-item {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+.admin-bookings__history-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-bookings__history-title,
+.admin-bookings__history-time,
+.admin-bookings__history-actor,
+.admin-bookings__history-detail {
+  margin: 0;
+}
+
+.admin-bookings__history-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.admin-bookings__history-time,
+.admin-bookings__history-actor,
+.admin-bookings__history-detail {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.admin-bookings__history-actor,
+.admin-bookings__history-detail {
+  margin-top: 0.25rem;
 }
 
 /* ── Admin filters ───────────────────────────────────────────────── */

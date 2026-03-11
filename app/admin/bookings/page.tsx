@@ -14,7 +14,7 @@ import {
 } from "@/src/lib/admin/bookings";
 import { rescheduleBooking } from "@/src/lib/bookings/reschedule";
 import { logAuditEvent } from "@/src/lib/audit/log";
-import { getAdminSportOptions } from "@/src/lib/admin/resources";
+import { getAdminCourts, getAdminSportOptions } from "@/src/lib/admin/resources";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import { canViewRevenue } from "@/src/lib/auth/roles";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
@@ -138,7 +138,7 @@ export default async function AdminBookingsPage({
   const session = await assertAdmin();
   const canSeeRevenue = canViewRevenue(session.user.role);
   const params = normalizeSearchParams(await searchParams);
-  const [bookings, sportOptions] = await Promise.all([
+  const [bookings, sportOptions, courts] = await Promise.all([
     getAdminBookings({
       page: params.page,
       pageSize: 20,
@@ -152,11 +152,13 @@ export default async function AdminBookingsPage({
       sort: params.sort,
     }),
     getAdminSportOptions(),
+    getAdminCourts(),
   ]);
+  const courtNamesById = Object.fromEntries(courts.map((court) => [court.id, court.name]));
 
   async function bookingAction(formData: FormData) {
     "use server";
-    await assertAdmin();
+    const session = await assertAdmin();
 
     const bookingId = String(formData.get("bookingId") ?? "");
     const action = String(formData.get("action") ?? "") as BookingActionName;
@@ -168,16 +170,16 @@ export default async function AdminBookingsPage({
     }
 
     if (action === "cancelled" || action === "completed" || action === "no_show") {
-      await setBookingStatus({ bookingId, status: action });
+      await setBookingStatus({ bookingId, status: action, actorUserId: session.user.id });
     } else if (action === "set_status") {
       if (!isAdminBookingStatus(nextStatus)) {
         throw new Error("Некорректный статус бронирования");
       }
-      await setBookingStatus({ bookingId, status: nextStatus });
+      await setBookingStatus({ bookingId, status: nextStatus, actorUserId: session.user.id });
     } else if (action === "pay_wallet") {
-      await markBookingPaid({ bookingId, method: "wallet" });
+      await markBookingPaid({ bookingId, method: "wallet", actorUserId: session.user.id });
     } else if (action === "pay_manual") {
-      await markBookingPaid({ bookingId, method: "cash" });
+      await markBookingPaid({ bookingId, method: "cash", actorUserId: session.user.id });
     } else if (action === "set_payment") {
       if (
         nextPaymentState !== "unpaid_manual" &&
@@ -191,6 +193,7 @@ export default async function AdminBookingsPage({
       await setBookingPaymentState({
         bookingId,
         state: nextPaymentState,
+        actorUserId: session.user.id,
       });
     } else {
       throw new Error("Неизвестное действие");
@@ -345,6 +348,7 @@ export default async function AdminBookingsPage({
 
       <AdminBookingsTable
         rows={bookings.rows}
+        courtNamesById={courtNamesById}
         canSeeRevenue={canSeeRevenue}
         bookingAction={bookingAction}
         bulkAction={bulkUpdateAction}

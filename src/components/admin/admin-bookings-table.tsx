@@ -2,20 +2,25 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AdminConfirmActionForm } from "@/src/components/admin/admin-confirm-action-form";
-import { AdminRescheduleModal } from "@/src/components/admin/admin-reschedule-modal";
-import { ADMIN_BOOKING_STATUS_LABELS, type AdminBookingRow, type AdminBookingStatus } from "@/src/lib/admin/booking-types";
+import { AdminBookingActionsModal } from "@/src/components/admin/admin-booking-actions-modal";
+import { type AdminBookingRow, type AdminBookingStatus } from "@/src/lib/admin/booking-types";
 import type { RescheduleBookingResult } from "@/src/lib/bookings/reschedule";
 
-function defaultPaymentStateForRow(row: AdminBookingRow) {
-  if (row.paymentStatus === "paid" && row.paymentProvider === "wallet") return "paid_wallet";
-  if (row.paymentStatus === "refunded") return "refunded_manual";
-  if (row.paymentStatus === "paid") return "paid_manual";
-  return "unpaid_manual";
+function resolveCourtLabel(
+  courtId: string,
+  fallbackLabel: string | undefined,
+  index: number,
+  courtNamesById: Record<string, string>,
+) {
+  const mappedLabel = courtNamesById[courtId];
+  if (mappedLabel) return mappedLabel;
+  if (fallbackLabel && fallbackLabel !== courtId) return fallbackLabel;
+  return `Корт ${index + 1}`;
 }
 
 interface AdminBookingsTableProps {
   rows: AdminBookingRow[];
+  courtNamesById: Record<string, string>;
   canSeeRevenue: boolean;
   bookingAction: (formData: FormData) => Promise<void>;
   bulkAction: (ids: string[], status: AdminBookingStatus) => Promise<{ updated: number; failed: number; total: number }>;
@@ -27,7 +32,14 @@ interface AdminBookingsTableProps {
   }) => Promise<RescheduleBookingResult>;
 }
 
-export function AdminBookingsTable({ rows, canSeeRevenue, bookingAction, bulkAction, rescheduleAction }: AdminBookingsTableProps) {
+export function AdminBookingsTable({
+  rows,
+  courtNamesById,
+  canSeeRevenue,
+  bookingAction,
+  bulkAction,
+  rescheduleAction,
+}: AdminBookingsTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkResult, setBulkResult] = useState<string | null>(null);
   const [bulkDialog, setBulkDialog] = useState<{ status: AdminBookingStatus; label: string } | null>(null);
@@ -115,6 +127,9 @@ export function AdminBookingsTable({ rows, canSeeRevenue, bookingAction, bulkAct
             ) : (
               rows.map((row) => {
                 const actionable = row.status === "confirmed" || row.status === "pending_payment";
+                const resolvedCourtLabels = row.courtIds.map((courtId, index) =>
+                  resolveCourtLabel(courtId, row.courtLabels[index], index, courtNamesById),
+                );
                 return (
                   <tr key={row.id} id={`booking-${row.id}`} className="admin-table__row">
                     <td className="admin-table__cell admin-bookings__checkbox-cell">
@@ -139,8 +154,8 @@ export function AdminBookingsTable({ rows, canSeeRevenue, bookingAction, bulkAct
                     <td className="admin-table__cell">
                       <div className="admin-bookings__cell-title">{row.serviceName}</div>
                       <div className="admin-bookings__cell-sub">{row.serviceCode} · {row.serviceSportName}</div>
-                      {row.courtLabels.length > 0 ? (
-                        <div className="admin-bookings__cell-sub">Корт: {row.courtLabels.join(", ")}</div>
+                      {resolvedCourtLabels.length > 0 ? (
+                        <div className="admin-bookings__cell-sub">Корт: {resolvedCourtLabels.join(", ")}</div>
                       ) : null}
                       {row.instructorLabels.length > 0 ? (
                         <div className="admin-bookings__cell-sub">Тренер: {row.instructorLabels.join(", ")}</div>
@@ -164,112 +179,22 @@ export function AdminBookingsTable({ rows, canSeeRevenue, bookingAction, bulkAct
                       <td className="admin-table__cell">
                         <div className="admin-bookings__cell-title">{row.amountKzt}</div>
                         {row.pricingBreakdownLines.length > 0 ? (
-                          <div className="admin-bookings__cell-sub">{row.pricingBreakdownLines[0]}</div>
+                          <div className="admin-bookings__price-lines">
+                            {row.pricingBreakdownLines.map((line) => (
+                              <div key={line} className="admin-bookings__cell-sub">{line}</div>
+                            ))}
+                          </div>
                         ) : null}
                       </td>
                     ) : null}
                     <td className="admin-table__cell">
-                      {row.status === "pending_payment" ? (
-                        <div className="admin-bookings__actions">
-                          <form action={bookingAction}>
-                            <input type="hidden" name="bookingId" value={row.id} />
-                            <button type="submit" name="action" value="pay_wallet" className="admin-bookings__action-button">
-                              Списать с баланса
-                            </button>
-                          </form>
-                          <form action={bookingAction}>
-                            <input type="hidden" name="bookingId" value={row.id} />
-                            <button type="submit" name="action" value="pay_manual" className="admin-bookings__action-button">
-                              Оплачено вручную (нал/карта)
-                            </button>
-                          </form>
-                          <AdminConfirmActionForm
-                            action={bookingAction}
-                            hiddenFields={{ bookingId: row.id, action: "cancelled" }}
-                            triggerLabel="Отменить"
-                            triggerClassName="admin-bookings__action-button admin-bookings__action-button--danger"
-                            title="Подтвердите отмену"
-                            description="Бронирование будет отменено. Если оплата была с баланса — средства вернутся клиенту."
-                            confirmLabel="Да, отменить"
-                          />
-                        </div>
-                      ) : row.status === "confirmed" ? (
-                        <div className="admin-bookings__actions">
-                          <form action={bookingAction}>
-                            <input type="hidden" name="bookingId" value={row.id} />
-                            <button type="submit" name="action" value="completed" className="admin-bookings__action-button">
-                              Завершено
-                            </button>
-                          </form>
-                          <form action={bookingAction}>
-                            <input type="hidden" name="bookingId" value={row.id} />
-                            <button type="submit" name="action" value="no_show" className="admin-bookings__action-button">
-                              Неявка
-                            </button>
-                          </form>
-                          <AdminRescheduleModal
-                            bookingId={row.id}
-                            currentDate={row.dateIso}
-                            currentTime={row.time.split(" - ")[0]}
-                            currentCourtId={row.courtIds[0]}
-                            serviceId={row.serviceId}
-                            locationSlug={row.locationSlug}
-                            requiresCourt={row.requiresCourt}
-                            rescheduleAction={rescheduleAction}
-                          />
-                          <AdminConfirmActionForm
-                            action={bookingAction}
-                            hiddenFields={{ bookingId: row.id, action: "cancelled" }}
-                            triggerLabel="Отменить"
-                            triggerClassName="admin-bookings__action-button admin-bookings__action-button--danger"
-                            title="Подтвердите отмену"
-                            description="Бронирование будет отменено. Если оплата была с баланса — средства вернутся клиенту."
-                            confirmLabel="Да, отменить"
-                          />
-                        </div>
-                      ) : (
-                        <span className="admin-bookings__no-actions">—</span>
-                      )}
-                      <details className="admin-bookings__details">
-                        <summary className="admin-bookings__details-summary">Исправить</summary>
-                        <div className="admin-bookings__details-body">
-                          <form action={bookingAction} className="admin-bookings__details-form">
-                            <input type="hidden" name="bookingId" value={row.id} />
-                            <label className="admin-bookings__details-label"><span>Статус брони</span></label>
-                            <select
-                              name="nextStatus"
-                              aria-label="Статус брони"
-                              defaultValue={row.status}
-                              className="admin-form__field admin-bookings__details-field"
-                            >
-                              {Object.entries(ADMIN_BOOKING_STATUS_LABELS).map(([value, label]) => (
-                                <option key={value} value={value}>{label}</option>
-                              ))}
-                            </select>
-                            <button type="submit" name="action" value="set_status" className="admin-bookings__action-button">
-                              Сохранить статус
-                            </button>
-                          </form>
-                          <form action={bookingAction} className="admin-bookings__details-form">
-                            <input type="hidden" name="bookingId" value={row.id} />
-                            <label className="admin-bookings__details-label"><span>Статус оплаты</span></label>
-                            <select
-                              name="nextPaymentState"
-                              aria-label="Статус оплаты"
-                              defaultValue={defaultPaymentStateForRow(row)}
-                              className="admin-form__field admin-bookings__details-field"
-                            >
-                              <option value="unpaid_manual">Не оплачено</option>
-                              <option value="paid_manual">Оплачено вручную (нал/карта)</option>
-                              <option value="paid_wallet">Оплачено с баланса</option>
-                              <option value="refunded_manual">Возврат</option>
-                            </select>
-                            <button type="submit" name="action" value="set_payment" className="admin-bookings__action-button">
-                              Сохранить оплату
-                            </button>
-                          </form>
-                        </div>
-                      </details>
+                      <AdminBookingActionsModal
+                        row={row}
+                        resolvedCourtLabels={resolvedCourtLabels}
+                        courtNamesById={courtNamesById}
+                        bookingAction={bookingAction}
+                        rescheduleAction={rescheduleAction}
+                      />
                     </td>
                   </tr>
                 );

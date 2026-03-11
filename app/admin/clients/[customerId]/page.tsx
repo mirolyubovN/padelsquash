@@ -5,7 +5,9 @@ import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
+import { AdminConfirmActionForm } from "@/src/components/admin/admin-confirm-action-form";
 import { getAdminCustomerProfile } from "@/src/lib/admin/customers";
+import { markBookingPaid, setBookingStatus } from "@/src/lib/admin/bookings";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import { buildAccountSetupPath, createAccountSetupToken } from "@/src/lib/auth/account-setup";
 import { siteConfig } from "@/src/lib/content/site-data";
@@ -21,6 +23,8 @@ export const metadata = buildPageMetadata({
 });
 
 export const dynamic = "force-dynamic";
+
+type CustomerBookingActionName = "pay_wallet" | "pay_manual" | "cancelled";
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("ru-KZ");
@@ -50,7 +54,7 @@ export default async function AdminCustomerPage({
   params: Promise<{ customerId: string }>;
   searchParams: Promise<{ success?: string; error?: string }>;
 }) {
-  const session = await assertAdmin();
+  await assertAdmin();
   const { customerId } = await params;
   const sp = await searchParams;
   const [customer, headerStore] = await Promise.all([
@@ -77,12 +81,17 @@ export default async function AdminCustomerPage({
   const successMessage =
     sp.success === "adjusted" ? "Баланс обновлен." :
     sp.success === "updated" ? "Данные клиента сохранены." :
-    sp.success === "password_reset" ? "Пароль сброшен." : null;
+    sp.success === "password_reset" ? "Пароль сброшен." :
+    sp.success === "booking_paid_wallet" ? "Бронь оплачена с баланса клиента." :
+    sp.success === "booking_paid_manual" ? "Бронь отмечена как оплаченная вручную (нал/карта)." :
+    sp.success === "booking_cancelled" ? "Бронь отменена." : null;
   const errorMessage =
     sp.error === "adjust_failed" ? "Не удалось обновить баланс." :
     sp.error === "update_failed" ? "Не удалось обновить данные." :
     sp.error === "email_taken" ? "Этот email уже используется." :
-    sp.error === "password_reset_failed" ? "Не удалось сбросить пароль." : null;
+    sp.error === "password_reset_failed" ? "Не удалось сбросить пароль." :
+    sp.error === "booking_wallet_insufficient" ? "Недостаточно средств на балансе клиента для оплаты этой брони." :
+    sp.error === "booking_action_failed" ? "Не удалось выполнить действие по брони." : null;
 
   async function adjustBalanceAction(formData: FormData) {
     "use server";
@@ -130,7 +139,7 @@ export default async function AdminCustomerPage({
     redirect(`/admin/clients/${customerId}?success=updated`);
   }
 
-  async function resetPasswordAction(formData: FormData) {
+  async function resetPasswordAction() {
     "use server";
     await assertAdmin();
     try {
@@ -140,6 +149,67 @@ export default async function AdminCustomerPage({
     }
     revalidatePath(`/admin/clients/${customerId}`);
     redirect(`/admin/clients/${customerId}?success=password_reset`);
+  }
+
+  async function bookingAction(formData: FormData) {
+    "use server";
+    const actionSession = await assertAdmin();
+    const bookingId = String(formData.get("bookingId") ?? "");
+    const action = String(formData.get("action") ?? "") as CustomerBookingActionName;
+
+    if (!bookingId || (action !== "pay_wallet" && action !== "pay_manual" && action !== "cancelled")) {
+      redirect(`/admin/clients/${customerId}?error=booking_action_failed`);
+    }
+
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: bookingId,
+        customerId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!booking) {
+      redirect(`/admin/clients/${customerId}?error=booking_action_failed`);
+    }
+
+    try {
+      if (action === "pay_wallet") {
+        await markBookingPaid({ bookingId, method: "wallet" });
+      } else if (action === "pay_manual") {
+        await markBookingPaid({ bookingId, method: "cash" });
+      } else {
+        await setBookingStatus({
+          bookingId,
+          status: "cancelled",
+          actorUserId: actionSession.user.id,
+        });
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Недостаточно средств")) {
+        redirect(`/admin/clients/${customerId}?error=booking_wallet_insufficient`);
+      }
+      redirect(`/admin/clients/${customerId}?error=booking_action_failed`);
+    }
+
+    revalidatePath(`/admin/clients/${customerId}`);
+    revalidatePath("/admin/clients");
+    revalidatePath("/admin/bookings");
+    revalidatePath("/admin");
+    revalidatePath("/account");
+    revalidatePath("/account/bookings");
+
+    if (action === "pay_wallet") {
+      redirect(`/admin/clients/${customerId}?success=booking_paid_wallet`);
+    }
+
+    if (action === "pay_manual") {
+      redirect(`/admin/clients/${customerId}?success=booking_paid_manual`);
+    }
+
+    redirect(`/admin/clients/${customerId}?success=booking_cancelled`);
   }
 
   return (
@@ -197,7 +267,11 @@ export default async function AdminCustomerPage({
 
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Управление балансом</h2>
+            <h2 className="admin-section__title">Ручная корректировка баланса</h2>
+            <p className="admin-section__description">
+              Используйте только для внесения или списания денег вне конкретной брони. Для оплаты брони с баланса
+              применяйте кнопки в таблице бронирований ниже, чтобы отмена вернула средства автоматически.
+            </p>
           </div>
           <form action={adjustBalanceAction} className="admin-form admin-form--panel">
             <div className="admin-form__panel-grid">
@@ -280,12 +354,13 @@ export default async function AdminCustomerPage({
                 <th className="admin-table__cell admin-table__cell--head">Статус</th>
                 <th className="admin-table__cell admin-table__cell--head">Оплата</th>
                 <th className="admin-table__cell admin-table__cell--head">Сумма</th>
+                <th className="admin-table__cell admin-table__cell--head">Действия</th>
               </tr>
             </thead>
             <tbody>
               {customer.bookings.length === 0 ? (
                 <tr className="admin-table__row">
-                  <td className="admin-table__cell" colSpan={5}>У клиента пока нет бронирований.</td>
+                  <td className="admin-table__cell" colSpan={6}>У клиента пока нет бронирований.</td>
                 </tr>
               ) : (
                 customer.bookings.map((booking) => (
@@ -317,6 +392,47 @@ export default async function AdminCustomerPage({
                       </span>
                     </td>
                     <td className="admin-table__cell">{booking.amountKzt}</td>
+                    <td className="admin-table__cell">
+                      {booking.status === "pending_payment" ? (
+                        <div className="admin-bookings__actions">
+                          <form action={bookingAction}>
+                            <input type="hidden" name="bookingId" value={booking.id} />
+                            <button type="submit" name="action" value="pay_wallet" className="admin-bookings__action-button">
+                              Списать с баланса
+                            </button>
+                          </form>
+                          <form action={bookingAction}>
+                            <input type="hidden" name="bookingId" value={booking.id} />
+                            <button type="submit" name="action" value="pay_manual" className="admin-bookings__action-button">
+                              Оплачено вручную (нал/карта)
+                            </button>
+                          </form>
+                          <AdminConfirmActionForm
+                            action={bookingAction}
+                            hiddenFields={{ bookingId: booking.id, action: "cancelled" }}
+                            triggerLabel="Отменить"
+                            triggerClassName="admin-bookings__action-button admin-bookings__action-button--danger"
+                            title="Подтвердите отмену"
+                            description="Бронирование будет отменено. Если оплата была с баланса через кнопки брони, средства вернутся клиенту."
+                            confirmLabel="Да, отменить"
+                          />
+                        </div>
+                      ) : booking.status === "confirmed" ? (
+                        <div className="admin-bookings__actions">
+                          <AdminConfirmActionForm
+                            action={bookingAction}
+                            hiddenFields={{ bookingId: booking.id, action: "cancelled" }}
+                            triggerLabel="Отменить"
+                            triggerClassName="admin-bookings__action-button admin-bookings__action-button--danger"
+                            title="Подтвердите отмену"
+                            description="Бронирование будет отменено. Если оплата была с баланса через кнопки брони, средства вернутся клиенту."
+                            confirmLabel="Да, отменить"
+                          />
+                        </div>
+                      ) : (
+                        <span className="admin-bookings__cell-sub">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

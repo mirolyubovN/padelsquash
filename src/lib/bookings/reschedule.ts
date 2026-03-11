@@ -2,7 +2,6 @@ import { prisma } from "@/src/lib/prisma";
 import { withBookingConcurrencyGuard } from "@/src/lib/bookings/concurrency";
 import { evaluatePricing } from "@/src/lib/pricing/engine";
 import { creditUserWallet, debitUserWallet } from "@/src/lib/wallet/service";
-import { logAuditEvent } from "@/src/lib/audit/log";
 import { venueDateTimeToUtc, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
 import type { Prisma } from "@prisma/client";
 
@@ -65,6 +64,11 @@ export async function rescheduleBooking(args: RescheduleBookingArgs): Promise<Re
 
   const newStartAt = venueDateTimeToUtc(args.newDate, args.newStartTime);
   const newEndAt = new Date(newStartAt.getTime() + durationMin * 60000);
+  const now = new Date();
+
+  if (newStartAt <= now) {
+    throw new Error("Нельзя перенести бронирование на прошедшее время");
+  }
 
   const oldDate = toVenueIsoDate(booking.startAt);
 

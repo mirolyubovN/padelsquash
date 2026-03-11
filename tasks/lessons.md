@@ -33,3 +33,5 @@
 - When admin flow selects an existing customer, lock identity fields in booking forms and require edits through dedicated customer-management surfaces (wallet/profile), not inline booking edits.
 - Customer account routes must explicitly guard by role; admin/super-admin users should be redirected to admin portals instead of rendering customer account pages.
 - When a user says a booking/payment fix is getting overcomplicated, stop expanding the domain model and keep the correction inside the existing per-booking flow unless they explicitly ask for a new aggregate entity.
+- When fixing human-readable labels in admin UI, do not leave visible `?? id` fallbacks in place; pass the canonical resource ID alongside the display map and fall back to a neutral label, not the raw GUID.
+- When an admin total combines multiple billable components, render each component in the list UI and keep row actions behind one manage entry; operators need readable pricing context and audit history more than a wall of buttons.

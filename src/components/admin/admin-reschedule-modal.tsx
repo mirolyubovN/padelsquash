@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { RescheduleBookingResult } from "@/src/lib/bookings/reschedule";
+import { toVenueIsoDate } from "@/src/lib/time/venue-timezone";
 
 interface AdminRescheduleModalProps {
   bookingId: string;
+  serviceName: string;
   currentDate: string; // YYYY-MM-DD (from startAtIso)
-  currentTime: string; // HH:MM
+  currentTime: string;
   currentCourtId?: string;
-  serviceId: string;
+  currentCourtLabel?: string;
+  serviceCode: string;
   locationSlug: string;
+  courtNamesById: Record<string, string>;
   requiresCourt: boolean;
   rescheduleAction: (args: {
     bookingId: string;
@@ -27,33 +31,51 @@ interface AvailableSlot {
 
 export function AdminRescheduleModal({
   bookingId,
+  serviceName,
   currentDate,
   currentTime,
   currentCourtId,
-  serviceId,
+  currentCourtLabel,
+  serviceCode,
   locationSlug,
+  courtNamesById,
   requiresCourt,
   rescheduleAction,
 }: AdminRescheduleModalProps) {
+  const todayVenueDate = toVenueIsoDate(new Date());
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(currentDate);
+  const [date, setDate] = useState(currentDate < todayVenueDate ? todayVenueDate : currentDate);
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [selectedCourtId, setSelectedCourtId] = useState<string | undefined>(currentCourtId);
+  const [selectedStartTime, setSelectedStartTime] = useState<string | null>(null);
+  const [selectedCourtId, setSelectedCourtId] = useState<string | undefined>(undefined);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [result, setResult] = useState<RescheduleBookingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const timetableColumns = useMemo(() => {
+    const ids = new Set<string>();
+    for (const slot of slots) {
+      for (const courtId of slot.availableCourtIds) {
+        ids.add(courtId);
+      }
+    }
+    return Array.from(ids).map((courtId, index) => ({
+      id: courtId,
+      label: courtNamesById[courtId] ?? `Корт ${index + 1}`,
+    }));
+  }, [courtNamesById, slots]);
+
   async function fetchSlots(newDate: string) {
     setLoadingSlots(true);
     setSlotsError(null);
     setSlots([]);
-    setSelectedSlot(null);
+    setSelectedStartTime(null);
+    setSelectedCourtId(undefined);
     try {
       const params = new URLSearchParams({
-        serviceId,
+        serviceId: serviceCode,
         location: locationSlug,
         date: newDate,
         durationMin: "60",
@@ -74,28 +96,34 @@ export function AdminRescheduleModal({
 
   function handleDateChange(newDate: string) {
     setDate(newDate);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(newDate) && newDate >= todayVenueDate) {
       void fetchSlots(newDate);
+      return;
     }
+    setSlots([]);
+    setSelectedStartTime(null);
+    setSelectedCourtId(undefined);
+    setSlotsError(newDate ? "Нельзя переносить бронирование на прошедшую дату." : null);
   }
 
   function handleOpen() {
     setOpen(true);
     setResult(null);
     setError(null);
-    setDate(currentDate);
-    void fetchSlots(currentDate);
+    const startDate = currentDate < todayVenueDate ? todayVenueDate : currentDate;
+    setDate(startDate);
+    void fetchSlots(startDate);
   }
 
   function handleConfirm() {
-    if (!selectedSlot) return;
+    if (!selectedStartTime) return;
     setError(null);
     startTransition(async () => {
       try {
         const res = await rescheduleAction({
           bookingId,
           newDate: date,
-          newStartTime: selectedSlot,
+          newStartTime: selectedStartTime,
           newCourtId: requiresCourt ? selectedCourtId : undefined,
         });
         setResult(res);
@@ -105,8 +133,16 @@ export function AdminRescheduleModal({
     });
   }
 
-  const slot = slots.find((s) => s.startTime === selectedSlot);
-  const courtOptions = slot?.availableCourtIds ?? [];
+  const selectedCellKey =
+    selectedStartTime && selectedCourtId ? `${selectedStartTime}|${selectedCourtId}` : null;
+  const selectedCourtLabel = selectedCourtId
+    ? timetableColumns.find((column) => column.id === selectedCourtId)?.label ??
+      courtNamesById[selectedCourtId] ??
+      "Корт"
+    : null;
+  const resolvedCurrentCourtLabel = currentCourtId
+    ? courtNamesById[currentCourtId] ?? currentCourtLabel ?? "Корт"
+    : currentCourtLabel;
 
   return (
     <>
@@ -144,11 +180,35 @@ export function AdminRescheduleModal({
             ) : (
               <>
                 <div className="admin-reschedule-modal__form">
+                  <div className="admin-reschedule-modal__summary">
+                    <div className="admin-reschedule-modal__summary-row">
+                      <span>Бронь</span>
+                      <strong>{serviceName}</strong>
+                    </div>
+                    <div className="admin-reschedule-modal__summary-row">
+                      <span>Сейчас</span>
+                      <strong>
+                        {currentDate} · {currentTime}
+                        {resolvedCurrentCourtLabel ? ` · ${resolvedCurrentCourtLabel}` : ""}
+                      </strong>
+                    </div>
+                    {selectedStartTime && (!requiresCourt || selectedCourtLabel) ? (
+                      <div className="admin-reschedule-modal__summary-row">
+                        <span>Будет</span>
+                        <strong>
+                          {date} · {selectedStartTime}
+                          {requiresCourt && selectedCourtLabel ? ` · ${selectedCourtLabel}` : ""}
+                        </strong>
+                      </div>
+                    ) : null}
+                  </div>
+
                   <div className="admin-form__group">
                     <label className="admin-form__label">Новая дата</label>
                     <input
                       type="date"
                       className="admin-form__field"
+                      min={todayVenueDate}
                       value={date}
                       onChange={(e) => handleDateChange(e.target.value)}
                     />
@@ -160,44 +220,66 @@ export function AdminRescheduleModal({
                     <p className="admin-bookings__cell-sub" style={{ color: "#b91c1c" }}>{slotsError}</p>
                   ) : slots.length > 0 ? (
                     <div className="admin-form__group">
-                      <label className="admin-form__label">Время</label>
-                      <div className="admin-reschedule-modal__slots">
-                        {slots.map((s) => (
-                          <button
-                            key={s.startTime}
-                            type="button"
-                            className={`admin-reschedule-modal__slot${selectedSlot === s.startTime ? " admin-reschedule-modal__slot--selected" : ""}`}
-                            onClick={() => {
-                              setSelectedSlot(s.startTime);
-                              setSelectedCourtId(
-                                s.availableCourtIds.includes(currentCourtId ?? "")
-                                  ? currentCourtId
-                                  : s.availableCourtIds[0],
-                              );
-                            }}
-                          >
-                            {s.startTime}
-                          </button>
-                        ))}
+                      <label className="admin-form__label">Время и корт</label>
+                      <div className="booking-flow__timetable-wrapper admin-reschedule-modal__timetable">
+                        <table className="booking-flow__timetable">
+                          <thead>
+                            <tr>
+                              <th className="booking-flow__timetable-time-header">Время</th>
+                              {timetableColumns.map((column) => (
+                                <th key={column.id} className="booking-flow__timetable-col-header">
+                                  <span className="booking-flow__timetable-col-name">{column.label}</span>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {slots.map((slot) => (
+                              <tr key={slot.startTime} className="booking-flow__timetable-row">
+                                <td className="booking-flow__timetable-time-cell">
+                                  <span className="booking-flow__timetable-time-label admin-create-booking__slot-time">
+                                    {slot.startTime}-{slot.endTime}
+                                  </span>
+                                </td>
+                                {timetableColumns.map((column) => {
+                                  const available = slot.availableCourtIds.includes(column.id);
+                                  const active = selectedCellKey === `${slot.startTime}|${column.id}`;
+                                  return (
+                                    <td key={column.id} className="booking-flow__timetable-cell-wrapper">
+                                      <button
+                                        type="button"
+                                        disabled={!available}
+                                        className={`booking-flow__timetable-cell admin-create-booking__slot${
+                                          active
+                                            ? " booking-flow__timetable-cell--selected admin-create-booking__slot--active"
+                                            : available
+                                              ? " booking-flow__timetable-cell--available"
+                                              : " booking-flow__timetable-cell--unavailable"
+                                        }`}
+                                        onClick={() => {
+                                          if (!available) return;
+                                          setSelectedStartTime(slot.startTime);
+                                          setSelectedCourtId(column.id);
+                                        }}
+                                      >
+                                        {active ? "✓" : available ? column.label : null}
+                                      </button>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
+                      {selectedStartTime && selectedCourtId ? (
+                        <p className="booking-flow__slots-hint">
+                          Выбрано: {selectedStartTime} · {selectedCourtLabel ?? "Корт"}
+                        </p>
+                      ) : null}
                     </div>
                   ) : date ? (
                     <p className="admin-bookings__cell-sub">Нет доступных слотов на эту дату.</p>
-                  ) : null}
-
-                  {requiresCourt && slot && courtOptions.length > 1 ? (
-                    <div className="admin-form__group">
-                      <label className="admin-form__label">Корт</label>
-                      <select
-                        className="admin-form__field"
-                        value={selectedCourtId ?? ""}
-                        onChange={(e) => setSelectedCourtId(e.target.value || undefined)}
-                      >
-                        {courtOptions.map((courtId) => (
-                          <option key={courtId} value={courtId}>{courtId}</option>
-                        ))}
-                      </select>
-                    </div>
                   ) : null}
 
                   {error ? (
@@ -209,7 +291,7 @@ export function AdminRescheduleModal({
                   <button
                     type="button"
                     className="admin-bookings__action-button admin-bookings__action-button--danger"
-                    disabled={!selectedSlot || isPending}
+                    disabled={!selectedStartTime || (requiresCourt && !selectedCourtId) || isPending}
                     onClick={handleConfirm}
                   >
                     {isPending ? "Переносим..." : "Подтвердить перенос"}
