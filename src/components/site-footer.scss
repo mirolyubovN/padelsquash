@@ -59,8 +59,6 @@
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
-  padding: 0.5rem 0.875rem 0.5rem 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0.5rem;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -81,7 +79,7 @@
   width: 1.875rem;
   height: 1.875rem;
   background-color: var(--accent);
-  color: #0f172a;
+  color: var(--text-on-primary);
   border-radius: 4px;
   flex-shrink: 0;
 }

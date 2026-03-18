@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { nextWeekdayIsoDate, registerCustomer, uniqueEmail } from "./helpers";
+import { loginCustomer, nextWeekdayIsoDate } from "./helpers";
+
+const SEEDED_CUSTOMER_EMAIL = "customer@example.com";
+const SEEDED_CUSTOMER_PASSWORD = "Customer123!";
 
 test("authenticated customer can top up and return to a held multi-slot booking", async ({ page }) => {
   const bookingDate = nextWeekdayIsoDate(6);
-  const email = uniqueEmail("wallet-resume");
-
-  await registerCustomer(page, {
-    email,
+  await loginCustomer(page, {
+    email: SEEDED_CUSTOMER_EMAIL,
+    password: SEEDED_CUSTOMER_PASSWORD,
     next: "/book",
-    name: "Баланс Клиент",
-    phone: "+77015550000",
   });
 
   await page.getByRole("button", { name: "Аренда корта" }).click();
@@ -43,9 +43,15 @@ test("authenticated customer can top up and return to a held multi-slot booking"
 
   await page.waitForURL((url) => url.pathname === "/book" && url.searchParams.has("cell"));
 
-  await expect(page.locator("button[aria-pressed='true']")).toHaveCount(2);
+  const selectedSlotCells = page.locator(".booking-flow__timetable-cell[aria-pressed='true']");
+  await expect(selectedSlotCells).toHaveCount(2);
+  const additionalAvailableCell = page.locator(".booking-flow__timetable-cell--available").first();
+  await expect(additionalAvailableCell).toBeVisible();
+  await additionalAvailableCell.click();
+  await expect(selectedSlotCells).toHaveCount(3);
+
   await page.getByRole("button", { name: "Забронировать" }).click();
 
   await expect(page.getByText("Бронирование создано")).toBeVisible();
-  await expect(page.locator(".booking-flow__success-row")).toHaveCount(2);
+  await expect(page.locator(".booking-flow__success-row")).toHaveCount(3);
 });

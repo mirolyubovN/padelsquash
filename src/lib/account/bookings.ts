@@ -16,6 +16,7 @@ const MORNING_WINDOW_LABEL = getMorningCancellationWindowLabel();
 export interface AccountBookingRow {
   id: string;
   serviceName: string;
+  courtName: string;
   date: string;
   timeRange: string;
   status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
@@ -92,19 +93,19 @@ function getCancellationState(args: {
   const deadlineParts = isoToVenueTimezoneParts(cancelDeadline);
 
   if (args.status === "cancelled") {
-    return { canCancel: false, cancelBlockedReason: "Бронирование уже отменено." };
+    return { canCancel: false, cancelBlockedReason: "Бронирование отменено." };
   }
   if (args.status === "completed") {
     return { canCancel: false, cancelBlockedReason: "Завершенное бронирование нельзя отменить." };
   }
   if (args.status === "no_show") {
-    return { canCancel: false, cancelBlockedReason: "Бронирование помечено как no_show." };
+    return { canCancel: false, cancelBlockedReason: "Неявка" };
   }
 
   if (!canCustomerCancelBooking(args.startAt, now, FREE_CANCELLATION_HOURS)) {
     const blockedReason =
       cancellationRule.policyKind === "morning_previous_day_midnight"
-        ? `Для слотов ${MORNING_WINDOW_LABEL} отмена доступна только до 00:00 предыдущего дня.`
+        ? `Для утреннего времени (${MORNING_WINDOW_LABEL}) отмена доступна только до 00:00 предыдущего дня.`
         : `Отмена без штрафа доступна не позднее чем за ${FREE_CANCELLATION_HOURS} часов до начала.`;
 
     return {
@@ -174,8 +175,35 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
     include: {
       service: true,
       payment: true,
+      resources: {
+        select: {
+          resourceType: true,
+          resourceId: true,
+        },
+      },
     },
   });
+
+  const courtIds = Array.from(
+    new Set(
+      rows.flatMap((row) =>
+        row.resources
+          .filter((resource) => resource.resourceType === "court")
+          .map((resource) => resource.resourceId),
+      ),
+    ),
+  );
+
+  const courtsById = new Map<string, string>();
+  if (courtIds.length > 0) {
+    const courts = await prisma.court.findMany({
+      where: { id: { in: courtIds } },
+      select: { id: true, name: true },
+    });
+    for (const court of courts) {
+      courtsById.set(court.id, court.name);
+    }
+  }
 
   return rows.map(
     (row: {
@@ -186,15 +214,22 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
       priceTotal: unknown;
       service: { name: string };
       payment: null | { status: "unpaid" | "paid" | "failed" | "refunded"; provider: string };
+      resources: Array<{ resourceType: "court" | "instructor"; resourceId: string }>;
     }) => {
       const startParts = isoToVenueTimezoneParts(row.startAt);
       const endParts = isoToVenueTimezoneParts(row.endAt);
       const cancellationState = getCancellationState({ startAt: row.startAt, status: row.status, now });
       const paymentStatus = resolveAccountPaymentStatus({ payment: row.payment, status: row.status });
+      const courtName =
+        row.resources
+          .filter((resource) => resource.resourceType === "court")
+          .map((resource) => courtsById.get(resource.resourceId) ?? resource.resourceId)
+          .join(", ") || "—";
 
       return {
         id: row.id,
         serviceName: row.service.name,
+        courtName,
         date: startParts.date,
         timeRange: `${startParts.time} - ${endParts.time}`,
         status: row.status,

@@ -84,7 +84,7 @@ export function getCustomerCancellationDeadline(
 export function getCustomerCancellationPolicySummary(
   freeCancellationHours = getSafeCustomerFreeCancellationHours(),
 ): string {
-  return `Для слотов ${getMorningCancellationWindowLabel()} отмена доступна только до 00:00 предыдущего дня. Для остальных слотов — минимум за ${freeCancellationHours} часов до начала.`;
+  return `Для утреннего времени (${getMorningCancellationWindowLabel()}) отмена доступна только до 00:00 предыдущего дня. Для остальных слотов — минимум за ${freeCancellationHours} часов до начала.`;
 }
 
 export function canCustomerCancelBooking(

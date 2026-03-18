@@ -6,7 +6,7 @@ import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
   title: "Тренеры | Padel & Squash KZ",
-  description: "Тренеры по паделу и сквошу в Алматы: индивидуальные и парные занятия, стоимость за час и запись онлайн через форму бронирования.",
+  description: "Тренеры по теннису, паделу и сквошу в Алматы: индивидуальные и парные занятия, стоимость за час и запись онлайн через форму бронирования.",
   path: "/coaches",
 });
 

@@ -1,5 +1,146 @@
 # Session Todo (2026-02-23)
 
+## Plan (2026-03-12 - booking date quick navigation by 3-day windows)
+
+- [x] Add quick date navigator in booking step 2 with prev/next arrows and 3 visible days.
+- [x] Make arrows shift the visible window by 3 days and keep selected date synced with the current window.
+- [x] Keep native date input for manual date selection fallback.
+- [x] Run verification (`npx eslint` on touched file + `npm run build`) and record results.
+
+## Review (2026-03-12 - booking date quick navigation by 3-day windows)
+
+- Added a quick date picker to booking step 2 in `src/components/booking/live-booking-form.tsx`:
+  - left/right arrows (`←`, `→`),
+  - 3-day visible window buttons,
+  - each arrow shifts the window by 3 days,
+  - selected date stays synchronized with the visible window.
+- Preserved native date input under the quick picker for direct calendar/manual selection.
+- Added supporting styles in `src/styles/booking.scss` for quick-date arrows and day buttons.
+- Verification:
+  - `npx eslint src/components/booking/live-booking-form.tsx` ✅ (existing warnings only: `selectedHoldIds` hook deps)
+  - `npm run build` ✅
+
+## Plan (2026-03-12 - replace sport page copy from specified sources)
+
+- [x] Replace `Про падел` and `Про сквош` text with short paraphrased content based on user-provided pages (`terrasquash.ru/about-padel`, `terrasquash.ru/about-squash`).
+- [x] Keep sport page structure compact and motivational while preserving rules and booking CTA.
+- [x] Run verification (`npx eslint` on touched files + `npm run build`) and record results.
+
+## Review (2026-03-12 - replace sport page copy from specified sources)
+
+- Updated padel and squash content in `src/lib/content/sport-pages.ts` as shorter summaries based on:
+  - `https://terrasquash.ru/about-padel`
+  - `https://terrasquash.ru/about-squash`
+- Preserved page structure (`Что это за спорт` / `Базовые правила` / motivational block + booking CTA) in `/sports/[slug]`.
+- Updated source links for both pages so the referenced Terrasquash pages are explicitly included.
+- Verification:
+  - `npx eslint src/lib/content/sport-pages.ts app/sports/[slug]/page.tsx` ✅
+  - `npm run build` ✅
+
+## Plan (2026-03-12 - feedback follow-up: sport cards, sport pages copy, admin palette)
+
+- [x] Update homepage sport cards in variation A: remove per-court name tags and rename sport info links to `Что такое ...`.
+- [x] Improve `/sports/[slug]` content structure to be more general and motivational: clear sport overview, basic rules block, and stronger “why try” block.
+- [x] Apply palette 1 across admin panel styles (replace legacy green/gray hardcoded values in `src/styles/admin.scss` with current brand tokens/derived values).
+- [x] Run verification (`npx eslint` on touched files + `npm run build`) and capture review notes.
+
+## Review (2026-03-12 - feedback follow-up: sport cards, sport pages copy, admin palette)
+
+- Homepage variation A sport cards simplified:
+  - removed per-court name chips from `Выберите свой корт`,
+  - renamed info links to `Что такое ...`.
+- Sport pages `/sports/padel`, `/sports/squash`, `/sports/tennis` updated to a clearer structure:
+  - `Что это за спорт`,
+  - `Базовые правила`,
+  - `Почему стоит попробовать уже сейчас` (with motivational copy and booking push).
+- Palette 1 extended to admin panel by replacing legacy neutral/accent hardcoded colors in `src/styles/admin.scss` with global tokens (`--accent`, `--accent-hover`, `--accent-soft`, `--background`, `--surface`, `--line`, `--foreground`, `--muted`) and adding `--accent-active` in `app/globals.css`.
+- Verification:
+  - `npx eslint app/page-variation-a.tsx src/lib/content/sport-pages.ts app/sports/[slug]/page.tsx` ✅ (warnings only for existing `<img>`)
+  - `npm run build` ✅
+
+## Plan (2026-03-12 - palette 1 lock + tariffs cleanup + tennis bootstrap + sport info pages)
+
+- [x] Lock global website theme to palette 1 tokens (`#00C2C7` / `#FF6B3D` / `#D7FF2F`) with readable contrast for shared UI surfaces.
+- [x] Update homepage tariffs section in variation A: remove `Полный прайс` action and keep compact layout.
+- [x] Add tennis bootstrap Prisma migration: new sport, service pricing rows, one tennis court, two tennis trainers, trainer-sport links, location links, weekly schedules.
+- [x] Add pages `Про падел`, `Про сквош`, `Про теннис` with short web-sourced descriptions and sport photos.
+- [x] Wire new sport pages into the public navigation and relevant homepage sport cards.
+- [x] Run verification (`npm run build` + targeted eslint on touched files) and capture review notes.
+
+## Review (2026-03-12 - palette 1 lock + tariffs cleanup + tennis bootstrap + sport info pages)
+
+- Global palette switched to option 1 tokens in `app/globals.css` (`#00C2C7`, `#FF6B3D`, `#D7FF2F`, `#F6FAFB`, `#111827`, `#0F1720`) with explicit high-contrast text token `--text-on-primary: #FFFFFF`.
+- Homepage variation A tariffs cleaned up: removed `Полный прайс` action, kept compact table, and left one clear booking CTA.
+- Added sport info routes with web-sourced content and photos:
+  - `/sports/padel`
+  - `/sports/squash`
+  - `/sports/tennis`
+- Wired sport pages into public navigation and homepage sport cards (`Про падел`, `Про сквош`, `Про теннис` links).
+- Added tennis bootstrap migration:
+  - `prisma/migrations/20260312174000_add_tennis_bootstrap/migration.sql`
+  - creates/updates `tennis` sport,
+  - adds `tennis-rental` and `tennis-coaching`,
+  - adds tennis component prices,
+  - adds `Теннис 1` court,
+  - adds two tennis instructors with sport/location links and weekly schedules.
+- Updated seed and fallback demo datasets so tennis persists after `db:seed` and in DB-unavailable fallbacks.
+- Verification:
+  - `npx eslint app/page-variation-a.tsx app/sports/[slug]/page.tsx src/lib/content/site-content.ts src/lib/content/sport-pages.ts app/book/page.tsx src/components/booking/live-booking-form.tsx prisma/seed.ts app/courts/page.tsx app/coaches/page.tsx app/sitemap.ts src/lib/settings/service.ts src/lib/demo/hardcoded-data.ts` ✅ (warnings only, no errors)
+  - `npm run build` ✅
+  - `npx prisma migrate deploy` ✅ (applied `20260312174000_add_tennis_bootstrap`)
+  - `node -e '... prisma.sport.findUnique({ slug: \"tennis\" }) ...'` ✅ (confirmed: `courts=1`, `services=2`, `instructors=2`)
+
+## Plan (2026-03-12 - three palette preview pages with contrast-first implementation)
+
+- [x] Add three dedicated preview routes for palette testing: `/preview/palette-1`, `/preview/palette-2`, `/preview/palette-3`.
+- [x] Reuse one homepage layout (Variation A structure) and apply palette differences via theme modifier classes instead of global token replacement.
+- [x] Implement the user-provided palette tokens for Option 1 and create coherent Option 2/3 mappings from the provided color sets.
+- [x] Fix key contrast-sensitive elements (buttons, badges, dark sections, tariffs table) so text remains readable in all three previews.
+- [x] Run targeted verification and record the review with preview URLs in this file.
+
+## Review (2026-03-12 - three palette preview pages with contrast-first implementation)
+
+- Added three new preview routes:
+  - `/preview/palette-1` (Aqua-Teal + Coral + Lime, based on your full token spec)
+  - `/preview/palette-2` (Blue Mint)
+  - `/preview/palette-3` (Green Energy)
+- Reused one base homepage layout (`app/page-variation-a.tsx`) and added `paletteClassName` support so only palette tokens change between previews.
+- Implemented palette modifiers in `src/styles/home-variation-a.scss` (`.ho--palette-1`, `.ho--palette-2`, `.ho--palette-3`) with explicit contrast-safe button text (`--ho-text-on-primary`).
+- Added per-preview root token overrides (inline `<style>` in each preview route) so header/footer and page sections are themed together during comparison.
+- Updated shared accent text handling to use `--text-on-primary` for better readability on brand-colored buttons/badges.
+- Verification:
+  - `npm run build` ✅
+  - `npx eslint app/page-variation-a.tsx app/preview/palette-1/page.tsx app/preview/palette-2/page.tsx app/preview/palette-3/page.tsx ...` ✅ (warnings only; mostly existing `<img>` and style-file ignore notices)
+
+## Plan (2026-03-12 - homepage variation A promotion + bright palette + compact tariffs)
+
+- [x] Read current homepage/preview wiring and identify minimum-touch switch to make `preview/a` the main homepage.
+- [x] Apply the requested palette tokens globally using:
+  - Sun Glare `#DAFF02`
+  - Exuberant Orange `#FE572A`
+  - Blue Violet `#685BC7`
+  - Cloud Dancer `#E7E8E2`
+  - Darkest Hour `#201E1F`
+- [x] Update shared homepage/header/footer theme usage so the new palette is visible across the site.
+- [x] Simplify the Variation A tariffs section to a compact and less confusing layout.
+- [x] Run verification (`npm run lint`, `npm run build`) and add a review summary with outcomes.
+
+## Review (2026-03-12 - homepage variation A promotion + bright palette + compact tariffs)
+
+- `/` now renders Variation A by default (`app/page.tsx` re-export to `page-variation-a`) while preview routes remain intact.
+- Applied bright global palette tokens in `app/globals.css` using the requested scheme:
+  - Sun Glare `#DAFF02` as primary accent
+  - Exuberant Orange `#FE572A` as secondary/hover accent
+  - Blue Violet `#685BC7` as dark surface base
+  - Cloud Dancer `#E7E8E2` as page background
+  - Darkest Hour `#201E1F` as primary text/contrast color
+- Updated shared styles in header/footer/auth/booking/account/shared blocks to use palette variables instead of legacy hardcoded green/navy values.
+- Redesigned Variation A tariffs from large per-sport cards into a compact comparison table with a simplified action row.
+- Verification:
+  - `npm run build` ✅
+  - `npm run lint` ❌ (existing unrelated repo issue: `app/admin/clients/page.tsx` has `@next/next/no-html-link-for-pages` error)
+  - `npx eslint app/page.tsx app/page-variation-a.tsx` ✅ (warnings only for existing `<img>` usage)
+
 ## Plan (2026-03-07 - new device bootstrap)
 
 - [x] Read README/runbook and extract exact local setup requirements.
@@ -1503,3 +1644,110 @@
 - Updated `README.md` so the `/admin/bookings` operator flow now documents the full training price breakdown, the single `Управлять` modal entry, and the per-booking actor/timestamp history shown in that modal.
 - Updated the admin routes table entry for `/admin/bookings` to describe the current manage-modal and audit-aware behavior instead of the older generic “status updates” wording.
 - Verification: `rg -n "full pricing breakdown|Управлять|per-booking history|manage modal, full price breakdown" README.md`
+
+## Plan (2026-03-12 - booking submit-area overlap and compact status messages)
+
+- [x] Inspect overlap in `booking-flow__submit-area` and isolate `account-link` placement issue.
+- [x] Add explicit submit feedback container and update link styles to prevent overlap under long text.
+- [x] Remove duplicate insufficient-funds messaging and constrain message block widths for compact UI.
+- [x] Run targeted lint and full production build verification.
+
+## Review (2026-03-12 - booking submit-area overlap and compact status messages)
+
+- Added `booking-flow__submit-feedback` wrapper around error + top-up link so link flow is stable and no longer overlaps adjacent content.
+- Updated `booking-flow__account-link` display/line-height/max-width to render as a compact actionable chip instead of stretching/overlapping.
+- Suppressed duplicate shortage copy by hiding wallet shortage panel when submit error is already shown (`!submitError` guard in booking confirm render).
+- Made status blocks compact (`wallet-info`, `hold-timer`, `warning`, `error-inline`) via fit-content width with max-width cap, so they no longer appear full-screen.
+- Verification: `npx eslint src/components/booking/live-booking-form.tsx` (2 pre-existing `react-hooks/exhaustive-deps` warnings only); `npm run build` (pass).
+
+## Plan (2026-03-12 - booking status messages grouped row-wrap)
+
+- [x] Move all authenticated booking status/info messages into one shared container in submit area.
+- [x] Render status container as flex row-wrap so messages occupy less vertical space.
+- [x] Keep wallet/timer/warning/error/top-up link compact and consistent in one visual group.
+- [x] Run lint/build verification.
+
+## Review (2026-03-12 - booking status messages grouped row-wrap)
+
+- Refactored authenticated submit section to render one `booking-flow__status-group` with row-wrap for all relevant items: wallet status, booking-for note, hold timer, warning, error, and top-up action link.
+- Added compact status-item styles (`booking-flow__status-group`, `booking-flow__status-item`, `booking-flow__status-note`) and removed old vertical `submit-feedback` layout.
+- Kept duplicate suppression logic from previous step: wallet-shortfall banner is hidden when actionable submit error is already present.
+- Verification: `npx eslint src/components/booking/live-booking-form.tsx` (2 existing hook-deps warnings only); `npm run build` (pass).
+
+## Plan (2026-03-12 - booking hold persistence after top-up return)
+
+- [x] Reproduce/analyze why selected held slots are lost after returning from top-up and selecting one additional slot.
+- [x] Fix booking selection state logic to preserve hold IDs for previously selected slots.
+- [x] Extend targeted e2e coverage for wallet top-up resume flow to include adding an extra slot after return.
+- [x] Run targeted verification (seed, eslint, e2e, build).
+
+## Review (2026-03-12 - booking hold persistence after top-up return)
+
+- Root cause: `toggleCell` normalized selection state to `{ timeKey, resourceId }`, which dropped `holdId` from already held slots.
+- Impact of root cause: after selecting a new slot, existing held slots lost their hold identity, then availability reconciliation treated them as unavailable and they were removed/unselectable.
+- Fix: updated `toggleCell` to operate on full `SelectedCell` objects and preserve existing `holdId` values for untouched slots.
+- E2E: updated `tests/e2e/07-wallet-topup-resume.spec.ts` to cover the real user scenario after return: keep held slots selected, add one more slot, then book all slots.
+- Also stabilized that test by logging in as seeded verified customer (instead of registration flow that currently routes through verification) and by scoping selected-slot assertions to timetable cells.
+- Verification:
+  - `npm run db:seed`
+  - `npx eslint src/components/booking/live-booking-form.tsx tests/e2e/07-wallet-topup-resume.spec.ts` (2 existing hook-deps warnings in booking component)
+  - `npx playwright test tests/e2e/07-wallet-topup-resume.spec.ts` (pass)
+  - `npm run build` (pass)
+
+## Plan (2026-03-12 - no partial auto-payment for booking series + account spacing polish)
+
+- [x] Trace and fix why multi-slot booking after top-up can still create partial paid bookings.
+- [x] Enforce full-series wallet sufficiency guard before any booking creation attempt.
+- [x] Fix account page spacing issues for form action buttons and informational text blocks.
+- [x] Fix account bookings badge alignment so it does not stick to adjacent content.
+- [x] Run verification (eslint, seed, targeted e2e, build).
+
+## Review (2026-03-12 - no partial auto-payment for booking series + account spacing polish)
+
+- Booking fix: `submitBooking()` now treats insufficient funds as a full-series blocker regardless of whether selected slots already have hold IDs; this prevents entering the per-slot booking loop and avoids partial auto-payment behavior when total selection exceeds wallet balance.
+- Resulting behavior now matches requirement: if funds are insufficient for the whole selection, user is prompted to top up first and only then complete booking.
+- Account page UX fix: added explicit spacing primitives in profile/top-up forms (`account-profile-form__actions`) and dedicated hint/subsection spacing (`account-card__hint`, `account-card__subsection`) to remove button/text collisions.
+- Account bookings badge fix: adjusted `account-history__badge` alignment (`justify-self: start`, bounded width) to prevent it from sticking to neighboring content in card items.
+- Verification:
+  - `npx eslint src/components/booking/live-booking-form.tsx app/account/page.tsx src/styles/account.scss` (only existing warnings)
+  - `npm run db:seed`
+  - `npx playwright test tests/e2e/07-wallet-topup-resume.spec.ts` (pass)
+  - `npm run build` (pass)
+
+## Plan (2026-03-12 - account history badge margin + 2-column list)
+
+- [x] Add missing left margin for `account-history__badge--status-confirmed`.
+- [x] Switch account history card list to responsive two-column layout on larger screens.
+- [x] Run build verification.
+
+## Review (2026-03-12 - account history badge margin + 2-column list)
+
+- Added explicit `margin-left: 0.25rem` to `account-history__badge--status-confirmed` to separate the status chip from left-side content.
+- Updated `account-history__card-list` to `lg:grid-cols-2` so booking cards render in two columns on wider screens.
+- Verification: `npm run build` (pass).
+
+## Plan (2026-03-12 - show court in customer booking history)
+
+- [x] Extend account booking data model to include court names for each booking row.
+- [x] Render the court field in `/account/bookings` booking cards.
+- [x] Run lint/build verification.
+
+## Review (2026-03-12 - show court in customer booking history)
+
+- Updated account booking query to include `BookingResource` rows, resolved court IDs to human-readable names via `court` lookup, and exposed `courtName` in `AccountBookingRow`.
+- Added a `Корт` item to the booking card grid on `/account/bookings`.
+- Verification: `npx eslint src/lib/account/bookings.ts app/account/bookings/page.tsx` (pass); `npm run build` (pass).
+
+## Plan (2026-03-12 - booking quick-date arrows and late-evening default date)
+
+- [x] Reproduce why quick-date arrows in booking do not visibly shift the date window.
+- [x] Update quick-date arrow behavior to shift both the 3-day window and selected date together.
+- [x] Apply late-evening default-date rule: after 22:00, preselect next calendar date for booking.
+- [x] Run targeted lint and full build verification.
+
+## Review (2026-03-12 - booking quick-date arrows and late-evening default date)
+
+- Root cause: the date-window sync effect always recomputed window start from `date`, so arrow clicks changed `dateWindowStart` briefly and were immediately reverted.
+- Fixed by changing arrow handler logic to move `date` with the window (preserving selected day offset in the 3-day block), which keeps sync stable and makes arrows work as expected.
+- Added `getDefaultSelectedDate()` and switched initial fallback date to tomorrow when current local time is `>= 22:00`; manual date input still allows choosing today if needed.
+- Verification: `npx eslint src/components/booking/live-booking-form.tsx` (2 existing warnings about `selectedHoldIds` dependencies); `npm run build` (pass).

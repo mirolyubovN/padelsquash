@@ -10,7 +10,7 @@ import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
   title: "Забронировать | Padel & Squash KZ",
-  description: "Онлайн-запись на падел и сквош: выберите спорт, формат занятия, дату и свободные слоты. Для тренировок сначала выберите тренера.",
+  description: "Онлайн-запись на теннис, падел и сквош: выберите спорт, формат занятия, дату и свободные слоты. Для тренировок сначала выберите тренера.",
   path: "/book",
 });
 
@@ -47,11 +47,13 @@ const DEMO_COURT_NAMES: Record<string, string> = {
   "padel-3": "Падел 3",
   "squash-1": "Сквош 1",
   "squash-2": "Сквош 2",
+  "tennis-1": "Теннис 1",
 };
 
 function getFallbackSportName(slug: string): string {
   if (slug === "padel") return "Падел";
   if (slug === "squash") return "Сквош";
+  if (slug === "tennis") return "Теннис";
   return slug;
 }
 
@@ -219,6 +221,12 @@ async function getBookInstructors(locationId: string): Promise<BookInstructorOpt
       name: "Тренер Сквош",
       sports: ["squash"],
       sportPrices: { squash: 7000 },
+    },
+    {
+      id: "coach-3",
+      name: "Тренер Теннис",
+      sports: ["tennis"],
+      sportPrices: { tennis: 10000 },
     },
   ];
 }

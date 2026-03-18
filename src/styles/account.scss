@@ -23,8 +23,8 @@
 }
 
 .account-tabs__link--active {
-  border-color: rgba(132, 204, 22, 0.3);
-  background-color: rgba(132, 204, 22, 0.08);
+  border-color: rgba(var(--accent-rgb), 0.4);
+  background-color: rgba(var(--accent-rgb), 0.16);
   color: var(--foreground);
   font-weight: 700;
 }
@@ -80,6 +80,15 @@
   color: var(--muted);
 }
 
+.account-card__hint {
+  @apply mt-2 text-xs leading-5;
+  color: var(--muted);
+}
+
+.account-card__subsection {
+  @apply mt-4;
+}
+
 .account-card__link {
   @apply mt-4 inline-flex rounded border px-4 py-2 text-sm font-semibold;
   border-color: var(--line);
@@ -121,6 +130,10 @@
 
 .account-profile-form__grid {
   @apply mt-3 grid gap-3;
+}
+
+.account-profile-form__actions {
+  @apply mt-3 flex flex-wrap gap-2;
 }
 
 .account-stats {
@@ -194,7 +207,7 @@
 }
 
 .account-history__card-list {
-  @apply grid gap-3;
+  @apply grid gap-3 lg:grid-cols-2;
 }
 
 .account-history__card {
@@ -226,7 +239,7 @@
 }
 
 .account-history__card-item {
-  @apply rounded-lg border px-3 py-2;
+  @apply rounded-lg border px-3 py-2 flex flex-col items-start gap-1;
   border-color: var(--line);
   background-color: var(--background);
 }
@@ -241,9 +254,11 @@
 }
 
 .account-history__badge {
-  @apply mt-1 inline-flex rounded border px-2.5 py-1 text-xs font-semibold;
+  @apply inline-flex rounded border px-2.5 py-1 text-xs font-semibold;
   border-color: var(--line);
   background-color: var(--background);
+  justify-self: start;
+  max-width: 100%;
 }
 
 .account-history__badge--status-confirmed {
@@ -321,4 +336,8 @@
 
 .account-dialog__actions {
   @apply mt-4 flex flex-wrap gap-2;
+}
+
+.account-history__badge-container {
+  @apply flex flex-wrap flex-row gap-1;
 }

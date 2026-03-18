@@ -132,35 +132,30 @@ export default async function AccountBookingsPage({
                       <article key={row.id} className="account-history__card">
                         <div className="account-history__card-head">
                           <div>
-                            <p className="account-history__card-title">{row.serviceName}</p>
+                            <p className="account-history__card-title">{row.serviceName} - {row.courtName}</p>
                           </div>
                           <p className="account-history__card-price">{row.amountKzt}</p>
                         </div>
 
                         <div className="account-history__card-grid">
                           <div className="account-history__card-item">
-                            <span className="account-history__card-label">Дата</span>
-                            <span className="account-history__card-value">{row.date}</span>
-                          </div>
-                          <div className="account-history__card-item">
-                            <span className="account-history__card-label">Время</span>
-                            <span className="account-history__card-value">{row.timeRange}</span>
+                            <span className="account-history__card-label">Дата и время</span>
+                            <span className="account-history__card-value">{row.date} - {row.timeRange}</span>
                           </div>
                           <div className="account-history__card-item">
                             <span className="account-history__card-label">Статус</span>
-                            <span
-                              className={`account-history__badge account-history__badge--status-${row.status.replaceAll("_", "-")}`}
-                            >
-                              {row.statusLabel}
-                            </span>
-                          </div>
-                          <div className="account-history__card-item">
-                            <span className="account-history__card-label">Оплата</span>
-                            <span
-                              className={`account-history__badge account-history__badge--payment-${row.paymentStatus.replaceAll("_", "-")}`}
-                            >
-                              {row.paymentStatusLabel}
-                            </span>
+                            <div className='account-history__badge-container'>
+                              <span
+                                className={`account-history__badge account-history__badge--status-${row.status.replaceAll("_", "-")}`}
+                              >
+                                {row.statusLabel}
+                              </span>
+                              <span
+                                className={`account-history__badge account-history__badge--payment-${row.paymentStatus.replaceAll("_", "-")}`}
+                              >
+                                {row.paymentStatusLabel}
+                              </span>
+                            </div>
                           </div>
                         </div>
 

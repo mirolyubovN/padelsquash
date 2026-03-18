@@ -30,6 +30,7 @@ const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "Формат времен�
 const DEFAULT_SPORTS = [
   { slug: "padel", name: "Падел", sortOrder: 0 },
   { slug: "squash", name: "Сквош", sortOrder: 1 },
+  { slug: "tennis", name: "Теннис", sortOrder: 2 },
 ] as const;
 
 async function ensureSportDefaults() {

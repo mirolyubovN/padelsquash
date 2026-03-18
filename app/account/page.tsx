@@ -102,7 +102,7 @@ export default async function AccountPage({
             Все новые бронирования списываются с баланса автоматически. Если средств не хватает, сначала пополните счет.
           </p>
           {returnAfterTopUp ? (
-            <p className="admin-bookings__cell-sub">После пополнения вы вернетесь к незавершенному бронированию.</p>
+            <p className="account-card__hint">После пополнения вы вернетесь к незавершенному бронированию.</p>
           ) : null}
 
           <form action={topUpWalletAction} className="account-profile-form">
@@ -125,12 +125,14 @@ export default async function AccountPage({
                 />
               </div>
             </div>
-            <button type="submit" className="auth-form__submit">
-              Пополнить баланс
-            </button>
+            <div className="account-profile-form__actions">
+              <button type="submit" className="auth-form__submit">
+                Пополнить баланс
+              </button>
+            </div>
           </form>
 
-          <div>
+          <div className="account-card__subsection">
             <p className="account-profile-form__title">Последние операции</p>
             {wallet.transactions.length === 0 ? (
               <p className="account-card__text">Операций пока нет.</p>
@@ -204,9 +206,11 @@ export default async function AccountPage({
                 />
               </div>
             </div>
-            <button type="submit" className="auth-form__submit">
-              Сохранить профиль
-            </button>
+            <div className="account-profile-form__actions">
+              <button type="submit" className="auth-form__submit">
+                Сохранить профиль
+              </button>
+            </div>
           </form>
         </article>
 

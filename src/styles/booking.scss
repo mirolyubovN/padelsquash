@@ -92,7 +92,7 @@
 .booking-preview__link {
   @apply inline-flex items-center justify-center rounded px-4 py-2.5 text-sm font-bold;
   background-color: var(--accent);
-  color: #0f172a;
+  color: var(--text-on-primary);
 }
 
 /* ── Booking flow ─────────────────────────────────────────────────── */
@@ -129,7 +129,7 @@
 
 .booking-flow__section-hint--info {
   @apply rounded-lg border px-3 py-2 text-sm;
-  border-color: rgba(132, 204, 22, 0.25);
+  border-color: rgba(var(--accent-rgb), 0.35);
   background-color: var(--accent-soft);
   color: var(--foreground);
 }
@@ -220,6 +220,60 @@
 }
 
 /* Date input */
+.booking-flow__quick-date-picker {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: stretch;
+  max-width: 32rem;
+}
+
+.booking-flow__quick-date-arrow {
+  @apply inline-flex items-center justify-center rounded border px-3 text-base font-bold transition-colors;
+  border-color: var(--line);
+  background-color: var(--background);
+  color: var(--muted);
+}
+
+.booking-flow__quick-date-arrow:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.booking-flow__quick-date-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.booking-flow__quick-date-grid {
+  @apply grid grid-cols-3 gap-2;
+}
+
+.booking-flow__quick-date-btn {
+  @apply flex min-h-14 flex-col items-start justify-center rounded border px-3 py-2 text-left transition-colors;
+  border-color: var(--line);
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.booking-flow__quick-date-btn:hover {
+  border-color: var(--accent);
+}
+
+.booking-flow__quick-date-btn--active {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+.booking-flow__quick-date-day {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--muted);
+}
+
+.booking-flow__quick-date-date {
+  @apply mt-0.5 text-sm font-bold;
+}
+
 .booking-flow__date-input {
   @apply w-full max-w-xs rounded border px-3 py-2.5 text-sm;
   border-color: var(--line);
@@ -320,16 +374,17 @@
 
 /* Wallet balance info */
 .booking-flow__wallet-info {
-  @apply flex items-center justify-between rounded border px-3 py-2.5 text-sm;
-  border-color: rgba(132, 204, 22, 0.25);
+  @apply inline-flex flex-col items-start gap-1 rounded border px-3 py-2.5 text-sm;
+  border-color: rgba(var(--accent-rgb), 0.35);
   background-color: var(--accent-soft);
+  width: fit-content;
+  max-width: min(100%, 36rem);
 }
 
 .booking-flow__wallet-info--insufficient {
   border-color: rgba(239, 68, 68, 0.25);
   background-color: rgba(239, 68, 68, 0.05);
   color: #b91c1c;
-  @apply flex-col items-start gap-1;
 }
 
 /* Auth gate */
@@ -357,14 +412,16 @@
 .booking-flow__auth-btn--primary {
   background-color: var(--accent);
   border-color: var(--accent);
-  color: #0f172a;
+  color: var(--text-on-primary);
 }
 
 /* Hold timer */
 .booking-flow__hold-timer {
   @apply rounded border px-3 py-2 text-sm font-medium;
-  border-color: rgba(132, 204, 22, 0.3);
+  border-color: rgba(var(--accent-rgb), 0.4);
   background-color: var(--accent-soft);
+  width: fit-content;
+  max-width: min(100%, 36rem);
 }
 
 .booking-flow__hold-timer--expiring {
@@ -384,10 +441,27 @@
   @apply flex flex-col gap-3;
 }
 
+.booking-flow__status-group {
+  @apply flex flex-wrap items-start gap-2;
+}
+
+.booking-flow__status-item {
+  margin: 0;
+}
+
+.booking-flow__status-note {
+  @apply rounded border px-3 py-2 text-sm;
+  border-color: var(--line);
+  background-color: var(--background);
+  color: var(--muted);
+  width: fit-content;
+  max-width: min(100%, 36rem);
+}
+
 .booking-flow__submit {
   @apply inline-flex items-center justify-center rounded px-6 py-3.5 text-sm font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50;
   background-color: var(--accent);
-  color: #0f172a;
+  color: var(--text-on-primary);
   letter-spacing: 0.07em;
   transition: background-color 0.2s;
 }
@@ -403,8 +477,10 @@
 
 .booking-flow__warning {
   @apply rounded border px-3 py-2.5 text-sm;
-  border-color: rgba(132, 204, 22, 0.25);
+  border-color: rgba(var(--accent-rgb), 0.35);
   background-color: var(--accent-soft);
+  width: fit-content;
+  max-width: min(100%, 36rem);
 }
 
 .booking-flow__error-inline {
@@ -412,6 +488,8 @@
   border-color: rgba(239, 68, 68, 0.25);
   background-color: rgba(239, 68, 68, 0.05);
   color: #b91c1c;
+  width: fit-content;
+  max-width: min(100%, 36rem);
 }
 
 /* Success state */
@@ -444,10 +522,13 @@
 }
 
 .booking-flow__account-link {
-  @apply self-start rounded border px-4 py-2 text-xs font-bold uppercase;
+  @apply self-start inline-flex items-center rounded border px-4 py-2 text-xs font-bold uppercase;
   border-color: #16a34a;
   color: #15803d;
   letter-spacing: 0.06em;
+  line-height: 1.25;
+  text-align: left;
+  max-width: 100%;
 }
 
 /* Info / notice block */

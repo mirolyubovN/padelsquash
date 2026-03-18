@@ -10,6 +10,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/courts",
     "/prices",
     "/contact",
+    "/sports/padel",
+    "/sports/squash",
+    "/sports/tennis",
     "/legal/privacy",
     "/legal/terms",
   ];

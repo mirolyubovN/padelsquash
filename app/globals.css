@@ -1,19 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f7f2;
-  --foreground: #0f172a;
+  --background: #f6fafb;
+  --foreground: #111827;
   --surface: #ffffff;
-  --surface-strong: #0f172a;
-  --accent: #84cc16;
-  --accent-hover: #65a30d;
-  --accent-soft: rgba(132, 204, 22, 0.12);
-  --line: #e2e8da;
-  --muted: #64748b;
-  --dark: #2d3a8c;
-  --dark-surface: #3b49a8;
-  --dark-border: rgba(255, 255, 255, 0.08);
-  --dark-muted: rgba(255, 255, 255, 0.5);
+  --surface-strong: #0f1720;
+  --accent: #00c2c7;
+  --accent-hover: #00a8ac;
+  --accent-active: #008d91;
+  --accent-soft: #e8fbfb;
+  --accent-rgb: 0, 194, 199;
+  --text-on-primary: #ffffff;
+  --accent-secondary: #ff6b3d;
+  --accent-secondary-rgb: 255, 107, 61;
+  --accent-tertiary: #d7ff2f;
+  --foreground-rgb: 17, 24, 39;
+  --line: #d8e4e6;
+  --muted: #52606d;
+  --dark: #0f1720;
+  --dark-rgb: 15, 23, 32;
+  --dark-surface: #16212b;
+  --dark-border: #263341;
+  --dark-muted: #a8b6c2;
   --font-display: var(--font-oswald), sans-serif;
 }
 
@@ -43,7 +51,7 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   background-color: var(--surface-strong);
-  color: #f6efe5;
+  color: #f3f7fa;
   box-shadow: 0 10px 24px rgba(16, 37, 46, 0.16);
 }
 

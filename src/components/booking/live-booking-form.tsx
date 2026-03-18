@@ -137,6 +137,14 @@ function getTodayDate(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function getDefaultSelectedDate(todayIso: string): string {
+  const now = new Date();
+  if (now.getHours() >= 22) {
+    return addDays(todayIso, 1);
+  }
+  return todayIso;
+}
+
 function addDays(dateIso: string, days: number): string {
   const d = new Date(`${dateIso}T00:00:00`);
   d.setDate(d.getDate() + days);
@@ -146,6 +154,44 @@ function addDays(dateIso: string, days: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function getDateDiffDays(fromIso: string, toIso: string): number {
+  const fromDate = new Date(`${fromIso}T00:00:00`).getTime();
+  const toDate = new Date(`${toIso}T00:00:00`).getTime();
+  return Math.round((toDate - fromDate) / 86400000);
+}
+
+function getDateWindowStart(dateIso: string, minDateIso: string, windowDays: number): string {
+  const clampedDate = dateIso < minDateIso ? minDateIso : dateIso;
+  const diffDays = Math.max(0, getDateDiffDays(minDateIso, clampedDate));
+  const windowOffset = Math.floor(diffDays / windowDays) * windowDays;
+  return addDays(minDateIso, windowOffset);
+}
+
+function formatShortDate(dateIso: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+  })
+    .format(new Date(`${dateIso}T00:00:00`))
+    .replace(".", "");
+}
+
+function formatShortWeekday(dateIso: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    weekday: "short",
+  })
+    .format(new Date(`${dateIso}T00:00:00`))
+    .replace(".", "");
+}
+
+function getRelativeDateLabel(dateIso: string, todayIso: string): string | null {
+  const diffDays = getDateDiffDays(todayIso, dateIso);
+  if (diffDays === 0) return "Сегодня";
+  if (diffDays === 1) return "Завтра";
+  if (diffDays === 2) return "Послезавтра";
+  return null;
+}
+
 function detectServiceKind(service: ServiceOption): ServiceKind {
   return service.requiresInstructor ? "training" : "court";
 }
@@ -153,6 +199,7 @@ function detectServiceKind(service: ServiceOption): ServiceKind {
 function getSportLabel(slug: string): string {
   if (slug === "padel") return "Падел";
   if (slug === "squash") return "Сквош";
+  if (slug === "tennis") return "Теннис";
   return slug;
 }
 
@@ -209,6 +256,10 @@ export function LiveBookingForm({
   initialWalletBalanceKzt,
   initialSelection,
 }: LiveBookingFormProps) {
+  const todayDate = useMemo(() => getTodayDate(), []);
+  const defaultSelectedDate = useMemo(() => getDefaultSelectedDate(todayDate), [todayDate]);
+  const quickDateWindowSize = 3;
+
   // Build sport → { court, training } matrix
   const serviceMatrix = useMemo(() => {
     const result: Record<string, Partial<Record<ServiceKind, ServiceOption>>> = {};
@@ -242,9 +293,9 @@ export function LiveBookingForm({
   const initialDate =
     initialSelection.date &&
     /^\d{4}-\d{2}-\d{2}$/.test(initialSelection.date) &&
-    initialSelection.date >= getTodayDate()
+    initialSelection.date >= todayDate
       ? initialSelection.date
-      : getTodayDate();
+      : defaultSelectedDate;
   const initialInstructorId =
     initialKind === "training" ? (initialSelection.instructorId ?? "") : "";
 
@@ -253,6 +304,9 @@ export function LiveBookingForm({
   const [serviceKind, setServiceKind] = useState<ServiceKind>(initialKind);
   const [selectedInstructorId, setSelectedInstructorId] = useState(initialInstructorId);
   const [date, setDate] = useState<string>(initialDate);
+  const [dateWindowStart, setDateWindowStart] = useState<string>(() =>
+    getDateWindowStart(initialDate, todayDate, quickDateWindowSize),
+  );
   const [availability, setAvailability] = useState<AvailabilityPayload | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
@@ -305,6 +359,14 @@ export function LiveBookingForm({
   const selectedHoldIdsKey = selectedHoldIds.join(",");
   const hasLocationStep = locations.length > 1;
   const selectedLocation = locations.find((l) => l.slug === selectedLocationSlug) ?? locations[0];
+  const quickDateOptions = useMemo(
+    () =>
+      Array.from({ length: quickDateWindowSize }, (_, index) =>
+        addDays(dateWindowStart, index),
+      ),
+    [dateWindowStart],
+  );
+  const canMoveDateWindowBack = dateWindowStart > todayDate;
 
   const applySelectionState = useCallback((selection: BookingUrlState) => {
     if (
@@ -325,7 +387,7 @@ export function LiveBookingForm({
     if (
       selection.date &&
       /^\d{4}-\d{2}-\d{2}$/.test(selection.date) &&
-      selection.date >= getTodayDate()
+      selection.date >= todayDate
     ) {
       setDate(selection.date);
     }
@@ -337,7 +399,7 @@ export function LiveBookingForm({
     if (selection.selectedCells.length > 0) {
       pendingUrlSelectedCellsRef.current = selection.selectedCells;
     }
-  }, [serviceKind, serviceMatrix, sport]);
+  }, [serviceKind, serviceMatrix, sport, todayDate]);
 
   useEffect(() => {
     if (hasRestoredFromUrlRef.current || typeof window === "undefined") return;
@@ -497,6 +559,13 @@ export function LiveBookingForm({
     setAutoSearchKey("");
   }, [date]);
 
+  useEffect(() => {
+    const expectedWindowStart = getDateWindowStart(date, todayDate, quickDateWindowSize);
+    if (expectedWindowStart !== dateWindowStart) {
+      setDateWindowStart(expectedWindowStart);
+    }
+  }, [date, dateWindowStart, quickDateWindowSize, todayDate]);
+
   // Fetch availability
   useEffect(() => {
     if (!resolvedService || !date) { setAvailability(null); return; }
@@ -610,11 +679,10 @@ export function LiveBookingForm({
 
   function toggleCell(timeKey: string, resourceId: string) {
     setSelectedCells((prev) => {
-      const normalizedPrev = prev.map((cell) => ({ timeKey: cell.timeKey, resourceId: cell.resourceId }));
-      const exists = normalizedPrev.some((c) => c.timeKey === timeKey && c.resourceId === resourceId);
+      const exists = prev.some((cell) => cell.timeKey === timeKey && cell.resourceId === resourceId);
       return exists
-        ? normalizedPrev.filter((c) => !(c.timeKey === timeKey && c.resourceId === resourceId))
-        : [...normalizedPrev, { timeKey, resourceId }];
+        ? prev.filter((cell) => !(cell.timeKey === timeKey && cell.resourceId === resourceId))
+        : [...prev, { timeKey, resourceId }];
     });
   }
 
@@ -656,6 +724,20 @@ export function LiveBookingForm({
   const topUpPath = useMemo(
     () => `/account?next=${encodeURIComponent(bookingReturnToPath)}`,
     [bookingReturnToPath],
+  );
+
+  const shiftQuickDateWindow = useCallback(
+    (direction: -1 | 1) => {
+      const shiftedStartRaw = addDays(dateWindowStart, direction * quickDateWindowSize);
+      const shiftedStart = shiftedStartRaw < todayDate ? todayDate : shiftedStartRaw;
+      const selectedOffset = getDateDiffDays(dateWindowStart, date);
+      const normalizedOffset =
+        selectedOffset >= 0 && selectedOffset < quickDateWindowSize ? selectedOffset : 0;
+
+      setDateWindowStart(shiftedStart);
+      setDate(addDays(shiftedStart, normalizedOffset));
+    },
+    [date, dateWindowStart, quickDateWindowSize, todayDate],
   );
 
   async function createHoldsForSelectedSlots() {
@@ -728,8 +810,7 @@ export function LiveBookingForm({
     const walletShortForSelection =
       pricePreview !== null &&
       initialWalletBalanceKzt !== null &&
-      pricePreview.total > initialWalletBalanceKzt &&
-      selectedCells.some((cell) => !cell.holdId);
+      pricePreview.total > initialWalletBalanceKzt;
 
     if (walletShortForSelection) {
       const holdsCreated = await createHoldsForSelectedSlots();
@@ -866,6 +947,19 @@ export function LiveBookingForm({
 
   const showConfirm = submitSuccessSummary !== null || selectedCells.length > 0;
   const hasHeldSelection = selectedCells.some((cell) => Boolean(cell.holdId));
+  const walletBalanceKzt = initialWalletBalanceKzt ?? 0;
+  const walletIsInsufficient =
+    initialWalletBalanceKzt != null && pricePreview ? initialWalletBalanceKzt < pricePreview.total : false;
+  const walletShortfallKzt =
+    initialWalletBalanceKzt != null && pricePreview
+      ? Math.max(0, pricePreview.total - initialWalletBalanceKzt)
+      : 0;
+  const showWalletInfo = isAuthenticated && initialWalletBalanceKzt != null && pricePreview && !submitError;
+  const showHoldTimer = holdSecondsLeft !== null && holdSecondsLeft > 0;
+  const showTopUpLink = Boolean(submitError && hasHeldSelection);
+  const showSubmitStatusGroup = Boolean(
+    initialCustomer?.name || showWalletInfo || showHoldTimer || submitWarning || submitError || showTopUpLink,
+  );
 
   return (
     <section className="booking-flow" aria-labelledby="booking-flow-title">
@@ -968,11 +1062,51 @@ export function LiveBookingForm({
       <div className="booking-flow__section">
         <p className="booking-flow__section-label">Шаг 2 — Выберите дату и время</p>
 
+        <div className="booking-flow__quick-date-picker" role="group" aria-label="Быстрый выбор даты">
+          <button
+            type="button"
+            className="booking-flow__quick-date-arrow"
+            onClick={() => shiftQuickDateWindow(-1)}
+            disabled={!canMoveDateWindowBack}
+            aria-label="Предыдущие 3 дня"
+          >
+            ←
+          </button>
+          <div className="booking-flow__quick-date-grid">
+            {quickDateOptions.map((optionDate) => {
+              const relativeLabel = getRelativeDateLabel(optionDate, todayDate);
+              const isSelected = optionDate === date;
+              return (
+                <button
+                  key={optionDate}
+                  type="button"
+                  className={`booking-flow__quick-date-btn${isSelected ? " booking-flow__quick-date-btn--active" : ""}`}
+                  onClick={() => setDate(optionDate)}
+                  aria-pressed={isSelected}
+                >
+                  <span className="booking-flow__quick-date-day">
+                    {relativeLabel ?? formatShortWeekday(optionDate)}
+                  </span>
+                  <span className="booking-flow__quick-date-date">{formatShortDate(optionDate)}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className="booking-flow__quick-date-arrow"
+            onClick={() => shiftQuickDateWindow(1)}
+            aria-label="Следующие 3 дня"
+          >
+            →
+          </button>
+        </div>
+
         <input
           id="booking-date-live"
           type="date"
           className="booking-flow__date-input"
-          min={getTodayDate()}
+          min={todayDate}
           value={date}
           onChange={(e) => setDate(e.target.value)}
           aria-label="Дата бронирования"
@@ -1130,16 +1264,6 @@ export function LiveBookingForm({
                 </div>
               ) : null}
 
-              {/* Wallet balance */}
-              {isAuthenticated && initialWalletBalanceKzt != null && pricePreview ? (
-                <div className={`booking-flow__wallet-info${initialWalletBalanceKzt < pricePreview.total ? " booking-flow__wallet-info--insufficient" : ""}`}>
-                  <span>Ваш баланс: {formatMoneyKzt(initialWalletBalanceKzt)}</span>
-                  {initialWalletBalanceKzt < pricePreview.total ? (
-                    <span>Не хватает: {formatMoneyKzt(pricePreview.total - initialWalletBalanceKzt)}</span>
-                  ) : null}
-                </div>
-              ) : null}
-
               {/* Auth gate or submit */}
               {!isAuthenticated ? (
                 <div className="booking-flow__auth-gate">
@@ -1163,26 +1287,40 @@ export function LiveBookingForm({
                 </div>
               ) : (
                 <div className="booking-flow__submit-area">
-                  {initialCustomer?.name ? (
-                    <p className="booking-flow__section-hint">
-                      Бронирование для: <strong>{initialCustomer.name}</strong>
-                      {initialCustomer.phone ? ` · ${initialCustomer.phone}` : ""}
-                    </p>
-                  ) : null}
+                  {showSubmitStatusGroup ? (
+                    <div className="booking-flow__status-group">
+                      {showWalletInfo ? (
+                        <div className={`booking-flow__wallet-info booking-flow__status-item${walletIsInsufficient ? " booking-flow__wallet-info--insufficient" : ""}`}>
+                          <span>Ваш баланс: {formatMoneyKzt(walletBalanceKzt)}</span>
+                          {walletIsInsufficient ? (
+                            <span>Не хватает: {formatMoneyKzt(walletShortfallKzt)}</span>
+                          ) : null}
+                        </div>
+                      ) : null}
 
-                  {holdSecondsLeft !== null && holdSecondsLeft > 0 ? (
-                    <p className={`booking-flow__hold-timer${holdSecondsLeft < 120 ? " booking-flow__hold-timer--expiring" : ""}`}>
-                      Бронь удерживается: {Math.floor(holdSecondsLeft / 60)} мин {holdSecondsLeft % 60} сек
-                    </p>
-                  ) : null}
-                  {submitWarning ? (
-                    <p className="booking-flow__warning" role="status">{submitWarning}</p>
-                  ) : null}
-                  {submitError ? (
-                    <div>
-                      <p className="booking-flow__error-inline" role="alert">{submitError}</p>
-                      {hasHeldSelection ? (
-                        <Link href={topUpPath} className="booking-flow__account-link">
+                      {/* {initialCustomer?.name ? (
+                        <p className="booking-flow__status-note booking-flow__status-item">
+                          Бронирование для: <strong>{initialCustomer.name}</strong>
+                          {initialCustomer.phone ? ` · ${initialCustomer.phone}` : ""}
+                        </p>
+                      ) : null} */}
+
+                      {showHoldTimer ? (
+                        <p className={`booking-flow__hold-timer booking-flow__status-item${holdSecondsLeft < 120 ? " booking-flow__hold-timer--expiring" : ""}`}>
+                          Бронь удерживается: {Math.floor(holdSecondsLeft / 60)} мин {holdSecondsLeft % 60} сек
+                        </p>
+                      ) : null}
+
+                      {submitWarning ? (
+                        <p className="booking-flow__warning booking-flow__status-item" role="status">{submitWarning}</p>
+                      ) : null}
+
+                      {submitError ? (
+                        <p className="booking-flow__error-inline booking-flow__status-item" role="alert">{submitError}</p>
+                      ) : null}
+
+                      {showTopUpLink ? (
+                        <Link href={topUpPath} className="booking-flow__account-link booking-flow__status-item">
                           Пополнить баланс и вернуться →
                         </Link>
                       ) : null}

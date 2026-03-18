@@ -21,6 +21,7 @@ const SEED_LOCATIONS = [
 const SEED_SPORTS = [
   { slug: "padel" as const, name: "Падел", sortOrder: 10, active: true },
   { slug: "squash" as const, name: "Сквош", sortOrder: 20, active: true },
+  { slug: "tennis" as const, name: "Теннис", sortOrder: 30, active: true },
 ];
 
 const SEED_COURTS = [
@@ -29,6 +30,7 @@ const SEED_COURTS = [
   { name: "Падел 3", sport: "padel" as const, active: true },
   { name: "Сквош 1", sport: "squash" as const, active: true },
   { name: "Сквош 2", sport: "squash" as const, active: true },
+  { name: "Теннис 1", sport: "tennis" as const, active: true },
 ];
 
 const SEED_INSTRUCTORS = [
@@ -67,6 +69,20 @@ const SEED_INSTRUCTORS = [
     pricePerHour: "12000.00",
     active: true,
   },
+  {
+    name: "Марат Тлеков",
+    sports: ["tennis"] as const,
+    bio: "Теннис: техника ударов, работа ног и матчевые розыгрыши для начинающих и продолжающих.",
+    pricePerHour: "12500.00",
+    active: true,
+  },
+  {
+    name: "Егор Сидоров",
+    sports: ["tennis"] as const,
+    bio: "Теннис: индивидуальные тренировки, подача и тактическая подготовка к турнирам.",
+    pricePerHour: "14000.00",
+    active: true,
+  },
 ];
 
 const SEED_SERVICES = [
@@ -102,6 +118,22 @@ const SEED_SERVICES = [
     requiresInstructor: true,
     active: true,
   },
+  {
+    code: "tennis-rental",
+    name: "Аренда корта (теннис)",
+    sport: "tennis" as const,
+    requiresCourt: true,
+    requiresInstructor: false,
+    active: true,
+  },
+  {
+    code: "tennis-coaching",
+    name: "Тренировка с тренером (теннис)",
+    sport: "tennis" as const,
+    requiresCourt: true,
+    requiresInstructor: true,
+    active: true,
+  },
 ];
 
 const SEED_COURT_COMPONENT_PRICES = [
@@ -111,6 +143,9 @@ const SEED_COURT_COMPONENT_PRICES = [
   { sport: "squash" as const, period: "morning" as const, amount: "7000.00" },
   { sport: "squash" as const, period: "day" as const, amount: "7000.00" },
   { sport: "squash" as const, period: "evening_weekend" as const, amount: "10000.00" },
+  { sport: "tennis" as const, period: "morning" as const, amount: "14000.00" },
+  { sport: "tennis" as const, period: "day" as const, amount: "14000.00" },
+  { sport: "tennis" as const, period: "evening_weekend" as const, amount: "19000.00" },
 ];
 
 const SEED_OPENING_HOURS = [

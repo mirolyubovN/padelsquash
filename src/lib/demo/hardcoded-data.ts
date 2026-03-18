@@ -20,6 +20,12 @@ export const demoComponentPrices: ComponentPriceRecord[] = [
   { id: "cp-10", sport: "squash", componentType: "instructor", tier: "morning", currency: "KZT", amount: 7000 },
   { id: "cp-11", sport: "squash", componentType: "instructor", tier: "day", currency: "KZT", amount: 8000 },
   { id: "cp-12", sport: "squash", componentType: "instructor", tier: "evening_weekend", currency: "KZT", amount: 9000 },
+  { id: "cp-13", sport: "tennis", componentType: "court", tier: "morning", currency: "KZT", amount: 14000 },
+  { id: "cp-14", sport: "tennis", componentType: "court", tier: "day", currency: "KZT", amount: 16000 },
+  { id: "cp-15", sport: "tennis", componentType: "court", tier: "evening_weekend", currency: "KZT", amount: 19000 },
+  { id: "cp-16", sport: "tennis", componentType: "instructor", tier: "morning", currency: "KZT", amount: 10000 },
+  { id: "cp-17", sport: "tennis", componentType: "instructor", tier: "day", currency: "KZT", amount: 11000 },
+  { id: "cp-18", sport: "tennis", componentType: "instructor", tier: "evening_weekend", currency: "KZT", amount: 12000 },
 ];
 
 export const demoServices: ServiceRecord[] = [
@@ -55,6 +61,22 @@ export const demoServices: ServiceRecord[] = [
     requiresInstructor: true,
     active: true,
   },
+  {
+    id: "tennis-rental",
+    name: "Аренда корта (теннис)",
+    sport: "tennis",
+    requiresCourt: true,
+    requiresInstructor: false,
+    active: true,
+  },
+  {
+    id: "tennis-coaching",
+    name: "Тренировка с тренером (теннис)",
+    sport: "tennis",
+    requiresCourt: true,
+    requiresInstructor: true,
+    active: true,
+  },
 ];
 
 export const demoOpeningHours: OpeningHourRecord[] = [
@@ -67,14 +89,16 @@ export const demoOpeningHours: OpeningHourRecord[] = [
   { dayOfWeek: 6, openTime: "08:00", closeTime: "22:00", active: true },
 ];
 
-export const demoCourtIds = ["padel-1", "padel-2", "padel-3", "squash-1", "squash-2"];
-export const demoInstructorIds = ["coach-1", "coach-2"];
+export const demoCourtIds = ["padel-1", "padel-2", "padel-3", "squash-1", "squash-2", "tennis-1"];
+export const demoInstructorIds = ["coach-1", "coach-2", "coach-3"];
 
 export const demoInstructorSchedules: ResourceScheduleRecord[] = [
   { resourceType: "instructor", resourceId: "coach-1", dayOfWeek: 1, startTime: "09:00", endTime: "18:00", active: true },
   { resourceType: "instructor", resourceId: "coach-1", dayOfWeek: 3, startTime: "12:00", endTime: "21:00", active: true },
   { resourceType: "instructor", resourceId: "coach-2", dayOfWeek: 2, startTime: "08:00", endTime: "17:00", active: true },
   { resourceType: "instructor", resourceId: "coach-2", dayOfWeek: 4, startTime: "10:00", endTime: "20:00", active: true },
+  { resourceType: "instructor", resourceId: "coach-3", dayOfWeek: 1, startTime: "09:00", endTime: "18:00", active: true },
+  { resourceType: "instructor", resourceId: "coach-3", dayOfWeek: 5, startTime: "11:00", endTime: "20:00", active: true },
 ];
 
 export const demoExceptions: ScheduleExceptionRecord[] = [
