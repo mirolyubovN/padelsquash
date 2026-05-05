@@ -67,7 +67,7 @@ export async function getAvailabilityContextFromDb(args: {
 
   const { startUtc, endUtc } = venueDateRangeUtc(args.date);
 
-  const [openingHours, courts, instructors, exceptions, bookings, bookingHolds] = await Promise.all([
+  const [openingHours, courts, instructors, exceptions, bookings, bookingHolds, clubEvents] = await Promise.all([
     prisma.openingHour.findMany({
       where: { locationId: selectedLocation.id },
       orderBy: { dayOfWeek: "asc" },
@@ -125,6 +125,37 @@ export async function getAvailabilityContextFromDb(args: {
         endAt: true,
         courtId: true,
         instructorId: true,
+      },
+    }),
+    prisma.clubEvent.findMany({
+      where: {
+        status: { not: "cancelled" },
+        startsAt: { lt: endUtc },
+        endsAt: { gt: startUtc },
+        courts: {
+          some: {
+            court: {
+              locationId: selectedLocation.id,
+              sportId: service.sportId,
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        startsAt: true,
+        endsAt: true,
+        courts: {
+          where: {
+            court: {
+              locationId: selectedLocation.id,
+              sportId: service.sportId,
+            },
+          },
+          select: {
+            courtId: true,
+          },
+        },
       },
     }),
   ]);
@@ -253,6 +284,16 @@ export async function getAvailabilityContextFromDb(args: {
             ? [{ resourceType: "instructor" as const, resourceId: row.instructorId }]
             : []),
         ],
+      })),
+      ...clubEvents.map((row) => ({
+        id: `event:${row.id}`,
+        startAt: row.startsAt.toISOString(),
+        endAt: row.endsAt.toISOString(),
+        status: "confirmed" as const,
+        resourceLinks: row.courts.map((eventCourt) => ({
+          resourceType: "court" as const,
+          resourceId: eventCourt.courtId,
+        })),
       })),
     ],
   };

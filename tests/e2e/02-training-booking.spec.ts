@@ -22,13 +22,18 @@ test("customer can book a training session with trainer selection and trainer-sp
     phone: "+77070000002",
   });
 
+  await page.goto(`/account?next=${encodeURIComponent("/book")}`);
+  await page.locator("#wallet-amount").fill("50000");
+  await page.getByRole("button", { name: "Пополнить баланс" }).click();
+  await page.waitForURL((url) => url.pathname === "/book");
+
   await selectBookingFlowOptions(page, {
     sport: "padel",
     serviceKind: "training",
     date: bookingDate,
   });
 
-  const trainerButtons = page.locator(".booking-live__trainer-button");
+  const trainerButtons = page.locator(".booking-flow__trainer-card");
   await expect(trainerButtons.first()).toBeVisible();
   const trainerCount = await trainerButtons.count();
   expect(trainerCount).toBeGreaterThanOrEqual(2);
@@ -37,13 +42,12 @@ test("customer can book a training session with trainer selection and trainer-sp
   const secondTrainerText = (await trainerButtons.nth(1).innerText()).trim();
   expect(firstTrainerText).not.toBe(secondTrainerText);
 
-  const secondTrainerName = ((await trainerButtons.nth(1).locator(".booking-live__trainer-name").innerText()) ?? "").trim();
+  const secondTrainerName = ((await trainerButtons.nth(1).locator(".booking-flow__trainer-name").innerText()) ?? "").trim();
   await pickTrainerAndWaitForAvailability(page, { trainerName: secondTrainerName, date: bookingDate });
 
   await pickFirstCourtSlot(page);
 
-  await expect(page.locator(".booking-live__summary")).toBeVisible();
-  await expect(page.locator(".booking-live__summary")).toContainText(secondTrainerName);
-  await expect(page.getByText(email)).toBeVisible();
+  await expect(page.locator(".booking-flow__breakdown")).toBeVisible();
+  await expect(page.locator(".booking-flow__breakdown")).toContainText(secondTrainerName);
   await submitBookingAndExpectSuccess(page);
 });

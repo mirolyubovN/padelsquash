@@ -2,12 +2,24 @@
 
 import { useRef, useState } from "react";
 
+export interface InstructorPhotoAsset {
+  id: string;
+  url: string;
+  label: string;
+  category: string;
+}
+
 interface InstructorPhotoInputProps {
   defaultValue?: string;
   inputId?: string;
+  mediaAssets?: InstructorPhotoAsset[];
 }
 
-export function InstructorPhotoInput({ defaultValue = "", inputId = "instructor-photo-url" }: InstructorPhotoInputProps) {
+export function InstructorPhotoInput({
+  defaultValue = "",
+  inputId = "instructor-photo-url",
+  mediaAssets = [],
+}: InstructorPhotoInputProps) {
   const [url, setUrl] = useState(defaultValue);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +33,7 @@ export function InstructorPhotoInput({ defaultValue = "", inputId = "instructor-
     try {
       const body = new FormData();
       body.append("file", file);
+      body.append("category", "instructors");
       const res = await fetch("/api/admin/upload", { method: "POST", body });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
@@ -41,11 +54,11 @@ export function InstructorPhotoInput({ defaultValue = "", inputId = "instructor-
       <input
         id={inputId}
         name="photoUrl"
-        type="url"
+        type="text"
         className="admin-form__field"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://... (или загрузите файл ниже)"
+        placeholder="/uploads/instructors/... или https://..."
       />
       <div className="instructor-photo-input__upload">
         <label className="admin-bookings__action-button instructor-photo-input__label">
@@ -59,6 +72,29 @@ export function InstructorPhotoInput({ defaultValue = "", inputId = "instructor-
             disabled={uploading}
           />
         </label>
+        {mediaAssets.length > 0 ? (
+          <select
+            className="admin-form__field instructor-photo-input__select"
+            value=""
+            onChange={(event) => {
+              if (event.target.value) {
+                setUrl(event.target.value);
+              }
+            }}
+            aria-label="Выбрать фото из медиатеки"
+          >
+            <option value="">Выбрать из медиатеки</option>
+            {mediaAssets.map((asset) => {
+              const categoryLabel =
+                asset.category === "instructors" ? "Тренеры" : asset.category === "gallery" ? "Галерея" : asset.category;
+              return (
+                <option key={asset.id} value={asset.url}>
+                  {categoryLabel}: {asset.label}
+                </option>
+              );
+            })}
+          </select>
+        ) : null}
         {url ? (
           <img src={url} alt="Фото тренера" className="instructor-photo-input__preview" />
         ) : null}

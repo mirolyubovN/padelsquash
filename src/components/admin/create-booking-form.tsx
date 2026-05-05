@@ -216,10 +216,10 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
   const hasHeldSelection = selectedCells.some((cell) => Boolean(cell.holdId));
 
   const timetableColumns = useMemo(() => {
-    const ids = new Set<string>();
-    for (const slot of slots) for (const id of slot.availableCourtIds) ids.add(id);
-    return Array.from(ids).map((id) => ({ id, label: courtNames.get(id) ?? id }));
-  }, [slots, courtNames]);
+    return courts
+      .filter((court) => court.locationSlug === locationSlug && court.sportSlug === sportSlug)
+      .map((court) => ({ id: court.id, label: court.name }));
+  }, [courts, locationSlug, sportSlug]);
 
   const pricePreview = useMemo(() => {
     if (!resolvedService || selectedCells.length === 0) return null;
@@ -316,6 +316,22 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
       }),
     );
   }, [slots, initialStartTime, initialCourtId]);
+
+  useEffect(() => {
+    if (!needsInstructor) return;
+
+    setSelectedCells((prev) => {
+      const seenStartTimes = new Set<string>();
+      const next = prev.filter((cell) => {
+        if (seenStartTimes.has(cell.startTime)) {
+          return false;
+        }
+        seenStartTimes.add(cell.startTime);
+        return true;
+      });
+      return next.length === prev.length ? prev : next;
+    });
+  }, [needsInstructor]);
 
   const pinnedSelectedCells = useMemo(
     () =>
@@ -439,6 +455,9 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
     setSelectedCells((prev) => {
       const idx = prev.findIndex((cell) => slotKey(cell.startTime, cell.courtId) === key);
       if (idx >= 0) return prev.filter((_, i) => i !== idx);
+      if (needsInstructor) {
+        return [...prev.filter((cell) => cell.startTime !== startTime), { startTime, courtId }];
+      }
       return [...prev, { startTime, courtId }];
     });
     setSubmitError(null);
@@ -685,7 +704,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
                           return (
                             <td key={column.id} className="booking-flow__timetable-cell-wrapper">
                               <button type="button" disabled={!available} className={`booking-flow__timetable-cell admin-create-booking__slot${active ? " booking-flow__timetable-cell--selected admin-create-booking__slot--active" : available ? " booking-flow__timetable-cell--available" : " booking-flow__timetable-cell--unavailable"}`} onClick={() => { if (available) toggleCell(slot.startTime, column.id); }}>
-                                {active ? "✓" : available ? formatMoneyKzt(amount) : null}
+                                {active ? "✓" : available ? formatMoneyKzt(amount) : "Занято"}
                               </button>
                             </td>
                           );
@@ -703,7 +722,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
       <div className="booking-flow__section">
         <p className="booking-flow__section-label">Шаг 3 — Клиент и подтверждение</p>
         <div className="admin-create-booking__customer-search">
-          <label className="admin-form__label" htmlFor="cb-customer-query">Найти клиента (имя или телефон)</label>
+          <label className="admin-form__label" htmlFor="cb-customer-query">Найти клиента (имя, телефон или email)</label>
           <input
             id="cb-customer-query"
             className="admin-form__field"
@@ -711,7 +730,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
             onChange={(e) => {
               setCustomerSearchQuery(e.target.value);
             }}
-            placeholder="Имя или телефон"
+            placeholder="Имя, телефон или email"
           />
           {customerSearchLoading ? <p className="booking-flow__slots-hint">Ищем клиента...</p> : null}
           {customerSearchError ? <p className="admin-create-booking__slots-error">{customerSearchError}</p> : null}
@@ -802,7 +821,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
         {customerLookupError ? <p className="admin-create-booking__slots-error">{customerLookupError}</p> : null}
 
         <div className="admin-create-booking__payment-options">
-          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "auto"} onChange={() => setPaymentMode("auto")} /> <span>Авто: списать доступный баланс, остаток оставить неоплаченным</span></label>
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "auto"} onChange={() => setPaymentMode("auto")} /> <span>Авто: списать баланс только если хватает на всю бронь, иначе оставить неоплаченным</span></label>
           <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "wallet"} onChange={() => setPaymentMode("wallet")} /> <span>Только баланс клиента</span></label>
           <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "cash"} onChange={() => setPaymentMode("cash")} /> <span>Оплата в клубе (наличные или карта)</span></label>
         </div>

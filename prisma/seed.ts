@@ -226,6 +226,10 @@ async function main() {
 
   await prisma.$transaction(async (tx) => {
     await tx.walletTransaction.deleteMany();
+    await tx.eventRegistration.deleteMany();
+    await tx.clubEventCourt.deleteMany();
+    await tx.clubEvent.deleteMany();
+    await tx.clubEventSeries.deleteMany();
     await tx.bookingHold.deleteMany();
     await tx.payment.deleteMany();
     await tx.bookingResource.deleteMany();
@@ -241,6 +245,32 @@ async function main() {
     await tx.instructor.deleteMany();
     await tx.court.deleteMany();
     await tx.sport.deleteMany();
+    await tx.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF to_regclass('"AppointmentTimelineEventV2"') IS NOT NULL THEN
+          DELETE FROM "AppointmentTimelineEventV2";
+        END IF;
+        IF to_regclass('"AppointmentResourceV2"') IS NOT NULL THEN
+          DELETE FROM "AppointmentResourceV2";
+        END IF;
+        IF to_regclass('"AppointmentServiceLineV2"') IS NOT NULL THEN
+          DELETE FROM "AppointmentServiceLineV2";
+        END IF;
+        IF to_regclass('"AppointmentV2"') IS NOT NULL THEN
+          DELETE FROM "AppointmentV2";
+        END IF;
+        IF to_regclass('"AppointmentBlockV2"') IS NOT NULL THEN
+          DELETE FROM "AppointmentBlockV2";
+        END IF;
+        IF to_regclass('"AppointmentGroupV2"') IS NOT NULL THEN
+          DELETE FROM "AppointmentGroupV2";
+        END IF;
+        IF to_regclass('"ClientProfileV2"') IS NOT NULL THEN
+          DELETE FROM "ClientProfileV2";
+        END IF;
+      END $$;
+    `);
     await tx.location.deleteMany();
     await tx.user.deleteMany({
       where: {

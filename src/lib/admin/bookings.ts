@@ -165,6 +165,7 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
             ...yoAwareNameQueries.map((nameQuery) => ({
               customer: { is: { name: { contains: nameQuery, mode: "insensitive" as const } } },
             })),
+            { customer: { is: { email: { contains: q.toLowerCase(), mode: "insensitive" as const } } } },
             { customer: { is: { phone: { contains: q } } } },
           ],
         },

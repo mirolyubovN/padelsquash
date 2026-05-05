@@ -5,6 +5,8 @@ import { useFormStatus } from "react-dom";
 
 interface AccountCancelBookingFormProps {
   bookingId: string;
+  itemType?: "booking" | "event";
+  eventId?: string;
   cancellationDeadlineText?: string;
   action: (formData: FormData) => void | Promise<void>;
 }
@@ -25,6 +27,8 @@ function ConfirmCancelSubmitButton() {
 
 export function AccountCancelBookingForm({
   bookingId,
+  itemType = "booking",
+  eventId,
   cancellationDeadlineText,
   action,
 }: AccountCancelBookingFormProps) {
@@ -53,7 +57,7 @@ export function AccountCancelBookingForm({
               Подтвердите отмену
             </h3>
             <p className="account-dialog__text">
-              Вы уверены, что хотите отменить это бронирование?
+              Вы уверены, что хотите отменить {itemType === "event" ? "запись на событие" : "это бронирование"}?
             </p>
             {cancellationDeadlineText ? (
               <p className="account-dialog__text">Бесплатная отмена доступна до: {cancellationDeadlineText}</p>
@@ -61,6 +65,8 @@ export function AccountCancelBookingForm({
 
             <form action={action} className="account-dialog__actions">
               <input type="hidden" name="bookingId" value={bookingId} />
+              <input type="hidden" name="itemType" value={itemType} />
+              {eventId ? <input type="hidden" name="eventId" value={eventId} /> : null}
               <ConfirmCancelSubmitButton />
               <button
                 type="button"

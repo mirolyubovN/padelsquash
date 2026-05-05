@@ -60,6 +60,34 @@ export const createBookingHoldsSchema = z.object({
     .min(1),
 });
 
+export const createBookingSeriesSchema = z.object({
+  serviceId: z.string().min(1),
+  location: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  durationMin: fixedOneHourDurationSchema.optional().default(60),
+  instructorId: z.string().optional(),
+  customer: z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().min(5),
+  }),
+  slots: z
+    .array(
+      z.object({
+        startTime: z
+          .string()
+          .regex(/^\d{2}:\d{2}$/)
+          .refine((value) => {
+            const minutes = Number(value.split(":")[1] ?? "0");
+            return minutes === 0;
+          }, "startTime должен быть на целый час"),
+        courtId: z.string().min(1),
+        holdId: z.string().optional(),
+      }),
+    )
+    .min(1),
+});
+
 export const markPlaceholderPaidSchema = z.object({
   bookingId: z.string().min(1),
   paymentId: z.string().optional(),

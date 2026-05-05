@@ -26,10 +26,9 @@ export const siteConfig = {
 } as const;
 
 export const navItems = [
-	{ href: "/", label: "Главная" },
-	{ href: "/sports/padel", label: "Про падел" },
-	{ href: "/sports/squash", label: "Про сквош" },
-	{ href: "/sports/tennis", label: "Про теннис" },
+	{ href: "/book", label: "Бронирование" },
+	{ href: "/events", label: "События" },
+	{ href: "/prices", label: "Цены" },
 	{ href: "/coaches", label: "Тренеры" },
 	{ href: "/contact", label: "Контакты" },
 ] as const;

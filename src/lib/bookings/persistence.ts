@@ -1,7 +1,10 @@
 import type { Prisma } from "@prisma/client";
+import {
+  assertBookingSlotAvailable,
+  assertBookingSlotConflictsClear,
+} from "@/src/lib/bookings/availability-validator";
 import { withBookingConcurrencyGuard } from "@/src/lib/bookings/concurrency";
 import {
-  buildActiveBookingHoldOverlapWhere,
   createBookingHold,
   expireStaleBookingHolds,
   getActiveBookingHoldById,
@@ -57,6 +60,21 @@ interface CreateBookingHoldsPersistentInput {
   slots: CreateBookingHoldSlotInput[];
 }
 
+interface CreateBookingSeriesPersistentInput {
+  serviceCode: string;
+  locationId: string;
+  date: string;
+  durationMin: number;
+  instructorId?: string;
+  customerUserId?: string;
+  customer: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  slots: CreateBookingHoldSlotInput[];
+}
+
 export interface CreateBookingInDbSuccessResult {
   booking: {
     id: string;
@@ -94,6 +112,27 @@ export interface CreateBookingHoldsInDbResult {
     expiresAtIso: string;
   }>;
   totalAmountRequiredKzt: number;
+  currency: string;
+}
+
+export interface CreateBookingSeriesInDbResult {
+  bookings: Array<{
+    id: string;
+    customerId: string;
+    serviceId: string;
+    serviceDbId: string;
+    startAtUtc: string;
+    endAtUtc: string;
+    startTime: string;
+    endTime: string;
+    durationMin: number;
+    status: string;
+    currency: string;
+    priceTotal: number;
+    pricingBreakdownJson: unknown;
+    resources: Array<{ resourceType: "court" | "instructor"; resourceId: string }>;
+  }>;
+  totalAmount: number;
   currency: string;
 }
 
@@ -174,6 +213,44 @@ function ensureMatchingHold(args: {
   ) {
     throw new Error("Сохраненный hold не соответствует текущему бронированию");
   }
+}
+
+async function resolveValidatedActiveHold(args: {
+  holdId?: string;
+  customerId: string;
+  serviceId: string;
+  locationId: string;
+  courtId?: string;
+  instructorId?: string;
+  startAt: Date;
+  endAt: Date;
+  tx: typeof prisma;
+}) {
+  if (!args.holdId) {
+    return null;
+  }
+
+  const activeHold = await getActiveBookingHoldById({
+    holdId: args.holdId,
+    customerId: args.customerId,
+    tx: args.tx,
+  });
+
+  if (!activeHold) {
+    throw new Error("Сохраненный hold не найден или недействителен");
+  }
+
+  ensureMatchingHold({
+    hold: activeHold,
+    serviceId: args.serviceId,
+    locationId: args.locationId,
+    courtId: args.courtId,
+    instructorId: args.instructorId,
+    startAt: args.startAt,
+    endAt: args.endAt,
+  });
+
+  return activeHold;
 }
 
 export async function createBookingInDb(
@@ -298,47 +375,6 @@ export async function createBookingInDb(
       const tx = txUnknown as typeof prisma;
       await expireStaleBookingHolds(tx);
 
-      const conflict = await tx.booking.findFirst({
-        where: {
-          status: { in: ["pending_payment", "confirmed"] },
-          startAt: { lt: endAt },
-          endAt: { gt: startAt },
-          resources: {
-            some: {
-              OR: [
-                ...(input.courtId
-                  ? [{ resourceType: "court" as const, resourceId: input.courtId }]
-                  : []),
-                ...(input.instructorId
-                  ? [{ resourceType: "instructor" as const, resourceId: input.instructorId }]
-                  : []),
-              ],
-            },
-          },
-        },
-        select: { id: true },
-      });
-
-      if (conflict) {
-        throw new Error("Слот уже занят");
-      }
-
-      const holdConflict = await tx.bookingHold.findFirst({
-        where: buildActiveBookingHoldOverlapWhere({
-          locationId: input.locationId,
-          startAt,
-          endAt,
-          courtId: input.courtId,
-          instructorId: input.instructorId,
-          excludeHoldId: input.holdId,
-        }),
-        select: { id: true },
-      });
-
-      if (holdConflict) {
-        throw new Error("Слот уже занят");
-      }
-
       const customerUser = input.customerUserId
         ? await tx.user.findUnique({
             where: { id: input.customerUserId },
@@ -380,6 +416,43 @@ export async function createBookingInDb(
       if (!customerUser) {
         throw new Error("Пользователь аккаунта не найден");
       }
+
+      const activeHold = await resolveValidatedActiveHold({
+        holdId: input.holdId,
+        customerId: customerUser.id,
+        serviceId: service.id,
+        locationId: input.locationId,
+        courtId: input.courtId,
+        instructorId: input.instructorId,
+        startAt,
+        endAt,
+        tx,
+      });
+
+      await assertBookingSlotAvailable({
+        tx,
+        service,
+        locationId: input.locationId,
+        date: input.date,
+        startTime: input.startTime,
+        durationMin: input.durationMin,
+        courtId: input.courtId,
+        instructorId: input.instructorId,
+      });
+
+      await assertBookingSlotConflictsClear({
+        tx,
+        service,
+        locationId: input.locationId,
+        date: input.date,
+        startTime: input.startTime,
+        durationMin: input.durationMin,
+        courtId: input.courtId,
+        instructorId: input.instructorId,
+        excludeHoldId: activeHold?.id,
+        startAt,
+        endAt,
+      });
 
       const dbComponentPrices = await tx.componentPrice.findMany({
         where: {
@@ -432,26 +505,6 @@ export async function createBookingInDb(
         currency: "KZT",
       });
       const pricingBreakdownJson = JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue;
-
-      const activeHold = input.holdId
-        ? await getActiveBookingHoldById({
-            holdId: input.holdId,
-            customerId: customerUser.id,
-            tx,
-          })
-        : null;
-
-      if (activeHold) {
-        ensureMatchingHold({
-          hold: activeHold,
-          serviceId: service.id,
-          locationId: input.locationId,
-          courtId: input.courtId,
-          instructorId: input.instructorId,
-          startAt,
-          endAt,
-        });
-      }
 
       const currentBalanceKzt = Number(customerUser.walletBalance);
       const effectiveSettlementMode: BookingSettlementMode =
@@ -601,6 +654,339 @@ export async function createBookingInDb(
   return success;
 }
 
+export async function createBookingSeriesInDb(
+  input: CreateBookingSeriesPersistentInput,
+): Promise<CreateBookingSeriesInDbResult> {
+  if (input.durationMin !== 60) {
+    throw new Error("Поддерживается только сессия 60 минут");
+  }
+  if (input.slots.length === 0) {
+    throw new Error("Не выбраны слоты для бронирования");
+  }
+
+  const seenSlotKeys = new Set<string>();
+  for (const slot of input.slots) {
+    if (!/^\d{2}:00$/.test(slot.startTime)) {
+      throw new Error("Поддерживаются только часовые слоты (например, 09:00)");
+    }
+    const slotKey = `${slot.startTime}:${slot.courtId}`;
+    if (seenSlotKeys.has(slotKey)) {
+      throw new Error("Слот не может повторяться в одном бронировании");
+    }
+    seenSlotKeys.add(slotKey);
+  }
+
+  const service = await prisma.service.findUnique({
+    where: { code: input.serviceCode },
+    include: {
+      sport: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!service || !service.active) {
+    throw new Error("Услуга не найдена");
+  }
+  if (service.locationId && service.locationId !== input.locationId) {
+    throw new Error("Услуга недоступна для выбранной локации");
+  }
+  if (service.requiresInstructor && !input.instructorId) {
+    throw new Error("Для выбранной услуги требуется instructorId");
+  }
+  if (service.requiresInstructor) {
+    const seenStartTimes = new Set<string>();
+    for (const slot of input.slots) {
+      if (seenStartTimes.has(slot.startTime)) {
+        throw new Error("Тренер может быть назначен только на один корт в одно время");
+      }
+      seenStartTimes.add(slot.startTime);
+    }
+  }
+
+  const uniqueCourtIds = Array.from(new Set(input.slots.map((slot) => slot.courtId)));
+  const resourceLocks = [
+    ...uniqueCourtIds.map((courtId) => ({ resourceType: "court" as const, resourceId: courtId })),
+    ...(input.instructorId
+      ? [{ resourceType: "instructor" as const, resourceId: input.instructorId }]
+      : []),
+  ];
+
+  const result = await withBookingConcurrencyGuard({
+    prisma,
+    resourceLocks,
+    run: async (txUnknown) => {
+      const tx = txUnknown as typeof prisma;
+      await expireStaleBookingHolds(tx);
+
+      const customerUser = input.customerUserId
+        ? await tx.user.findUnique({
+            where: { id: input.customerUserId },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              walletBalance: true,
+            },
+          })
+        : (await tx.user.findUnique({
+            where: { email: input.customer.email },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              walletBalance: true,
+            },
+          })) ??
+          (await tx.user.create({
+            data: {
+              name: input.customer.name,
+              email: input.customer.email,
+              phone: input.customer.phone,
+              passwordHash: "guest-booking-placeholder",
+              role: "customer",
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              walletBalance: true,
+            },
+          }));
+
+      if (!customerUser) {
+        throw new Error("Пользователь аккаунта не найден");
+      }
+
+      const dbComponentPrices = await tx.componentPrice.findMany({
+        where: {
+          locationId: input.locationId,
+          sportId: service.sportId,
+          currency: "KZT",
+          componentType: {
+            in: ["court", "instructor"],
+          },
+        },
+        include: {
+          sport: {
+            select: {
+              slug: true,
+            },
+          },
+        },
+      });
+
+      const componentPrices: ComponentPriceRecord[] = dbComponentPrices.map((item) => ({
+        id: item.id,
+        sport: item.sport.slug,
+        componentType: item.componentType,
+        tier: item.period,
+        currency: item.currency,
+        amount: Number(item.amount),
+      }));
+
+      const instructorForPricing =
+        service.requiresInstructor && input.instructorId
+          ? await tx.instructor.findUnique({
+              where: { id: input.instructorId },
+              select: {
+                instructorSports: {
+                  where: { sportId: service.sportId },
+                  select: {
+                    pricePerHour: true,
+                  },
+                },
+              },
+            })
+          : null;
+
+      const serviceRecord: ServiceRecord = {
+        id: service.code,
+        name: service.name,
+        sport: service.sport.slug,
+        requiresCourt: service.requiresCourt,
+        requiresInstructor: service.requiresInstructor,
+        active: service.active,
+      };
+      const instructorPriceOverrideAmount =
+        service.requiresInstructor && instructorForPricing
+          ? Number(instructorForPricing.instructorSports[0]?.pricePerHour ?? 0)
+          : undefined;
+
+      const preparedSlots = [];
+      const now = new Date();
+
+      for (const slot of input.slots) {
+        const startAt = venueDateTimeToUtc(input.date, slot.startTime);
+        const endAt = new Date(startAt.getTime() + input.durationMin * 60 * 1000);
+        if (startAt <= now) {
+          throw new Error("Нельзя создать бронирование на прошедшее время");
+        }
+
+        const activeHold = await resolveValidatedActiveHold({
+          holdId: slot.holdId,
+          customerId: customerUser.id,
+          serviceId: service.id,
+          locationId: input.locationId,
+          courtId: slot.courtId,
+          instructorId: input.instructorId,
+          startAt,
+          endAt,
+          tx,
+        });
+
+        await assertBookingSlotAvailable({
+          tx,
+          service,
+          locationId: input.locationId,
+          date: input.date,
+          startTime: slot.startTime,
+          durationMin: input.durationMin,
+          courtId: slot.courtId,
+          instructorId: input.instructorId,
+        });
+
+        await assertBookingSlotConflictsClear({
+          tx,
+          service,
+          locationId: input.locationId,
+          date: input.date,
+          startTime: slot.startTime,
+          durationMin: input.durationMin,
+          courtId: slot.courtId,
+          instructorId: input.instructorId,
+          excludeHoldId: activeHold?.id,
+          startAt,
+          endAt,
+        });
+
+        const pricing = evaluatePricing({
+          service: serviceRecord,
+          bookingDate: input.date,
+          bookingStartTime: slot.startTime,
+          durationMin: input.durationMin,
+          componentPrices,
+          instructorPriceOverrideAmount,
+          currency: "KZT",
+        });
+
+        preparedSlots.push({
+          slot,
+          startAt,
+          endAt,
+          activeHold,
+          pricing,
+          pricingBreakdownJson: JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue,
+        });
+      }
+
+      const totalAmount = preparedSlots.reduce((sum, slot) => sum + slot.pricing.total, 0);
+      const currentBalanceKzt = Number(customerUser.walletBalance);
+      if (currentBalanceKzt < totalAmount) {
+        throw new Error("Недостаточно средств на балансе для всей серии");
+      }
+
+      const bookings: CreateBookingSeriesInDbResult["bookings"] = [];
+      for (const prepared of preparedSlots) {
+        const booking = await tx.booking.create({
+          data: {
+            customerId: customerUser.id,
+            serviceId: service.id,
+            locationId: input.locationId,
+            startAt: prepared.startAt,
+            endAt: prepared.endAt,
+            status: "confirmed",
+            currency: prepared.pricing.currency,
+            priceTotal: prepared.pricing.total,
+            pricingBreakdownJson: prepared.pricingBreakdownJson,
+            resources: {
+              create: [
+                { resourceType: "court" as const, resourceId: prepared.slot.courtId },
+                ...(input.instructorId
+                  ? [{ resourceType: "instructor" as const, resourceId: input.instructorId }]
+                  : []),
+              ],
+            },
+            payment: {
+              create: {
+                provider: "wallet",
+                status: "paid",
+                amount: prepared.pricing.total,
+                currency: prepared.pricing.currency,
+                providerPaymentId: null,
+              },
+            },
+          },
+          include: {
+            resources: true,
+            payment: true,
+            service: true,
+          },
+        });
+
+        await debitUserWallet({
+          tx,
+          userId: customerUser.id,
+          amountKzt: prepared.pricing.total,
+          type: "booking_charge",
+          bookingId: booking.id,
+          holdId: prepared.activeHold?.id,
+          note: "Оплата бронирования с баланса",
+          metadataJson: {
+            serviceCode: service.code,
+            startAt: booking.startAt.toISOString(),
+            source: "booking_series",
+          },
+        });
+
+        if (prepared.activeHold) {
+          await markBookingHoldStatus({
+            tx,
+            holdId: prepared.activeHold.id,
+            status: "converted",
+            convertedBookingId: booking.id,
+          });
+        }
+
+        bookings.push({
+          id: booking.id,
+          customerId: booking.customerId,
+          serviceId: booking.service.code,
+          serviceDbId: booking.serviceId,
+          startAtUtc: booking.startAt.toISOString(),
+          endAtUtc: booking.endAt.toISOString(),
+          startTime: prepared.slot.startTime,
+          endTime: prepared.endAt.toISOString(),
+          durationMin: input.durationMin,
+          status: booking.status,
+          currency: booking.currency,
+          priceTotal: Number(booking.priceTotal),
+          pricingBreakdownJson: booking.pricingBreakdownJson,
+          resources: booking.resources.map((resource: { resourceType: "court" | "instructor"; resourceId: string }) => ({
+            resourceType: resource.resourceType,
+            resourceId: resource.resourceId,
+          })),
+        });
+      }
+
+      return {
+        bookings,
+        totalAmount,
+        currency: "KZT",
+      };
+    },
+  });
+
+  await Promise.all(result.bookings.map((booking) => notifyBookingCreated({ bookingId: booking.id })));
+  return result;
+}
+
 export async function createBookingHoldsInDb(
   input: CreateBookingHoldsPersistentInput,
 ): Promise<CreateBookingHoldsInDbResult> {
@@ -643,6 +1029,15 @@ export async function createBookingHoldsInDb(
   }
   if (service.requiresInstructor && !input.instructorId) {
     throw new Error("Для выбранной услуги требуется instructorId");
+  }
+  if (service.requiresInstructor) {
+    const seenStartTimes = new Set<string>();
+    for (const slot of input.slots) {
+      if (seenStartTimes.has(slot.startTime)) {
+        throw new Error("Тренер может быть назначен только на один корт в одно время");
+      }
+      seenStartTimes.add(slot.startTime);
+    }
   }
 
   const uniqueCourtIds = Array.from(new Set(input.slots.map((slot) => slot.courtId)));
@@ -806,44 +1201,42 @@ export async function createBookingHoldsInDb(
         const startAt = venueDateTimeToUtc(input.date, slot.startTime);
         const endAt = new Date(startAt.getTime() + 60 * 60 * 1000);
 
-        const conflict = await tx.booking.findFirst({
-          where: {
-            status: { in: ["pending_payment", "confirmed"] },
-            startAt: { lt: endAt },
-            endAt: { gt: startAt },
-            resources: {
-              some: {
-                OR: [
-                  { resourceType: "court", resourceId: slot.courtId },
-                  ...(input.instructorId
-                    ? [{ resourceType: "instructor" as const, resourceId: input.instructorId }]
-                    : []),
-                ],
-              },
-            },
-          },
-          select: { id: true },
+        const activeHold = await resolveValidatedActiveHold({
+          holdId: slot.holdId,
+          customerId: customerUser.id,
+          serviceId: service.id,
+          locationId: input.locationId,
+          courtId: slot.courtId,
+          instructorId: input.instructorId,
+          startAt,
+          endAt,
+          tx,
         });
 
-        if (conflict) {
-          throw new Error("Слот уже занят");
-        }
-
-        const holdConflict = await tx.bookingHold.findFirst({
-          where: buildActiveBookingHoldOverlapWhere({
-            locationId: input.locationId,
-            startAt,
-            endAt,
-            courtId: slot.courtId,
-            instructorId: input.instructorId,
-            excludeHoldId: slot.holdId,
-          }),
-          select: { id: true },
+        await assertBookingSlotAvailable({
+          tx,
+          service,
+          locationId: input.locationId,
+          date: input.date,
+          startTime: slot.startTime,
+          durationMin: input.durationMin,
+          courtId: slot.courtId,
+          instructorId: input.instructorId,
         });
 
-        if (holdConflict) {
-          throw new Error("Слот уже занят");
-        }
+        await assertBookingSlotConflictsClear({
+          tx,
+          service,
+          locationId: input.locationId,
+          date: input.date,
+          startTime: slot.startTime,
+          durationMin: input.durationMin,
+          courtId: slot.courtId,
+          instructorId: input.instructorId,
+          excludeHoldId: activeHold?.id,
+          startAt,
+          endAt,
+        });
 
         const pricing = evaluatePricing({
           service: serviceRecord,
@@ -855,26 +1248,6 @@ export async function createBookingHoldsInDb(
           currency: "KZT",
         });
         const pricingBreakdownJson = JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue;
-
-        const activeHold = slot.holdId
-          ? await getActiveBookingHoldById({
-              holdId: slot.holdId,
-              customerId: customerUser.id,
-              tx,
-            })
-          : null;
-
-        if (activeHold) {
-          ensureMatchingHold({
-            hold: activeHold,
-            serviceId: service.id,
-            locationId: input.locationId,
-            courtId: slot.courtId,
-            instructorId: input.instructorId,
-            startAt,
-            endAt,
-          });
-        }
 
         const hold =
           activeHold ??

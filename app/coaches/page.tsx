@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHero } from "@/src/components/page-hero";
+import { CoachGalleryList, type CoachGalleryItem } from "@/src/components/coaches/coach-gallery-list";
 import { prisma } from "@/src/lib/prisma";
 import { coachesPageContent } from "@/src/lib/content/site-data";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
@@ -18,6 +19,12 @@ export default async function CoachesPage() {
       name: true,
       bio: true,
       photoUrl: true,
+      instructorPhotos: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          url: true,
+        },
+      },
       instructorSports: {
         orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
         select: {
@@ -38,6 +45,24 @@ export default async function CoachesPage() {
     const preferredSport = sports[0]?.slug ?? "padel";
     return `/book?sport=${preferredSport}&service=training`;
   };
+  const coaches: CoachGalleryItem[] = dbInstructors.map((coach) => ({
+    id: coach.id,
+    name: coach.name,
+    bio: coach.bio ?? undefined,
+    photoUrl: coach.photoUrl ?? undefined,
+    galleryPhotoUrls: coach.instructorPhotos.map((photo) => photo.url),
+    sports: coach.instructorSports.map((item) => ({
+      slug: item.sport.slug,
+      name: item.sport.name,
+    })),
+    priceLabel:
+      coach.instructorSports.length > 0
+        ? `от ${formatMoneyKzt(
+            Math.min(...coach.instructorSports.map((item) => Number(item.pricePerHour))),
+          )} / час`
+        : "Цена уточняется",
+    bookingHref: getCoachBookingHref(coach.instructorSports.map((item) => item.sport)),
+  }));
 
   return (
     <div className="listing-page">
@@ -47,8 +72,8 @@ export default async function CoachesPage() {
         description={coachesPageContent.hero.description}
       />
 
-      <section className="card-grid" aria-label="Список тренеров">
-        {dbInstructors.length === 0 ? (
+      {coaches.length === 0 ? (
+        <section className="card-grid" aria-label="Список тренеров">
           <article className="coach-card">
             <p className="card-grid__text">
               Информация о тренерах скоро появится.
@@ -59,53 +84,9 @@ export default async function CoachesPage() {
               </Link>
             </div>
           </article>
-        ) : (
-          dbInstructors.map((coach) => (
-            <article key={coach.id} className="coach-card">
-              {coach.photoUrl ? (
-                <div className="coach-card__avatar coach-card__avatar--photo" aria-hidden="true">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={coach.photoUrl} alt="" className="coach-card__avatar-img" />
-                </div>
-              ) : (
-                <div
-                  className={`coach-card__avatar coach-card__avatar--${coach.instructorSports.some((item) => item.sport.slug === "squash") && !coach.instructorSports.some((item) => item.sport.slug === "padel") ? "squash" : "padel"}`}
-                  aria-hidden="true"
-                >
-                  {coach.name
-                    .split(" ")
-                    .map((part) => part[0])
-                    .slice(0, 2)
-                    .join("")}
-                </div>
-              )}
-              <div className="tag-list" aria-label="Виды спорта">
-                {coach.instructorSports.map((item) => (
-                  <span key={`${coach.id}-${item.sport.slug}`} className="card-grid__badge">
-                    {item.sport.name}
-                  </span>
-                ))}
-              </div>
-              <div className="coach-card__head">
-                <h2 className="card-grid__title">{coach.name}</h2>
-              </div>
-              {coach.bio?.trim() ? <p className="card-grid__text">{coach.bio}</p> : null}
-              <p className="coach-card__price">
-                {coach.instructorSports.length > 0
-                  ? `от ${formatMoneyKzt(
-                      Math.min(...coach.instructorSports.map((item) => Number(item.pricePerHour))),
-                    )} / час`
-                  : "Цена уточняется"}
-              </p>
-              <div className="card-grid__actions">
-                <Link href={getCoachBookingHref(coach.instructorSports.map((item) => item.sport))} className="card-grid__button">
-                  {coachesPageContent.bookingLabel}
-                </Link>
-              </div>
-            </article>
-          ))
-        )}
-      </section>
+        </section>
+      ) : null}
+      {coaches.length > 0 ? <CoachGalleryList coaches={coaches} bookingLabel={coachesPageContent.bookingLabel} /> : null}
     </div>
   );
 }

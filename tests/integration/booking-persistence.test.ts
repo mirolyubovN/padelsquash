@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   createBookingHoldsInDb,
   createBookingInDb,
+  createBookingSeriesInDb,
   InsufficientWalletBalanceError,
 } from "@/src/lib/bookings/persistence";
 import { rescheduleBooking } from "@/src/lib/bookings/reschedule";
@@ -232,6 +233,63 @@ describe("booking persistence (DB integration)", () => {
 
     expect(hold).not.toBeNull();
     expect(Number(hold?.amountRequired ?? 0)).toBeGreaterThan(5_000);
+  });
+
+  it("does not let a foreign hold id bypass an active hold conflict", async () => {
+    const [courtA] = await getSeededPadelCourts(1);
+    const date = nextWeekdayIsoDate(48);
+    const holdOwner = await createCustomerWithWallet("it-foreign-hold-owner", 1_000);
+    const attacker = await createCustomerWithWallet("it-foreign-hold-attacker", 100_000);
+
+    let holdId = "";
+    try {
+      await createBookingInDb({
+        serviceCode: "padel-rental",
+        locationId: courtA.locationId,
+        date,
+        startTime: "12:00",
+        durationMin: 60,
+        courtId: courtA.id,
+        customerUserId: holdOwner.id,
+        customer: {
+          name: holdOwner.name,
+          email: holdOwner.email,
+          phone: holdOwner.phone,
+        },
+      });
+    } catch (error) {
+      if (error instanceof InsufficientWalletBalanceError) {
+        holdId = error.holdId;
+      }
+    }
+
+    expect(holdId).not.toBe("");
+
+    await expect(
+      createBookingInDb({
+        serviceCode: "padel-rental",
+        locationId: courtA.locationId,
+        date,
+        startTime: "12:00",
+        durationMin: 60,
+        courtId: courtA.id,
+        holdId,
+        customerUserId: attacker.id,
+        customer: {
+          name: attacker.name,
+          email: attacker.email,
+          phone: attacker.phone,
+        },
+      }),
+    ).rejects.toThrow("Сохраненный hold не найден или недействителен");
+
+    const bookingsAtHeldSlot = await prisma.booking.count({
+      where: {
+        startAt: { gte: new Date(`${date}T00:00:00.000Z`) },
+        resources: { some: { resourceType: "court", resourceId: courtA.id } },
+      },
+    });
+    expect(bookingsAtHeldSlot).toBe(0);
   });
 
   it("creates a confirmed booking with manual in-club payment when wallet balance is insufficient", async () => {
@@ -569,6 +627,64 @@ describe("booking persistence (DB integration)", () => {
     ).rejects.toThrow("Нельзя создать бронирование на прошедшее время");
   });
 
+  it("rejects direct booking outside opening hours", async () => {
+    const [courtA] = await getSeededPadelCourts(1);
+    const user = await createCustomerWithWallet("it-closed-hours");
+    const date = nextWeekdayIsoDate(49);
+
+    await expect(
+      createBookingInDb({
+        serviceCode: "padel-rental",
+        locationId: courtA.locationId,
+        date,
+        startTime: "23:00",
+        durationMin: 60,
+        courtId: courtA.id,
+        customerUserId: user.id,
+        customer: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+        },
+      }),
+    ).rejects.toThrow("Слот вне часов работы клуба");
+  });
+
+  it("rejects direct booking during a venue schedule exception", async () => {
+    const [courtA] = await getSeededPadelCourts(1);
+    const user = await createCustomerWithWallet("it-venue-exception");
+    const date = nextWeekdayIsoDate(59);
+
+    await prisma.scheduleException.create({
+      data: {
+        locationId: courtA.locationId,
+        resourceType: "venue",
+        date: new Date(`${date}T00:00:00Z`),
+        startTime: "10:00",
+        endTime: "11:00",
+        type: "maintenance",
+        note: "integration test block",
+      },
+    });
+
+    await expect(
+      createBookingInDb({
+        serviceCode: "padel-rental",
+        locationId: courtA.locationId,
+        date,
+        startTime: "10:00",
+        durationMin: 60,
+        courtId: courtA.id,
+        customerUserId: user.id,
+        customer: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+        },
+      }),
+    ).rejects.toThrow("Слот заблокирован в расписании");
+  });
+
   it("rejects rescheduling to a past date/time", async () => {
     const [courtA] = await getSeededPadelCourts(1);
     const user = await createCustomerWithWallet("it-past-reschedule");
@@ -602,6 +718,56 @@ describe("booking persistence (DB integration)", () => {
         newCourtId: courtA.id,
       }),
     ).rejects.toThrow("Нельзя перенести бронирование на прошедшее время");
+  });
+
+  it("rejects rescheduling into an active hold", async () => {
+    const [courtA, courtB] = await getSeededPadelCourts(2);
+    const bookingUser = await createCustomerWithWallet("it-reschedule-hold-booking");
+    const holdUser = await createCustomerWithWallet("it-reschedule-hold-owner", 1_000);
+    const date = nextWeekdayIsoDate(60);
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date,
+      startTime: "12:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      customerUserId: bookingUser.id,
+      customer: {
+        name: bookingUser.name,
+        email: bookingUser.email,
+        phone: bookingUser.phone,
+      },
+    });
+
+    try {
+      await createBookingInDb({
+        serviceCode: "padel-rental",
+        locationId: courtB.locationId,
+        date,
+        startTime: "13:00",
+        durationMin: 60,
+        courtId: courtB.id,
+        customerUserId: holdUser.id,
+        customer: {
+          name: holdUser.name,
+          email: holdUser.email,
+          phone: holdUser.phone,
+        },
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(InsufficientWalletBalanceError);
+    }
+
+    await expect(
+      rescheduleBooking({
+        bookingId: created.booking.id,
+        newDate: date,
+        newStartTime: "13:00",
+        newCourtId: courtB.id,
+      }),
+    ).rejects.toThrow("Слот уже занят");
   });
 
   it("converts an active hold into a confirmed booking after top-up", async () => {
@@ -749,6 +915,69 @@ describe("booking persistence (DB integration)", () => {
     });
 
     expect(convertedHolds).toBe(2);
+  });
+
+  it("rejects grouped training holds with one trainer on multiple courts at the same time", async () => {
+    await getSeededPadelTrainingService();
+    const [courtA, courtB] = await getSeededPadelCourts(2);
+    const [trainer] = await getSeededPadelInstructors(1);
+    const date = nextWeekdayIsoDate(61);
+    const user = await createCustomerWithWallet("it-training-duplicate-time", 1_000);
+
+    await expect(
+      createBookingHoldsInDb({
+        serviceCode: "padel-coaching",
+        locationId: courtA.locationId,
+        date,
+        durationMin: 60,
+        instructorId: trainer.id,
+        customerUserId: user.id,
+        customer: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+        },
+        slots: [
+          { startTime: "15:00", courtId: courtA.id },
+          { startTime: "15:00", courtId: courtB.id },
+        ],
+      }),
+    ).rejects.toThrow("Тренер может быть назначен только на один корт в одно время");
+  });
+
+  it("does not create a partial customer series when wallet balance is insufficient", async () => {
+    const [courtA, courtB] = await getSeededPadelCourts(2);
+    const date = nextWeekdayIsoDate(62);
+    const user = await createCustomerWithWallet("it-series-insufficient", 15_000);
+
+    await expect(
+      createBookingSeriesInDb({
+        serviceCode: "padel-rental",
+        locationId: courtA.locationId,
+        date,
+        durationMin: 60,
+        customerUserId: user.id,
+        customer: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+        },
+        slots: [
+          { startTime: "09:00", courtId: courtA.id },
+          { startTime: "10:00", courtId: courtB.id },
+        ],
+      }),
+    ).rejects.toThrow("Недостаточно средств на балансе для всей серии");
+
+    const bookings = await prisma.booking.count({
+      where: {
+        customerId: user.id,
+        startAt: {
+          gte: new Date(`${date}T00:00:00Z`),
+        },
+      },
+    });
+    expect(bookings).toBe(0);
   });
 
   it("serializes conflicting concurrent requests so only one booking succeeds", async () => {

@@ -56,13 +56,15 @@ export default async function AdminIndexPage() {
             <Link href="/admin/bookings?status=pending_payment" className="admin-link-grid__item">
               Ожидают оплаты
             </Link>
-            <Link href="/admin/exceptions" className="admin-link-grid__item">
-              Добавить исключение
-            </Link>
             {canSeeRevenue ? (
-              <Link href="/admin/pricing/base" className="admin-link-grid__item">
-                Цены
-              </Link>
+              <>
+                <Link href="/admin/exceptions" className="admin-link-grid__item">
+                  Добавить исключение
+                </Link>
+                <Link href="/admin/pricing/base" className="admin-link-grid__item">
+                  Цены
+                </Link>
+              </>
             ) : null}
           </div>
         </div>

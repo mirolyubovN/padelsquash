@@ -1,44 +1,103 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f6fafb;
-  --foreground: #111827;
+:root,
+[data-theme="green"] {
+  /* Surfaces */
+  --bg: #fafaf7;
+  --bg-alt: #f1eee5;
+  --bg-deep: #14130f;
   --surface: #ffffff;
-  --surface-strong: #0f1720;
-  --accent: #00c2c7;
-  --accent-hover: #00a8ac;
-  --accent-active: #008d91;
-  --accent-soft: #e8fbfb;
-  --accent-rgb: 0, 194, 199;
-  --text-on-primary: #ffffff;
-  --accent-secondary: #ff6b3d;
-  --accent-secondary-rgb: 255, 107, 61;
-  --accent-tertiary: #d7ff2f;
-  --foreground-rgb: 17, 24, 39;
-  --line: #d8e4e6;
-  --muted: #52606d;
-  --dark: #0f1720;
-  --dark-rgb: 15, 23, 32;
-  --dark-surface: #16212b;
-  --dark-border: #263341;
-  --dark-muted: #a8b6c2;
-  --font-display: var(--font-oswald), sans-serif;
+
+  /* Text */
+  --ink: #11140f;
+  --ink-soft: #3a3f37;
+  --muted: #6b716a;
+  --on-deep: #f5f2ea;
+
+  /* Lines */
+  --line: #e7e4dc;
+  --line-strong: #cdc9be;
+
+  /* Brand */
+  --primary: #1f4d3a;
+  --primary-hover: #163829;
+  --primary-soft: #e6efe9;
+  --primary-on: #f7f5ee;
+
+  /* CTA accent */
+  --accent: #e8593a;
+  --accent-hover: #d24729;
+  --accent-soft: #fde8e1;
+  --accent-on: #ffffff;
+
+  /* Fonts */
+  --font-display: var(--font-lora), Georgia, serif;
+  --font-body: var(--font-manrope), system-ui, sans-serif;
+}
+
+[data-theme="orange"] {
+  --bg: #fafaf7;
+  --bg-alt: #f7ede6;
+  --bg-deep: #1a120e;
+  --surface: #ffffff;
+
+  --ink: #14110f;
+  --ink-soft: #3f3a37;
+  --muted: #71686a;
+  --on-deep: #faf2eb;
+
+  --line: #ebe4dd;
+  --line-strong: #d6c9bd;
+
+  --primary: #c93f17;
+  --primary-hover: #a53310;
+  --primary-soft: #fde8df;
+  --primary-on: #fff7f3;
+
+  --accent: #f04e23;
+  --accent-hover: #d8421a;
+  --accent-soft: #fdded2;
+  --accent-on: #ffffff;
+}
+
+/* Legacy aliases — keep existing components working until refactored */
+:root {
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --surface-strong: var(--bg-deep);
+  --accent-active: var(--accent-hover);
+  --accent-rgb: 17, 24, 39;
+  --text-on-primary: var(--accent-on);
+  --accent-secondary: var(--accent);
+  --accent-secondary-rgb: 232, 89, 58;
+  --accent-tertiary: var(--bg-alt);
+  --foreground-rgb: 17, 20, 15;
+  --dark: var(--bg-deep);
+  --dark-rgb: 20, 19, 15;
+  --dark-surface: #1f2937;
+  --dark-border: #374151;
+  --dark-muted: #d1d5db;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
   --font-sans: var(--font-manrope);
+  --font-serif: var(--font-lora);
   --font-mono: var(--font-plex-mono);
 }
 
+html {
+  background: var(--bg);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-manrope), sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 .skip-link {
@@ -46,13 +105,13 @@ body {
   left: 1rem;
   top: -3rem;
   z-index: 100;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   padding: 0.625rem 0.875rem;
   font-size: 0.875rem;
   font-weight: 600;
-  background-color: var(--surface-strong);
-  color: #f3f7fa;
-  box-shadow: 0 10px 24px rgba(16, 37, 46, 0.16);
+  background-color: var(--bg-deep);
+  color: var(--on-deep);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
 }
 
 .skip-link:focus-visible {
@@ -77,6 +136,17 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

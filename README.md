@@ -142,8 +142,8 @@ Without webhook, phone confirmation via Telegram will not complete.
 | --- | --- |
 | `customer` | Register/login, top up balance, book courts/training, manage own bookings |
 | `trainer` | Manage own schedule and availability at `/trainer/schedule` |
-| `admin` | Operational admin panel, customer creation, manual balance adjustments, manual bookings |
-| `super_admin` | Full admin access, including sports/pricing/wallet bonus configuration |
+| `admin` | Operational admin panel, customer creation, manual balance adjustments, manual bookings, event operations |
+| `super_admin` | Full admin access, including sports/pricing/wallet bonus/media configuration |
 
 ---
 
@@ -182,6 +182,34 @@ Important behavior:
 - If wallet balance is insufficient, the app creates a short-lived booking hold, sends the user to top up, and returns them to the same booking state.
 - Multi-slot top-up/resume preserves the full selected series, not just one slot.
 - Availability excludes the current customer's active hold when resuming, which protects against the top-up race condition.
+- Fully occupied time rows remain visible in booking tables as disabled/occupied cells; event-blocked slots are shown instead of disappearing.
+- Club events assigned to courts reserve those courts and are enforced in both availability reads and booking mutations.
+
+### Events
+
+`/events` supports paid club events such as club days and group training.
+
+- Admins create one-off or weekly recurring events from `/admin/events`.
+- Event fields include title, description, sport, location, instructor, assigned courts, date/time, duration, price, participant limit, level, and status.
+- Sport and at least one court are required for bookable events.
+- Recurring creation generates editable event instances; editing a generated instance affects that instance only.
+- Customers book published upcoming events with wallet balance.
+- Event registration enforces capacity, one active registration per customer/event, and wallet balance inside a transaction.
+- Customers can cancel upcoming event registrations from `/events` and `/account/bookings`; eligible paid registrations are refunded to wallet.
+- Admins can cancel one participant with refund, cancel a whole event with full refunds to all confirmed participants, view participant lists, and export participant CSV.
+
+### Media and Trainer Galleries
+
+- Super-admins manage uploaded images from `/admin/media`.
+- Uploads are stored under `public/uploads/<category>` and recorded as `MediaAsset` rows.
+- Media categories:
+  - `homepage`: public/preview hero or homepage media pools
+  - `gallery`: public gallery blocks and reusable trainer gallery photos
+  - `instructors`: trainer main photos and trainer gallery photos
+  - `events` and `offers`: reserved media pools for future event/offer sections
+- Trainer main photo uses `Instructor.photoUrl`.
+- Trainer galleries use ordered `InstructorPhoto` rows and can be populated from active `instructors`/`gallery` media or manual URLs.
+- Public `/coaches` renders larger photo-led trainer cards; clicking the main photo opens a modal gallery.
 
 ### Wallet and Balance
 
@@ -231,7 +259,7 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 - Admin booking create mirrors the customer flow: sport -> service -> trainer (if needed) -> date/time -> court matrix.
 - Admin booking create now uses the same timetable UX pattern as `/book`, including visible per-slot prices and total breakdown before submit.
 - Admins can select multiple time+court cells in one submit (multi-slot and multi-court batch booking).
-- Admin can find and attach existing customers directly in create-booking by `name or phone` (with one-click autofill of profile and balance).
+- Admin can find and attach existing customers directly in create-booking by name, phone, or email (with one-click autofill of profile and balance).
 - Admin booking payment mode supports:
   - `auto` (default): wallet if enough balance, otherwise create the booking as unpaid (`pending_payment`)
   - `wallet`: wallet-only (insufficient balance returns hold/top-up flow)
@@ -250,8 +278,9 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 | --- | --- |
 | `/` | Homepage |
 | `/book` | Booking flow |
+| `/events` | Public club events and event booking |
 | `/prices` | Public pricing |
-| `/coaches` | Trainer listing |
+| `/coaches` | Trainer listing with modal photo galleries |
 | `/courts` | Courts listing |
 | `/contact` | Contact page |
 | `/register` | Customer registration |
@@ -283,6 +312,8 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 | `/admin/clients/[customerId]` | Customer profile with balance, bookings, and wallet history |
 | `/admin/bookings/create` | Manual booking creation |
 | `/admin/calendar` | Day calendar of court bookings |
+| `/admin/events` | Event creation, recurring instances, participants, CSV export, cancellation/refunds |
+| `/admin/media` | Super-admin media upload/library management |
 | `/admin/wallet` | Customer search/create, balance adjustments, bonus settings |
 | `/admin/sports` | Centralized sport setup |
 | `/admin/courts` | Court management |
@@ -324,10 +355,15 @@ Key models:
 | `Sport` | Dynamic sports catalog |
 | `Court` | Courts by sport/location |
 | `Instructor` / `InstructorSport` | Trainers and sport-specific rates |
+| `InstructorPhoto` | Ordered trainer gallery photos |
 | `Service` | Rental/training service definitions |
 | `ComponentPrice` | Base court/instructor pricing matrix |
 | `Booking` / `BookingResource` | Confirmed bookings and linked resources |
 | `Payment` | Booking payment records (`wallet` provider for active flow) |
+| `MediaAsset` | Uploaded image metadata and public/admin media pools |
+| `ClubEventSeries` / `ClubEvent` | Recurring event definitions and generated event instances |
+| `ClubEventCourt` | Courts reserved by events |
+| `EventRegistration` | Customer event bookings and event-linked wallet charges/refunds |
 
 ---
 
@@ -342,6 +378,8 @@ app/
   api/availability/         Availability API
   api/bookings/             Booking create API
   api/bookings/holds/       Hold creation API for top-up resume
+  api/admin/upload/         Admin media upload API
+  events/                   Public event listing and booking
 
 src/
   components/
@@ -354,6 +392,8 @@ src/
     availability/           Availability DB + engine
     bookings/               Booking persistence, holds, URL state
     content/                Public site copy
+    events/                 Event creation, booking, cancellation, refunds, exports
+    media/                  Media category constants
     settings/               Opening hours and pricing settings
     wallet/                 Wallet queries and balance services
 
@@ -396,6 +436,7 @@ Important: keep `NEXTAUTH_URL` and Playwright `baseURL` on `localhost`, not `127
 
 - Real payment provider integration (Kaspi/Freedom) is still stubbed; current production logic is internal wallet-based.
 - Some deep admin validation strings in `src/lib/admin/resources.ts` still need a full encoding cleanup pass.
-- File upload for trainer photos is still URL-based only.
+- Trainer gallery UI is functional but still uses plain `<img>` in modal/card previews; image optimization can be tightened later.
+- Public redesign is still in preview/iteration state; `/preview/citysquash-style` exists but `/` has not been fully replaced.
 - CI and deployment documentation are still minimal.
 - Monitoring, alerts, backups, and production ops procedures are not complete.

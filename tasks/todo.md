@@ -1,5 +1,405 @@
 # Session Todo (2026-02-23)
 
+## Plan (2026-05-04 - public redesign + CMS decision)
+
+- [x] Write CMS decision doc (`docs/cms-decision.md`) — stay on stack, defer to lightweight `SiteContent` table when copy editing actually needs to happen.
+- [x] Add Fraunces-equivalent serif (Lora — Fraunces lacks Cyrillic) for headings.
+- [x] Define two palette themes (`green`, `orange`) as CSS variable sets keyed off `[data-theme]` on `<html>`.
+- [x] Build palette switcher: floating client widget, persists to localStorage, inline script in `<head>` to avoid FOUC.
+- [x] Replace `app/page.tsx` (currently re-exports variation-a) with new editorial homepage.
+- [x] Rewrite `src/styles/home.scss` with new design tokens.
+- [x] User picked **orange** palette — set as default.
+- [x] Apply same design language to `/coaches`, `/courts`, `/contact`, `/prices`, `/events`, `/sports/[slug]` via rewritten `shared.scss`, `page-hero.scss`, `faq-accordion.scss`, `site-header.scss`, `site-footer.scss`.
+- [ ] Manual verify in dev server: each page renders cleanly, mobile layout ok, AA contrast ok.
+- [ ] Sign-off, then delete: `app/page-variation-a.tsx`, `app/page-variation-b.tsx`, `app/preview/{a,b,palette-1,palette-2,palette-3,citysquash-style}/`, `src/styles/home-variation-a.scss`, `src/styles/home-variation-b.scss`, `src/styles/citysquash-preview.scss`. Drop their `@use` lines from `src/styles/index.scss`.
+- [ ] Remove palette switcher (`PaletteSwitcher`, `palette-switcher.scss`, `themeBootScript`, `data-theme="green"` branch in `globals.css`).
+- [ ] Optional follow-up: light chrome pass on `/book` (flow stays).
+
+## Plan (2026-05-04 - docs and next-session handoff)
+
+- [x] Update README with events, admin media, trainer galleries, event-blocked availability behavior, and current routes/models.
+- [x] Replace stale `docs/next-session-prompt.md` content with current 2026-05-04 handoff.
+- [x] Create dated `tasks/next-session-prompt-2026-05-04.md`.
+- [x] Verify docs references are internally consistent and record results.
+
+## Review (2026-05-04 - docs and next-session handoff)
+
+- Updated `README.md` with current events, media, trainer gallery, booking visibility, routes, database models, project structure, and known gaps.
+- Updated `docs/devops-postgres.md` with current project path, new seeded model families, and the safe Windows Prisma DLL unlock procedure.
+- Updated `docs/test-credentials.md` role notes for media/event access.
+- Replaced stale `docs/next-session-prompt.md` with the current 2026-05-04 handoff.
+- Added `tasks/next-session-prompt-2026-05-04.md` as the dated next-session prompt.
+- Verification:
+  - Stale-reference grep across README/docs/new prompt found no matches for old URL-only trainer photo, obsolete redesign handoff, old path, old timezone, or old enum language.
+  - `git diff --check` passed for updated docs; only CRLF line-ending warnings were reported.
+
+## Plan (2026-05-04 - trainer photo galleries)
+
+- [x] Add trainer gallery persistence with ordered multiple photo URLs per instructor.
+- [x] Extend admin instructor create/edit forms so admins can add/select multiple gallery photos from media.
+- [x] Render public trainer cards with a larger main photo and gallery-aware tile styling.
+- [x] Add a client-side modal gallery opened by clicking the main trainer photo.
+- [x] Run Prisma generate/migration, lint/build, and a targeted gallery persistence/render data check.
+
+## Review (2026-05-04 - trainer photo galleries)
+
+- Added `InstructorPhoto` as an ordered per-instructor gallery table, separate from `Instructor.photoUrl` main photo.
+- Admin instructor create/edit modals now have:
+  - `Главное фото` for the tile/main image,
+  - `Галерея тренера` for selecting multiple photos from active media or adding URLs manually.
+- Public `/coaches` now loads main photo plus ordered gallery photos and renders larger photo-led trainer cards.
+- Clicking a trainer's main photo opens a modal gallery with keyboard navigation, previous/next controls, and thumbnails.
+- Verification:
+  - `npx prisma format` passed.
+  - `npx prisma generate` passed after stopping exact locked Next server PID 9412.
+  - `npx prisma migrate deploy` applied `20260504150000_add_instructor_photos`.
+  - `npm run lint` passed with warnings only.
+  - `npm run build` passed.
+  - Targeted instructor gallery check passed: create saved ordered gallery URLs, admin query returned them, update replaced them, and cleanup removed test data.
+
+## Plan (2026-05-04 - media/instructor photo selection)
+
+- [x] Fix instructor photo input validation so relative uploaded paths like `/uploads/instructors/...webp` can be saved.
+- [x] Upload instructor photos under the `instructors` media category from the instructor form.
+- [x] Let admins select an existing uploaded media asset for instructor photos.
+- [x] Clarify media category usage in the media admin UI.
+- [x] Run lint/build and targeted upload/path verification.
+
+## Review (2026-05-04 - media/instructor photo selection)
+
+- Instructor photo field now accepts relative public paths like `/uploads/instructors/...webp`; the browser no longer blocks saving with native URL validation.
+- Instructor-form uploads explicitly save to the `instructors` media category.
+- Instructor forms now include a media-library selector populated from active `instructors` and `gallery` assets.
+- Admin media page now explains category behavior: upload folder, public gallery/homepage usage, instructor photo selection, and reserved categories.
+- Verification:
+  - `npm run lint` passed with warnings only.
+  - `npm run build` passed.
+  - Targeted instructor photo path check passed: a relative instructor upload path was selectable and saved unchanged on an instructor record.
+  - Existing uploaded asset `/uploads/instructors/6b8f389b-22d0-4ff7-8cc1-2eec54472f82.webp` exists on disk and has an active `MediaAsset` row in category `instructors`.
+
+## Plan (2026-05-04 - show occupied event slots in booking table)
+
+- [x] Keep availability rows for times where all courts are occupied, so booked/event-blocked slots remain visible.
+- [x] Render booking table columns from all active courts for the selected sport/location instead of only available courts.
+- [x] Show unavailable cells as disabled/occupied in both customer and admin booking tables.
+- [x] Run lint/build and targeted availability verification with event-blocked courts.
+
+## Review (2026-05-04 - show occupied event slots in booking table)
+
+- Availability engine no longer drops time rows where all courts are occupied.
+- Public booking table now renders columns from all active courts for the selected sport/location, not only available courts.
+- Admin create-booking table now uses the same all-courts column behavior.
+- Unavailable cells now render visible disabled text (`Занято`) instead of disappearing/blanking the slot.
+- `/book` now passes court sport/location metadata to the client booking form so it can render the full court grid.
+- Verification:
+  - `npm run lint` passed with pre-existing warnings only.
+  - `npm run build` passed.
+  - Targeted event-occupied availability check passed: an event occupying all courts from 19:00-21:00 kept 19:00 and 20:00 rows visible with those courts non-selectable.
+
+## Plan (2026-05-04 - event bookings in account and admin refunds)
+
+- [x] Show event registrations in `/account/bookings` alongside court bookings, with status/payment labels and event details.
+- [x] Let customers cancel upcoming confirmed event registrations from `/account/bookings` using the existing refund flow.
+- [x] Add admin action to cancel a single event participant with refund.
+- [x] Change whole-event cancellation to cancel the event and refund all confirmed participants, not only flip event status.
+- [x] Revalidate account/events/admin pages after participant/event cancellation.
+- [x] Run lint/build and targeted refund verification.
+
+## Review (2026-05-04 - event bookings in account and admin refunds)
+
+- `/account/bookings` now merges court bookings and event registrations into the same upcoming/history sections.
+- Account dashboard totals now include event registrations in active/history/cancellable counts.
+- Customers can cancel upcoming confirmed event registrations from account bookings; the same event refund path is used as `/events`.
+- Admin participant modal now has `Отменить и вернуть` for each confirmed participant.
+- Cancelling a whole event now:
+  - cancels all confirmed participant registrations,
+  - writes one `event_refund` per participant that had an `event_charge` and no prior refund,
+  - restores wallet balances,
+  - marks the event `cancelled`.
+- Revalidation now covers `/account`, `/account/bookings`, `/events`, and `/admin/events`.
+- Verification:
+  - `npm run lint` passed with pre-existing warnings only.
+  - `npm run build` passed.
+  - Targeted event admin refund check passed: event registration appeared in account bookings, single participant admin cancellation refunded, whole-event cancellation refunded the remaining participant and marked event/registration cancelled.
+
+## Plan (2026-05-04 - admin bugs: client search, buttons, event confirmation)
+
+- [x] Make admin customer search match email as well as name/phone, including `/admin/clients` and autocomplete search.
+- [x] Update search labels/placeholders so operators know email works.
+- [x] Ensure enabled buttons across admin UI use `cursor: pointer` without overriding disabled states.
+- [x] Add a confirmation step before the admin create-event form submits.
+- [x] Run lint/build and record results.
+
+## Review (2026-05-04 - admin bugs: client search, buttons, event confirmation)
+
+- Fixed `/admin/clients` search after wallet top-up:
+  - `getAdminWalletPageData` now matches customer email as well as name/phone.
+  - The top-up redirect can keep `q=<email>` and still show the customer.
+- Fixed admin customer autocomplete and booking-list search:
+  - `/api/admin/customers/search` now matches email too.
+  - `/admin/bookings` customer search now matches email too.
+  - Search labels/placeholders now say `Имя, телефон или email`.
+- Added admin-wide enabled-button pointer cursor defaults under `.admin-shell`, while disabled buttons keep `not-allowed`.
+- Added create-event confirmation modal:
+  - The first submit opens a confirmation summary.
+  - The event is created only after `Подтвердить и создать`.
+- Verification:
+  - `npm run lint` passed with pre-existing warnings only.
+  - `npm run build` passed.
+  - Targeted admin search check passed: querying by an existing customer email returns that customer on clients search and is accepted by bookings search.
+
+## Plan (2026-05-04 - event creation feedback: sport/courts/contrast)
+
+- [x] Remove the visible event `Тип` field from admin create/edit forms; keep a default backend category only if needed internally.
+- [x] Make sport mandatory for events.
+- [x] Add event-to-court assignment so admins can select one or multiple courts required for an event.
+- [x] Filter/select courts in admin UI by sport context and show selected courts in event rows.
+- [x] Fix bad button contrast in the event/admin UI.
+- [x] Run Prisma generate/migrate, lint/build, and targeted event-court verification.
+
+## Review (2026-05-04 - event creation feedback: sport/courts/contrast)
+
+- Removed visible `Тип` controls from event create/edit; backend keeps a hidden `group_training` default for new events and preserves existing categories on edit.
+- Added `ClubEventCourt` join model and migration `20260504140000_add_event_courts`.
+- Event creation now requires `sportId` and at least one selected court; recurring generation copies the selected courts to every generated event instance.
+- Event editing now replaces courts for the selected generated instance only and validates that selected courts belong to the selected sport and location.
+- Event court assignments now reserve those courts: public availability treats non-cancelled events as occupied court resources, and booking conflict checks reject slots occupied by events.
+- Event create/edit rejects selected courts that are already occupied by bookings, active holds, or another non-cancelled event at the same time.
+- `/admin/events` now uses a sport-aware court picker for create/edit and shows assigned courts in the event row.
+- `/events` now shows assigned courts on public event cards.
+- Fixed `.admin-form__submit` contrast by using `var(--text-on-primary)`.
+- Verification:
+  - `npx prisma format` passed.
+  - `npx prisma generate` passed after escalated run; the initial sandboxed run hit a Windows `EPERM` rename on Prisma's generated DLL.
+  - `npx prisma migrate deploy` applied `20260504140000_add_event_courts`.
+  - `npm run lint` passed with pre-existing warnings only.
+  - `npm run build` passed.
+  - Targeted event-court service check passed: created two weekly recurring events with two courts each, rejected an overlapping event, verified the event blocks booking conflict checks, edited one generated instance to one court, rejected a mismatched sport/court update, and cleaned test data.
+
+## Plan (2026-05-04 - events follow-up: cancellation, participants, editing)
+
+- [x] Add customer event cancellation with wallet refund for paid active registrations.
+- [x] Add admin participant list for each event with customer contact, status, paid amount, and registration time.
+- [x] Add CSV export for event participants.
+- [x] Add admin editing for individual generated event instances: title, description, category, level, sport/location/trainer, date/time, duration, price, capacity, and status.
+- [x] Wire UI into `/events` and `/admin/events` without changing the event schema unless required.
+- [x] Run lint/build plus targeted service verification for refund, participant listing/export data, and edit behavior.
+
+## Review (2026-05-04 - events follow-up: cancellation, participants, editing)
+
+- Added customer cancellation/refund flow:
+  - `/events` now shows `Отменить запись` for the current customer's active event registration.
+  - `cancelCustomerEventRegistration` marks registration cancelled and writes one `event_refund` if an `event_charge` exists and no prior refund exists.
+  - Refund restores wallet balance inside the same serializable transaction and uses the event advisory lock.
+- Added admin participant management:
+  - `/admin/events` participant modal shows customer name, phone, email, registration time, paid amount, status, and cancellation time.
+  - Added CSV export route `/admin/events/[eventId]/participants.csv`.
+- Added editing for individual generated instances:
+  - `/admin/events` edit modal supports title, description, category, level, sport, location, trainer, date, start time, duration, price, capacity, and status.
+  - Capacity edits are blocked if the new limit is below current confirmed registrations.
+  - Editing affects the selected generated event instance only, not the whole recurring series.
+- Verification:
+  - `npm run lint` passed with warnings only.
+  - `npm run build` passed and output includes `/admin/events/[eventId]/participants.csv`.
+  - Targeted follow-up service check passed: created recurring events, registered a customer, listed participants, edited one generated instance to `draft`, cancelled registration, verified wallet refund to original balance, verified `event_refund` amount `2000`, and cleaned test rows.
+
+## Plan (2026-05-04 - events MVP: club days and group training)
+
+- [x] Add first-class event models for recurring series, individual event instances, registrations, and event-linked wallet ledger rows.
+- [x] Add server event service functions for admin create/update/publish/cancel basics and customer registration with capacity and wallet-balance checks inside a transaction.
+- [x] Add admin `/admin/events` page so admins can create one-off or weekly recurring events with title, description, date/time, duration, price, max participants, sport/location/trainer, level, and category.
+- [x] Add public `/events` page so customers can view published upcoming events and book available spots.
+- [x] Add customer booking path with authentication guard, no oversell, one active registration per event, and wallet payment.
+- [x] Add events link to public navigation and admin navigation.
+- [x] Run Prisma generate/migrate, lint, build, and targeted event DB/service verification.
+
+## Review (2026-05-04 - events MVP: club days and group training)
+
+- Added event data model:
+  - `ClubEventSeries` for generated recurring groups,
+  - `ClubEvent` for individual event instances,
+  - `EventRegistration` for customer signups,
+  - `event_charge` and `event_refund` wallet transaction types,
+  - optional `WalletTransaction.eventRegistrationId`.
+- Added migration `20260504130000_add_club_events` and applied it locally.
+- Added server event service in `src/lib/events/service.ts`:
+  - admin form parsing,
+  - one-off event creation,
+  - weekly recurring event generation,
+  - public event listing,
+  - transactional customer registration,
+  - advisory event lock + serializable transaction,
+  - capacity check,
+  - one active registration per customer/event,
+  - wallet balance charge and ledger row.
+- Added `/admin/events`:
+  - create event form,
+  - one-off or weekly repeat,
+  - title/description/category/level,
+  - sport/location/trainer links,
+  - date/time/duration,
+  - price and participant limit,
+  - publish/draft/cancel status controls,
+  - participant count and free spots.
+- Added `/events`:
+  - published upcoming event cards,
+  - visible price/capacity/free spots,
+  - customer registration action,
+  - login redirect for guests,
+  - blocks admins from registering as customers,
+  - wallet insufficient/full/already-registered errors.
+- Added `События` to public navigation and admin navigation.
+- Updated seed cleanup so event registrations/events/series do not block reseeding.
+- Verification:
+  - `npx prisma generate` passed.
+  - `npx prisma migrate deploy` passed and applied `20260504130000_add_club_events`.
+  - Targeted service check passed: created 2 weekly recurring events, registered a customer, charged `-1500` KZT via `event_charge`, blocked second signup with full capacity, then cleaned up test rows.
+  - `npm run db:seed` passed.
+  - `npm run lint` passed with warnings only.
+  - `npm run build` passed and output includes `/admin/events` and `/events`.
+
+## Plan (2026-05-04 - media gallery foundation and simpler public shell)
+
+- [x] Add a `MediaAsset` persistence model for uploaded images with category, URL, alt text, caption, visibility, sort order, and timestamps.
+- [x] Generalize `/api/admin/upload` so it can upload into `homepage`, `gallery`, `events`, `offers`, and `instructors` folders with strict image type/size validation.
+- [x] Add a super-admin `/admin/media` screen to upload gallery/media images, edit alt/caption/sort/visibility, and copy/use generated URLs.
+- [x] Add the media screen to super-admin navigation while leaving normal admin daily navigation unchanged.
+- [x] Rework public header navigation to direct existing useful links instead of sport-info-heavy links.
+- [x] Simplify global/public shell colors to a white-first neutral base and make the header light.
+- [x] Wire the CitySquash preview gallery to uploaded gallery assets with fallback images, and tone down the broken hero scale enough to stop blocking media review.
+- [x] Generate Prisma client if needed, run `npm run lint` and `npm run build`, and record results.
+
+## Review (2026-05-04 - media gallery foundation and simpler public shell)
+
+- Added `MediaAsset` model and migration `20260504120000_add_media_assets`.
+- Generalized `/api/admin/upload` for `homepage`, `gallery`, `events`, `offers`, and `instructors` uploads with 5 MB image validation.
+- Uploaded files now save to `public/uploads/<category>` and create metadata rows with URL, category, alt text, caption, sort order, active status, and actor ID.
+- Added super-admin `/admin/media` with upload, URL display, metadata editing, sort/category editing, and show/hide controls.
+- Added `Медиа` to super-admin admin nav only.
+- Reworked public nav to `Бронирование`, `Цены`, `Тренеры`, `Контакты`.
+- Simplified global colors to white-first neutral tokens and made the public header light.
+- Updated `/preview/citysquash-style` to use active `homepage` media for hero and active `gallery` media for gallery photos, with fallback photos only when uploads are empty.
+- Correction captured in `tasks/lessons.md`: pivot from bad design iteration to missing infrastructure, and never request killing all `node.exe` processes to unlock Prisma.
+- Verification:
+  - `npx prisma generate` initially failed because the Prisma DLL was locked; after the approved stop command, generate succeeded. The broad process-kill approach was wrong and is now documented as a lesson.
+  - `npx prisma migrate deploy` passed and applied `20260504120000_add_media_assets`.
+  - Targeted MediaAsset DB check passed: create active `gallery` asset, query active gallery assets, update active/caption, and delete the test row.
+  - `npm run lint` passed with warnings only.
+  - `npm run build` passed and build output includes `/admin/media`.
+
+## Plan (2026-05-04 - CitySquash-style public preview Phase 1)
+
+- [x] Review current homepage structure, local Next.js App Router docs, and public content sources before implementation.
+- [x] Build a preview-only route at `/preview/citysquash-style` without replacing `/`.
+- [x] Use a simpler photo-led structure with neutral colors, reduced motion, direct offer sections, and original Russian copy.
+- [x] Include required sections: hero, booking CTA, first session, group events, corporate, prices summary, gallery, and contact/directions.
+- [x] Keep media references managed-image-ready with explicit alt text and avoid CitySquash images/text.
+- [x] Run verification with `npm run lint` and `npm run build`.
+- [x] Record verification results and review notes in this file.
+
+## Review (2026-05-04 - CitySquash-style public preview Phase 1)
+
+- Added preview route `/preview/citysquash-style`.
+- Kept `/` unchanged; the new page is isolated from the active homepage.
+- Added a neutral, photo-led public layout with rectangular sections and minimal motion:
+  - hero with managed-image-ready photo slot,
+  - booking CTA strip,
+  - first session block,
+  - group events block,
+  - corporate block,
+  - live prices summary from existing homepage pricing data,
+  - gallery photo slots,
+  - contact/directions CTA.
+- Added original Russian copy for the preview and did not reuse CitySquash text/images.
+- Added route-specific styles in `src/styles/citysquash-preview.scss` and imported them from `src/styles/index.scss`.
+- Verification:
+  - `npm run lint` passed with warnings only. Existing warnings remain; the preview adds plain `<img>` warnings because the photo slots are temporary external/managed-image placeholders and the project does not yet have general media/gallery optimization configured.
+  - `npm run build` passed. Build output includes dynamic route `/preview/citysquash-style`.
+
+## Plan (2026-05-01 - CitySquash comparison and public-site todo)
+
+- [x] Review CitySquash homepage and relevant offer pages: intro, events, gift cards, kids, corporate, contacts.
+- [x] Compare CitySquash structure and visual direction against the current homepage/content/admin media capabilities.
+- [x] Create a dedicated implementation todo with phases, tasks, review questions, and recommended first build order.
+
+## Review (2026-05-01 - CitySquash comparison and public-site todo)
+
+- Added `tasks/citysquash-comparison-todo-2026-05-01.md`.
+- Main finding: CitySquash is simpler and more offer-led, with real photos, direct nav, intro/events/corporate/gift/kids pages, and practical blocks for prices, rules, directions, and included equipment.
+- Current site has stronger booking/admin foundations, but public content is missing offer-led acquisition pages and uses placeholder photos.
+- Recommended first build phase: media/gallery foundation, `/preview/citysquash-style`, content-only `/intro` and `/corporate`, and updated nav/footer before replacing the current homepage.
+
+## Plan (2026-05-01 - booking system audit and admin simplification)
+
+- [x] Read README, lessons, local Next.js docs, and UI/UX guidance relevant to the current project.
+- [x] Map the current booking system end-to-end: public booking, availability, holds, wallet payment, admin-created bookings, cancellations, and rescheduling.
+- [x] Identify concrete booking-system flaws or risk areas with file references and verification evidence where possible.
+- [x] Review admin dashboard/navigation/workflows for overcomplexity, especially operational admin versus super-admin responsibilities.
+- [x] Decide the simplest first admin-dashboard improvement and check in before implementation.
+- [x] Reduce normal-admin nav to daily operations and align hidden settings routes with guards.
+- [x] Fix training booking selection so one trainer cannot be selected for multiple courts at the same time.
+- [x] Run targeted verification and record the review.
+
+## Review (2026-05-01 - booking system audit and admin simplification)
+
+- Booking audit findings:
+  - High: hold conflict exclusion happens before validating hold ownership in `src/lib/bookings/persistence.ts`, so a forged/foreign `holdId` can bypass an active hold conflict.
+  - High: `createBookingInDb` enforces future time/resource/conflict checks, but not opening hours, venue/court exceptions, or trainer schedules. Direct POST can bypass `/api/availability`.
+  - High: `rescheduleBooking` checks booking conflicts and past time, but not active holds, opening hours, exceptions, trainer schedules, or active/same-location/same-sport court validity.
+  - Medium: public multi-slot booking is client-looped and not server-atomic; stale balance/pricing or concurrent wallet spend can still create a partial series.
+  - Medium: admin auto-payment copy says partial wallet balance is debited, while backend leaves the whole booking unpaid when balance is insufficient.
+- Admin simplification findings:
+  - Sidebar is flat and exposes too many peer-level destinations for daily staff.
+  - `+ Создать бронь` is over-promoted in sidebar, dashboard, and calendar.
+  - `/admin/bookings` combines list, filters, bulk actions, manage actions, reschedule, manual correction, and history.
+  - Wallet actions are duplicated across wallet, clients list, and client profile.
+  - Role mismatch: normal admins cannot see `Часы работы` in nav, but direct URL still allows `assertAdmin`.
+- Recommended first implementation:
+  - Reduce normal admin navigation to daily operations (`Дашборд`, `Расписание`, `Бронирования`, `Клиенты`), keep create booking as dashboard/calendar action, and align hidden settings routes with super-admin guards where nav already treats them as restricted.
+- Verification:
+  - Targeted unit tests passed: `npm run test:unit -- tests/unit/booking-validation.test.ts tests/unit/availability-engine.test.ts tests/unit/booking-holds.test.ts tests/unit/booking-policy.test.ts` (6 files, 20 tests).
+  - Integration verification blocked before tests: `npm run db:seed` fails on `AppointmentGroupV2_locationId_fkey` when deleting `Location` in `prisma/seed.ts`.
+- Implementation completed:
+  - Normal admin nav now shows only `Дашборд`, `Расписание`, `Бронирования`, and `Клиенты`; create booking remains available from dashboard/calendar flows instead of the sidebar.
+  - Super-admin nav keeps setup/finance/audit destinations.
+  - `/admin/opening-hours` now uses `assertSuperAdmin` for page and save action access.
+  - Public and admin training booking grids now replace an existing same-time court selection instead of allowing one trainer to be attached to multiple courts at the same time.
+  - Grouped hold creation rejects duplicate start times for instructor-backed services.
+  - Admin booking auto-payment copy now matches backend behavior.
+  - Fixed an existing clients-page lint error in the normal-admin path by using `Link` for reset and removing an unused session variable.
+- Final verification:
+  - `npm run lint` passed with warnings only.
+  - `npm run build` passed.
+  - Targeted unit suite passed again: 6 files, 20 tests.
+
+## Plan (2026-05-01 - booking correctness hardening)
+
+- [x] Fix hold ownership/conflict ordering so foreign, expired, or converted holds cannot bypass active hold conflicts.
+- [x] Extract a shared server-side availability validator for opening hours, schedule exceptions, instructor schedules, and resource compatibility.
+- [x] Enforce the shared validator inside booking creation, not only `/api/availability`.
+- [x] Enforce the shared validator inside admin rescheduling, including active holds and destination court validity.
+- [x] Add an atomic customer multi-slot booking path so a selected series succeeds or fails as one unit.
+- [x] Add/update regression coverage and repair verification blockers if they prevent meaningful tests.
+- [x] Run lint/build/tests and record results.
+
+## Review (2026-05-01 - booking correctness hardening)
+
+- Fixed hold ownership validation so only the current customer's matching active hold can be excluded from conflict checks.
+- Added shared server-side slot validation for resource compatibility, opening hours, schedule exceptions, instructor schedules, active bookings, and active holds.
+- Applied the shared validator to direct booking creation, grouped hold creation, atomic series booking, and admin rescheduling.
+- Added `/api/bookings/series` plus `createBookingSeriesInDb` so public multi-slot checkout succeeds or fails as one transaction; insufficient balance creates holds via the route instead of partial bookings.
+- Public and admin training selection now prevent selecting multiple courts for the same trainer at the same start time, and backend paths reject duplicate instructor-backed start times.
+- Repaired seed cleanup for stale legacy V2 appointment tables that were blocking DB verification.
+- Stabilized targeted E2E helpers for current registration verification and timetable UI.
+- Verification:
+  - `npm run lint` passed with existing warnings only.
+  - `npm run build` passed.
+  - `npm run db:seed` passed.
+  - Targeted unit suite passed: 6 files, 20 tests.
+  - `npm run test:integration -- tests/integration/booking-persistence.test.ts` passed: 3 files, 24 tests.
+  - Targeted E2E passed: `02-training-booking`, `07-wallet-topup-resume`, and `12-admin-multi-booking`.
+  - `git diff --check` passed; only line-ending warnings were reported.
+
 ## Plan (2026-03-12 - booking date quick navigation by 3-day windows)
 
 - [x] Add quick date navigator in booking step 2 with prev/next arrows and 3 visible days.

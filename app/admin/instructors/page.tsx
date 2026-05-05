@@ -15,8 +15,10 @@ import {
   updateInstructorBasicFromForm,
   updateInstructorFromForm,
 } from "@/src/lib/admin/resources";
+import { getSelectableInstructorPhotoAssets } from "@/src/lib/admin/media";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
-import { InstructorPhotoInput } from "@/src/components/admin/instructor-photo-input";
+import { InstructorPhotoInput, type InstructorPhotoAsset } from "@/src/components/admin/instructor-photo-input";
+import { InstructorPhotoGalleryInput } from "@/src/components/admin/instructor-photo-gallery-input";
 
 export const metadata = buildPageMetadata({
   title: "Админ: тренеры | Padel & Squash KZ",
@@ -35,7 +37,17 @@ export default async function AdminInstructorsPage({
   const session = await assertAdmin();
   const canEditPricing = canManagePricing(session.user.role);
   const params = await searchParams;
-  const [instructors, sportOptions] = await Promise.all([getAdminInstructors(), getAdminSportOptions()]);
+  const [instructors, sportOptions, photoAssets] = await Promise.all([
+    getAdminInstructors(),
+    getAdminSportOptions(),
+    getSelectableInstructorPhotoAssets(),
+  ]);
+  const selectablePhotoAssets: InstructorPhotoAsset[] = photoAssets.map((asset) => ({
+    id: asset.id,
+    url: asset.url,
+    category: asset.category,
+    label: asset.caption || asset.altText || asset.originalName || asset.url,
+  }));
   const defaultSportId = sportOptions[0]?.id ?? "";
   const errorMessage =
     params.error === "delete_blocked"
@@ -193,9 +205,13 @@ export default async function AdminInstructorsPage({
               </div>
               <div className="admin-form__group">
                 <label className="admin-form__label" htmlFor="instructor-photo-url">
-                  Фото
+                  Главное фото
                 </label>
-                <InstructorPhotoInput inputId="instructor-photo-url" />
+                <InstructorPhotoInput inputId="instructor-photo-url" mediaAssets={selectablePhotoAssets} />
+              </div>
+              <div className="admin-form__group">
+                <label className="admin-form__label">Галерея тренера</label>
+                <InstructorPhotoGalleryInput mediaAssets={selectablePhotoAssets} />
               </div>
             </div>
             <div className="admin-form__actions">
@@ -298,8 +314,19 @@ export default async function AdminInstructorsPage({
                               <input id={`bio-${instructor.id}`} name="bio" className="admin-form__field" defaultValue={instructor.bio ?? ""} placeholder="Направление, опыт, формат занятий" />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label">Фото</label>
-                              <InstructorPhotoInput defaultValue={instructor.photoUrl ?? ""} inputId={`photo-${instructor.id}`} />
+                              <label className="admin-form__label">Главное фото</label>
+                              <InstructorPhotoInput
+                                defaultValue={instructor.photoUrl ?? ""}
+                                inputId={`photo-${instructor.id}`}
+                                mediaAssets={selectablePhotoAssets}
+                              />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label">Галерея тренера</label>
+                              <InstructorPhotoGalleryInput
+                                defaultValues={instructor.galleryPhotoUrls}
+                                mediaAssets={selectablePhotoAssets}
+                              />
                             </div>
                             <div className="admin-form__actions">
                               <button type="submit" className="admin-form__submit">Сохранить</button>
@@ -317,8 +344,19 @@ export default async function AdminInstructorsPage({
                               <input id={`bio-basic-${instructor.id}`} name="bio" className="admin-form__field" defaultValue={instructor.bio ?? ""} placeholder="Направление, опыт, формат занятий" />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label">Фото</label>
-                              <InstructorPhotoInput defaultValue={instructor.photoUrl ?? ""} inputId={`photo-basic-${instructor.id}`} />
+                              <label className="admin-form__label">Главное фото</label>
+                              <InstructorPhotoInput
+                                defaultValue={instructor.photoUrl ?? ""}
+                                inputId={`photo-basic-${instructor.id}`}
+                                mediaAssets={selectablePhotoAssets}
+                              />
+                            </div>
+                            <div className="admin-form__group">
+                              <label className="admin-form__label">Галерея тренера</label>
+                              <InstructorPhotoGalleryInput
+                                defaultValues={instructor.galleryPhotoUrls}
+                                mediaAssets={selectablePhotoAssets}
+                              />
                             </div>
                             <div className="admin-form__actions">
                               <button type="submit" className="admin-form__submit">Сохранить</button>

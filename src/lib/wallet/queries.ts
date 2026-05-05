@@ -115,6 +115,7 @@ export async function getAdminWalletPageData(limit = 30, customerQuery?: string,
                 ...yoAwareNameQueries.map((nameQuery) => ({
                   name: { contains: nameQuery, mode: "insensitive" as const },
                 })),
+                { email: { contains: normalizedCustomerQuery.toLowerCase(), mode: "insensitive" as const } },
                 { phone: { contains: normalizedCustomerQuery } },
               ],
             }

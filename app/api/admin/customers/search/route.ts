@@ -33,6 +33,7 @@ export async function GET(request: Request) {
         ...yoAwareNameQueries.map((nameQuery) => ({
           name: { contains: nameQuery, mode: "insensitive" as const },
         })),
+        { email: { contains: query.toLowerCase(), mode: "insensitive" as const } },
         { phone: { contains: query } },
         ...(normalizedDigits.length >= 4
           ? [{ phone: { contains: normalizedDigits } }]

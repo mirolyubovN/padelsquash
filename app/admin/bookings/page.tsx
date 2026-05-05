@@ -255,7 +255,7 @@ export default async function AdminBookingsPage({
               name="q"
               className="admin-form__field"
               defaultValue={params.q ?? ""}
-              placeholder="Имя или телефон"
+              placeholder="Имя, телефон или email"
             />
           </div>
           <div className="admin-form__group">

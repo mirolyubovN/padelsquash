@@ -66,7 +66,7 @@ Do not use `trust` in production or any exposed/shared environment.
 
 ## Local Setup (First Run)
 
-Run from project root: `E:\padelsquash`
+Run from project root: `D:\Websites\padelsquash`
 
 ### 1. Start the database
 
@@ -122,6 +122,9 @@ Seed currently creates:
 - services
 - opening hours
 - simplified component pricing matrix (`ComponentPrice`)
+- media assets and uploaded-photo metadata (`MediaAsset`)
+- club events, event court assignments, and event registrations
+- trainer gallery photos (`InstructorPhoto`)
 - verification-ready seeded users (`emailVerifiedAt` + `phoneVerifiedAt`)
 
 ## Registration Verification Integrations (Local)
@@ -223,6 +226,12 @@ Expected core tables include:
 - `Instructor`
 - `OpeningHour`
 - `ComponentPrice`
+- `MediaAsset`
+- `ClubEventSeries`
+- `ClubEvent`
+- `ClubEventCourt`
+- `EventRegistration`
+- `InstructorPhoto`
 - `Booking`
 - `BookingResource`
 - `Payment`
@@ -280,6 +289,40 @@ Checklist:
 - `.env` points to `127.0.0.1:55432`
 - Docker Desktop is running
 - No corporate endpoint/security tool blocking Docker host ports
+
+### 5. Windows Prisma generate fails with `EPERM` renaming `query_engine-windows.dll.node`
+
+Cause:
+
+- A running Next.js server or another Node process has Prisma's generated query engine DLL loaded.
+
+Fix:
+
+1. Identify the exact locking process:
+
+```powershell
+tasklist /m query_engine-windows.dll.node
+```
+
+2. Inspect the specific process before stopping it:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "ProcessId = <PID>" | Select-Object ProcessId,CommandLine
+```
+
+3. Stop only that exact process if it is safe:
+
+```powershell
+Stop-Process -Id <PID> -Force
+```
+
+4. Regenerate Prisma Client:
+
+```powershell
+npx prisma generate
+```
+
+Do not stop all `node.exe` processes; that can kill unrelated tools or the active agent session.
 
 ## Prisma Migration Workflow (Team)
 

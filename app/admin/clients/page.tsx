@@ -39,7 +39,7 @@ export default async function AdminClientsPage({
 }: {
   searchParams: Promise<{ q?: string; success?: string; error?: string }>;
 }) {
-  const session = await assertAdmin();
+  await assertAdmin();
   const params = await searchParams;
   const [headerStore, data] = await Promise.all([headers(), getAdminWalletPageData(30, params.q)]);
   const customerQuery = params.q?.trim() ?? "";
@@ -222,13 +222,13 @@ export default async function AdminClientsPage({
                 name="q"
                 className="admin-form__field"
                 defaultValue={customerQuery}
-                placeholder="Имя или телефон"
+                placeholder="Имя, телефон или email"
               />
             </div>
           </div>
           <div className="admin-filters__actions">
             <button type="submit" className="admin-form__submit">Найти</button>
-            <a href="/admin/clients" className="admin-bookings__action-button">Сбросить</a>
+            <Link href="/admin/clients" className="admin-bookings__action-button">Сбросить</Link>
           </div>
         </form>
 

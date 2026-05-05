@@ -1,4 +1,5 @@
-﻿import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "@/src/lib/prisma";
 import { getDefaultLocation } from "@/src/lib/locations/service";
 import { WEEKDAY_LABELS } from "@/src/lib/settings/service";
@@ -37,6 +38,42 @@ function resolveSportLabel(slug: string, name?: string | null): string {
   return name?.trim() || SPORT_LABELS[slug] || slug;
 }
 
+function getInstructorGalleryUrls(formData: FormData): string[] {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+
+  for (const value of formData.getAll("galleryPhotoUrls")) {
+    if (typeof value !== "string") continue;
+    const url = value.trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+  }
+
+  return urls.slice(0, 24);
+}
+
+async function replaceInstructorGalleryPhotos(
+  tx: Prisma.TransactionClient,
+  instructorId: string,
+  galleryPhotoUrls: string[],
+) {
+  await tx.instructorPhoto.deleteMany({ where: { instructorId } });
+
+  if (galleryPhotoUrls.length === 0) {
+    return;
+  }
+
+  await tx.instructorPhoto.createMany({
+    data: galleryPhotoUrls.map((url, index) => ({
+      instructorId,
+      url,
+      sortOrder: (index + 1) * 10,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 export const SPORT_LABELS: Record<string, string> = {
   padel: "Падел",
   squash: "Сквош",
@@ -69,6 +106,7 @@ export interface AdminInstructorRow {
   sports: Array<{ sportId: string; slug: string; name: string; pricePerHour: number }>;
   bio?: string;
   photoUrl?: string;
+  galleryPhotoUrls: string[];
   active: boolean;
 }
 
@@ -181,6 +219,12 @@ async function ensureInstructorExists(instructorId: string) {
       bio: true,
       photoUrl: true,
       active: true,
+      instructorPhotos: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          url: true,
+        },
+      },
       instructorSports: {
         orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
         select: {
@@ -753,6 +797,12 @@ export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
       bio: true,
       photoUrl: true,
       active: true,
+      instructorPhotos: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          url: true,
+        },
+      },
       instructorSports: {
         orderBy: [{ sport: { sortOrder: "asc" } }, { sport: { name: "asc" } }],
         select: {
@@ -780,6 +830,7 @@ export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
     })),
     bio: row.bio ?? undefined,
     photoUrl: row.photoUrl ?? undefined,
+    galleryPhotoUrls: row.instructorPhotos.map((photo) => photo.url),
     active: row.active,
   }));
 }
@@ -810,6 +861,7 @@ export async function createInstructorFromForm(formData: FormData) {
     sportId,
     pricePerHour: Math.max(0, Math.round(Number(formData.get(`price_${sportId}`) ?? 10000))),
   }));
+  const galleryPhotoUrls = getInstructorGalleryUrls(formData);
 
   await prisma.$transaction(async (tx) => {
     const instructor = await tx.instructor.create({
@@ -830,6 +882,8 @@ export async function createInstructorFromForm(formData: FormData) {
       })),
       skipDuplicates: true,
     });
+
+    await replaceInstructorGalleryPhotos(tx, instructor.id, galleryPhotoUrls);
   });
 }
 
@@ -895,6 +949,7 @@ export async function updateInstructorFromForm(formData: FormData) {
     sportId,
     pricePerHour: Math.max(0, Math.round(Number(formData.get(`price_${sportId}`) ?? 10000))),
   }));
+  const galleryPhotoUrls = getInstructorGalleryUrls(formData);
 
   await prisma.$transaction(async (tx) => {
     await tx.instructor.update({
@@ -931,6 +986,8 @@ export async function updateInstructorFromForm(formData: FormData) {
         },
       });
     }
+
+    await replaceInstructorGalleryPhotos(tx, parsed.data.instructorId, galleryPhotoUrls);
   });
 }
 
@@ -953,13 +1010,19 @@ export async function updateInstructorBasicFromForm(formData: FormData) {
     throw new Error("пїЅВ пїЅВ пїЅРЋпїЅС™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅРЋпїЅР‚СњпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅвЂ™пїЅВ°пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅВ пїЅВ пїЅР‚В¦пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅвЂ™пїЅВ°");
   }
 
-  await prisma.instructor.update({
-    where: { id: parsed.data.instructorId },
-    data: {
-      name: parsed.data.name,
-      bio: parsed.data.bio ?? null,
-      photoUrl: parsed.data.photoUrl ?? null,
-    },
+  const galleryPhotoUrls = getInstructorGalleryUrls(formData);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.instructor.update({
+      where: { id: parsed.data.instructorId },
+      data: {
+        name: parsed.data.name,
+        bio: parsed.data.bio ?? null,
+        photoUrl: parsed.data.photoUrl ?? null,
+      },
+    });
+
+    await replaceInstructorGalleryPhotos(tx, parsed.data.instructorId, galleryPhotoUrls);
   });
 }
 

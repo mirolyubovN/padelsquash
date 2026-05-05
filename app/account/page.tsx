@@ -27,6 +27,8 @@ function getWalletTypeLabel(type: string): string {
   if (type === "admin_debit") return "Списание админом";
   if (type === "booking_charge") return "Оплата брони";
   if (type === "booking_refund") return "Возврат за бронь";
+  if (type === "event_charge") return "Оплата события";
+  if (type === "event_refund") return "Возврат за событие";
   return type;
 }
 

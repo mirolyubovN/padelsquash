@@ -1,4 +1,8 @@
 import { prisma } from "@/src/lib/prisma";
+import {
+  assertBookingSlotAvailable,
+  assertBookingSlotConflictsClear,
+} from "@/src/lib/bookings/availability-validator";
 import { withBookingConcurrencyGuard } from "@/src/lib/bookings/concurrency";
 import { evaluatePricing } from "@/src/lib/pricing/engine";
 import { creditUserWallet, debitUserWallet } from "@/src/lib/wallet/service";
@@ -39,6 +43,7 @@ export async function rescheduleBooking(args: RescheduleBookingArgs): Promise<Re
       service: {
         select: {
           id: true,
+          sportId: true,
           code: true,
           requiresCourt: true,
           requiresInstructor: true,
@@ -90,39 +95,30 @@ export async function rescheduleBooking(args: RescheduleBookingArgs): Promise<Re
     run: async (tx) => {
       const typedTx = tx as Prisma.TransactionClient;
 
-      // Check court conflict (excluding this booking)
-      if (newCourtId) {
-        const conflict = await typedTx.booking.findFirst({
-          where: {
-            id: { not: args.bookingId },
-            status: { in: ["confirmed", "pending_payment"] },
-            resources: { some: { resourceType: "court", resourceId: newCourtId } },
-            startAt: { lt: newEndAt },
-            endAt: { gt: newStartAt },
-          },
-          select: { id: true },
-        });
-        if (conflict) {
-          throw new Error("Выбранный корт уже занят в это время");
-        }
-      }
+      await assertBookingSlotAvailable({
+        tx: typedTx,
+        service: booking.service,
+        locationId: booking.locationId,
+        date: args.newDate,
+        startTime: args.newStartTime,
+        durationMin,
+        courtId: newCourtId,
+        instructorId: instructorResource?.resourceId,
+      });
 
-      // Check instructor conflict (excluding this booking)
-      if (instructorResource) {
-        const instructorConflict = await typedTx.booking.findFirst({
-          where: {
-            id: { not: args.bookingId },
-            status: { in: ["confirmed", "pending_payment"] },
-            resources: { some: { resourceType: "instructor", resourceId: instructorResource.resourceId } },
-            startAt: { lt: newEndAt },
-            endAt: { gt: newStartAt },
-          },
-          select: { id: true },
-        });
-        if (instructorConflict) {
-          throw new Error("Тренер уже занят в это время");
-        }
-      }
+      await assertBookingSlotConflictsClear({
+        tx: typedTx,
+        service: booking.service,
+        locationId: booking.locationId,
+        date: args.newDate,
+        startTime: args.newStartTime,
+        durationMin,
+        courtId: newCourtId,
+        instructorId: instructorResource?.resourceId,
+        excludeBookingId: booking.id,
+        startAt: newStartAt,
+        endAt: newEndAt,
+      });
 
       // Recalculate pricing for the new time slot
       const componentPrices = await typedTx.componentPrice.findMany({

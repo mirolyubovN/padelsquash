@@ -343,6 +343,15 @@ export default async function AdminCreateBookingPage({
     if (selectedSlotCourts.length === 0) {
       return { error: "Выберите хотя бы один слот и корт" };
     }
+    if (services.find((service) => service.code === serviceCode)?.requiresInstructor) {
+      const seenStartTimes = new Set<string>();
+      for (const selection of selectedSlotCourts) {
+        if (seenStartTimes.has(selection.startTime)) {
+          return { error: "Тренера можно назначить только на один корт в одно время" };
+        }
+        seenStartTimes.add(selection.startTime);
+      }
+    }
 
     let locationId: string;
     try {

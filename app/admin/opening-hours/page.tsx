@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
-import { assertAdmin } from "@/src/lib/auth/guards";
+import { assertSuperAdmin } from "@/src/lib/auth/guards";
 import { getOpeningHours, saveOpeningHoursFromForm, WEEKDAY_LABELS } from "@/src/lib/settings/service";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
@@ -14,12 +14,12 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 export default async function AdminOpeningHoursPage() {
-  await assertAdmin();
+  await assertSuperAdmin();
   const openingHours = await getOpeningHours();
 
   async function saveAction(formData: FormData) {
     "use server";
-    await assertAdmin();
+    await assertSuperAdmin();
     await saveOpeningHoursFromForm(formData);
     revalidatePath("/admin/opening-hours");
   }

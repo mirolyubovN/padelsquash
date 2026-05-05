@@ -6,6 +6,7 @@ import {
 } from "@/src/lib/bookings/policy";
 import { formatMoneyKzt } from "@/src/lib/format/money";
 import { cancelBookingWithRefundInTx } from "@/src/lib/bookings/operations";
+import { cancelCustomerEventRegistration } from "@/src/lib/events/service";
 import { notifyBookingCancelled } from "@/src/lib/notifications/bookings";
 import { prisma } from "@/src/lib/prisma";
 import { isoToVenueTimezoneParts } from "@/src/lib/time/venue-timezone";
@@ -15,6 +16,8 @@ const MORNING_WINDOW_LABEL = getMorningCancellationWindowLabel();
 
 export interface AccountBookingRow {
   id: string;
+  itemType: "booking" | "event";
+  eventId?: string;
   serviceName: string;
   courtName: string;
   date: string;
@@ -133,7 +136,7 @@ export async function getAccountDashboardData(userId: string): Promise<AccountDa
 
   const now = new Date();
 
-  const [upcoming, historyRows] = await Promise.all([
+  const [upcoming, historyRows, eventRows] = await Promise.all([
     prisma.booking.count({
       where: {
         customerId: userId,
@@ -147,11 +150,26 @@ export async function getAccountDashboardData(userId: string): Promise<AccountDa
       orderBy: { startAt: "desc" },
       take: 100,
     }),
+    prisma.eventRegistration.findMany({
+      where: { customerId: userId },
+      select: {
+        status: true,
+        event: {
+          select: {
+            startsAt: true,
+          },
+        },
+      },
+      orderBy: { event: { startsAt: "desc" } },
+      take: 100,
+    }),
   ]);
 
-  const cancellable = historyRows.reduce((count, row: { startAt: Date; status: AccountBookingRow["status"] }) => {
+  const bookingCancellable = historyRows.reduce((count, row: { startAt: Date; status: AccountBookingRow["status"] }) => {
     return getCancellationState({ startAt: row.startAt, status: row.status, now }).canCancel ? count + 1 : count;
   }, 0);
+  const upcomingEvents = eventRows.filter((row) => row.status === "confirmed" && row.event.startsAt >= now).length;
+  const cancellableEvents = eventRows.filter((row) => row.status === "confirmed" && row.event.startsAt > now).length;
 
   return {
     user: {
@@ -159,30 +177,56 @@ export async function getAccountDashboardData(userId: string): Promise<AccountDa
       walletBalanceKzt: Number(user.walletBalance),
     },
     totals: {
-      upcoming,
-      history: historyRows.length,
-      cancellable,
+      upcoming: upcoming + upcomingEvents,
+      history: historyRows.length + eventRows.length,
+      cancellable: bookingCancellable + cancellableEvents,
     },
   };
 }
 
 export async function getAccountBookings(userId: string, limit = 100): Promise<AccountBookingRow[]> {
   const now = new Date();
-  const rows = await prisma.booking.findMany({
-    where: { customerId: userId },
-    orderBy: [{ startAt: "desc" }],
-    take: limit,
-    include: {
-      service: true,
-      payment: true,
-      resources: {
-        select: {
-          resourceType: true,
-          resourceId: true,
+  const [rows, eventRegistrations] = await Promise.all([
+    prisma.booking.findMany({
+      where: { customerId: userId },
+      orderBy: [{ startAt: "desc" }],
+      take: limit,
+      include: {
+        service: true,
+        payment: true,
+        resources: {
+          select: {
+            resourceType: true,
+            resourceId: true,
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.eventRegistration.findMany({
+      where: { customerId: userId },
+      orderBy: [{ event: { startsAt: "desc" } }],
+      take: limit,
+      include: {
+        event: {
+          include: {
+            sport: { select: { name: true } },
+            location: { select: { name: true } },
+            courts: {
+              orderBy: { court: { name: "asc" } },
+              select: {
+                court: { select: { name: true } },
+              },
+            },
+          },
+        },
+        walletTransactions: {
+          select: {
+            type: true,
+          },
+        },
+      },
+    }),
+  ]);
 
   const courtIds = Array.from(
     new Set(
@@ -205,7 +249,7 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
     }
   }
 
-  return rows.map(
+  const bookingRows = rows.map(
     (row: {
       id: string;
       startAt: Date;
@@ -228,6 +272,7 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
 
       return {
         id: row.id,
+        itemType: "booking" as const,
         serviceName: row.service.name,
         courtName,
         date: startParts.date,
@@ -244,6 +289,51 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
       };
     },
   );
+
+  const eventRows = eventRegistrations.map((registration) => {
+    const startParts = isoToVenueTimezoneParts(registration.event.startsAt);
+    const endParts = isoToVenueTimezoneParts(registration.event.endsAt);
+    const hasRefund = registration.walletTransactions.some((transaction) => transaction.type === "event_refund");
+    const paymentStatus: AccountBookingRow["paymentStatus"] =
+      registration.status === "cancelled" && hasRefund
+        ? "refunded"
+        : Number(registration.pricePaidKzt) > 0
+          ? "paid"
+          : "none";
+    const courtName =
+      registration.event.courts.map((row) => row.court.name).join(", ") ||
+      registration.event.location?.name ||
+      "—";
+    const canCancel = registration.status === "confirmed" && registration.event.startsAt > now;
+    const cancelBlockedReason =
+      registration.status === "cancelled"
+        ? "Запись на событие отменена."
+        : registration.event.startsAt <= now
+          ? "Прошедшее событие нельзя отменить."
+          : undefined;
+
+    return {
+      id: registration.id,
+      itemType: "event" as const,
+      eventId: registration.eventId,
+      serviceName: `Событие: ${registration.event.title}`,
+      courtName,
+      date: startParts.date,
+      timeRange: `${startParts.time} - ${endParts.time}`,
+      status: registration.status === "cancelled" ? "cancelled" : "confirmed",
+      statusLabel: registration.status === "cancelled" ? "Отменена" : "Записан",
+      paymentStatus,
+      paymentStatusLabel: PAYMENT_STATUS_LABELS[paymentStatus],
+      amountKzt: formatAmountKzt(Number(registration.pricePaidKzt)),
+      canCancel,
+      cancelBlockedReason,
+      startAtIso: registration.event.startsAt.toISOString(),
+    } satisfies AccountBookingRow;
+  });
+
+  return [...bookingRows, ...eventRows]
+    .sort((a, b) => new Date(b.startAtIso).getTime() - new Date(a.startAtIso).getTime())
+    .slice(0, limit);
 }
 
 export async function cancelCustomerBooking(args: { userId: string; bookingId: string }) {
@@ -302,5 +392,12 @@ export async function cancelCustomerBooking(args: { userId: string; bookingId: s
 
   await notifyBookingCancelled({ bookingId: cancelledBooking.id, cancelledBy: "customer" });
   return cancelledBooking;
+}
+
+export async function cancelCustomerAccountEventRegistration(args: { userId: string; eventId: string }) {
+  return cancelCustomerEventRegistration({
+    customerId: args.userId,
+    eventId: args.eventId,
+  });
 }
 

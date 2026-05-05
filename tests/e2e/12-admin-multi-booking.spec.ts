@@ -8,8 +8,15 @@ test("admin can create multiple bookings in one submit by selecting several slot
   await loginAsAdmin(page);
   await page.goto("/admin/bookings/create");
 
-  await page.locator("#cb-date").fill(bookingDate);
-  await expect(page.locator("#cb-date")).toHaveValue(bookingDate);
+  const dateInput = page.locator("#cb-date");
+  await expect(dateInput).toBeVisible();
+  await dateInput.evaluate((input, value) => {
+    const dateInputElement = input as HTMLInputElement;
+    dateInputElement.value = value;
+    dateInputElement.dispatchEvent(new Event("input", { bubbles: true }));
+    dateInputElement.dispatchEvent(new Event("change", { bubbles: true }));
+  }, bookingDate);
+  await expect(dateInput).toHaveValue(bookingDate);
 
   const slotButtons = page.locator(".admin-create-booking__slot");
   await expect(slotButtons.first()).toBeVisible();

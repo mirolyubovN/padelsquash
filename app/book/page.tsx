@@ -39,6 +39,13 @@ interface BookLocationOption {
   address: string;
 }
 
+interface BookCourtOption {
+  id: string;
+  name: string;
+  sport: string;
+  location: string;
+}
+
 type CourtPriceMatrix = Record<string, Record<"morning" | "day" | "evening_weekend", number>>;
 
 const DEMO_COURT_NAMES: Record<string, string> = {
@@ -142,22 +149,37 @@ async function getBookServices(locationId: string): Promise<BookServiceOption[]>
     }));
 }
 
-async function getBookCourtNames(locationId: string): Promise<Record<string, string>> {
+async function getBookCourts(locationId: string): Promise<BookCourtOption[]> {
   try {
     const rows = await prisma.court.findMany({
       where: { active: true, locationId },
-      select: { id: true, name: true },
-      orderBy: [{ name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        sport: { select: { slug: true } },
+        location: { select: { slug: true } },
+      },
+      orderBy: [{ sport: { sortOrder: "asc" } }, { name: "asc" }],
     });
 
     if (rows.length > 0) {
-      return Object.fromEntries(rows.map((row: { id: string; name: string }) => [row.id, row.name]));
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        sport: row.sport.slug,
+        location: row.location.slug,
+      }));
     }
   } catch {
     // Fall back to demo labels if DB is unavailable.
   }
 
-  return DEMO_COURT_NAMES;
+  return Object.entries(DEMO_COURT_NAMES).map(([id, name]) => ({
+    id,
+    name,
+    sport: id.split("-")[0] ?? "padel",
+    location: "main",
+  }));
 }
 
 async function getBookInstructors(locationId: string): Promise<BookInstructorOption[]> {
@@ -322,13 +344,14 @@ export default async function BookPage({
     // Keep booking page available even if location table is not ready.
   }
 
-  const [services, courtNames, instructors, courtPrices, initialCustomer] = await Promise.all([
+  const [services, courts, instructors, courtPrices, initialCustomer] = await Promise.all([
     getBookServices(selectedLocation.id),
-    getBookCourtNames(selectedLocation.id),
+    getBookCourts(selectedLocation.id),
     getBookInstructors(selectedLocation.id),
     getCourtPriceMatrix(selectedLocation.id),
     getInitialCustomerProfile(session?.user?.id),
   ]);
+  const courtNames = Object.fromEntries(courts.map((court) => [court.id, court.name]));
 
   return (
     <div className="booking-page">
@@ -336,6 +359,7 @@ export default async function BookPage({
         locations={locationOptions}
         selectedLocationSlug={selectedLocation.slug}
         services={services}
+        courts={courts}
         courtNames={courtNames}
         instructors={instructors}
       courtPrices={courtPrices}

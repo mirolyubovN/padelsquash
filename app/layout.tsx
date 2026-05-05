@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Manrope, IBM_Plex_Mono, Oswald } from "next/font/google";
+import { Manrope, IBM_Plex_Mono, Lora } from "next/font/google";
 import { SiteFooter } from "@/src/components/site-footer";
 import { SiteHeader } from "@/src/components/site-header";
+import { PaletteSwitcher } from "@/src/components/palette-switcher";
 import { siteConfig } from "@/src/lib/content/site-data";
 import "./globals.css";
 import "../src/styles/index.scss";
@@ -17,10 +18,11 @@ const plexMono = IBM_Plex_Mono({
   subsets: ["latin", "cyrillic"],
 });
 
-const oswald = Oswald({
-  variable: "--font-oswald",
+const lora = Lora({
+  variable: "--font-lora",
   subsets: ["latin", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -46,6 +48,8 @@ export const metadata: Metadata = {
   },
 };
 
+const themeBootScript = `(function(){try{var v=localStorage.getItem("padelsquash-theme");if(v!=="green")v="orange";document.documentElement.setAttribute("data-theme",v);}catch(e){document.documentElement.setAttribute("data-theme","orange");}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -70,8 +74,11 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="ru">
-      <body className={`${manrope.variable} ${plexMono.variable} ${oswald.variable}`}>
+    <html lang="ru" data-theme="orange" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
+      <body className={`${manrope.variable} ${plexMono.variable} ${lora.variable}`}>
         <a href="#main-content" className="skip-link">
           Перейти к основному содержимому
         </a>
@@ -88,6 +95,7 @@ export default function RootLayout({
           </main>
           <SiteFooter />
         </div>
+        <PaletteSwitcher />
       </body>
     </html>
   );

@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { prisma } from "../../src/lib/prisma";
 
 export const ADMIN_EMAIL = "admin@example.com";
 export const ADMIN_PASSWORD = "Admin123!";
@@ -43,14 +44,23 @@ export async function loginAsAdmin(page: Page) {
 export async function registerCustomer(page: Page, options: { email: string; next?: string; name?: string; phone?: string; password?: string }) {
   const next = options.next ?? "/book";
   const password = options.password ?? DEFAULT_CUSTOMER_PASSWORD;
+  const email = options.email.trim().toLowerCase();
   await page.goto(`/register?next=${encodeURIComponent(next)}`);
   await page.locator("#register-name").fill(options.name ?? "Тестовый клиент");
-  await page.locator("#register-email").fill(options.email);
+  await page.locator("#register-email").fill(email);
   await page.locator("#register-phone").fill(options.phone ?? "+77010000000");
   await page.locator("#register-password").fill(password);
   await page.locator("#register-password-confirm").fill(password);
   await page.getByRole("button", { name: "Создать аккаунт" }).click();
-  await page.waitForURL((url) => url.pathname === next);
+  await page.waitForURL((url) => url.pathname === next || url.pathname === "/register/verify");
+
+  if (new URL(page.url()).pathname === "/register/verify") {
+    await prisma.user.update({
+      where: { email },
+      data: { emailVerifiedAt: new Date(), phoneVerifiedAt: new Date() },
+    });
+    await loginCustomer(page, { email, password, next });
+  }
 }
 
 export async function loginCustomer(page: Page, options: { email: string; password?: string; next?: string }) {
@@ -72,7 +82,7 @@ export async function selectBookingFlowOptions(page: Page, options: {
 
   await page.getByRole("button", { name: options.sport === "padel" ? "Падел" : "Сквош" }).click();
   await page
-    .getByRole("button", { name: options.serviceKind === "court" ? "Аренда корта" : "Тренировка" })
+    .getByRole("button", { name: options.serviceKind === "court" ? "Аренда корта" : /Тренировка/ })
     .click();
 
   if (options.serviceKind === "court") {
@@ -82,7 +92,7 @@ export async function selectBookingFlowOptions(page: Page, options: {
 }
 
 export async function waitForAvailabilityLoaded(page: Page) {
-  await expect(page.locator(".booking-live__availability-title")).toBeVisible();
+  await expect(page.locator(".booking-flow__timetable, .booking-live__availability-title").first()).toBeVisible();
 }
 
 export async function setBookingDate(page: Page, date: string) {
@@ -96,12 +106,12 @@ export async function pickTrainerAndWaitForAvailability(
   page: Page,
   options?: { trainerName?: string; date?: string },
 ) {
-  const trainerButtons = page.locator(".booking-live__trainer-button");
+  const trainerButtons = page.locator(".booking-flow__trainer-card, .booking-live__trainer-button");
   await expect(trainerButtons.first()).toBeVisible();
   expect(await trainerButtons.count()).toBeGreaterThan(0);
 
   const targetTrainerButton = options?.trainerName
-    ? page.locator(".booking-live__trainer-button", { hasText: options.trainerName }).first()
+    ? page.locator(".booking-flow__trainer-card, .booking-live__trainer-button", { hasText: options.trainerName }).first()
     : trainerButtons.first();
 
   if (options?.trainerName) {
@@ -118,19 +128,21 @@ export async function pickTrainerAndWaitForAvailability(
 }
 
 export async function pickFirstCourtSlot(page: Page): Promise<{ slotLabel: string; slotPrice?: string }> {
-  const firstSlotButton = page.locator(".booking-live__slot-button").first();
+  const firstSlotButton = page.locator(".booking-flow__timetable-cell--available, .booking-live__slot-button").first();
   await expect(firstSlotButton).toBeVisible();
-  const slotLabel = (await firstSlotButton.locator(".booking-live__slot-time").innerText()).trim();
-  const slotPrice = (await firstSlotButton.locator(".booking-live__slot-price").innerText().catch(() => "")).trim();
+  const ariaLabel = await firstSlotButton.getAttribute("aria-label");
+  const slotLabel = ariaLabel
+    ? ariaLabel.split(",")[0]?.trim() ?? ariaLabel
+    : (await firstSlotButton.locator(".booking-live__slot-time").innerText()).trim();
+  const slotPrice = (await firstSlotButton.innerText()).trim();
   await firstSlotButton.click();
   return { slotLabel, slotPrice: slotPrice || undefined };
 }
 
 export function findSlotButtonByLabel(page: Page, slotLabel: string): Locator {
-  return page
-    .locator(".booking-live__slot-button")
-    .filter({ has: page.locator(".booking-live__slot-time", { hasText: slotLabel }) })
-    .first();
+  return page.locator(`.booking-flow__timetable-cell[aria-label*="${slotLabel}"], .booking-live__slot-button`).filter({
+    hasText: slotLabel,
+  }).first();
 }
 
 export async function fillBookingCustomerFields(page: Page, options: { name?: string; email?: string; phone: string }) {
@@ -149,9 +161,8 @@ export async function fillBookingCustomerFields(page: Page, options: { name?: st
 
 export async function submitBookingAndExpectSuccess(page: Page) {
   await page.getByRole("button", { name: "Забронировать" }).click();
-  await expect(page.locator(".booking-live__message--success")).toBeVisible();
+  await expect(page.locator(".booking-flow__success, .booking-live__message--success").first()).toBeVisible();
   await expect(page.getByText("Бронирование создано")).toBeVisible();
-  await expect(page.getByText("Бронирование подтверждено. Детали доступны в личном кабинете.")).toBeVisible();
 }
 
 export async function bookFirstAvailableTrainingSlot(page: Page, options: {

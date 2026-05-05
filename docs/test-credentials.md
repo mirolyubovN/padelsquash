@@ -6,8 +6,8 @@ Use these accounts to test each user type in the app.
 
 | User type | Login URL | Email | Password | Notes |
 | --- | --- | --- | --- | --- |
-| `super_admin` | `/login?next=%2Fadmin` | `admin@example.com` | `Admin123!` | Full admin access, including sports/pricing and wallet bonus settings. |
-| `admin` | `/login?next=%2Fadmin` | `manager@example.com` | `Manager123!` | Operational admin with wallet adjustments, customer creation, and booking management. |
+| `super_admin` | `/login?next=%2Fadmin` | `admin@example.com` | `Admin123!` | Full admin access, including sports/pricing, media, and wallet bonus settings. |
+| `admin` | `/login?next=%2Fadmin` | `manager@example.com` | `Manager123!` | Operational admin with wallet adjustments, customer creation, booking management, and event operations. |
 | `trainer` | `/login?next=%2Ftrainer%2Fschedule` | `trainer@example.com` | `Trainer123!` | Can edit only own timetable and own exceptions. |
 | `customer` | `/login?next=%2Faccount` | `customer@example.com` | `Customer123!` | Standard client account for booking and wallet flow tests. |
 

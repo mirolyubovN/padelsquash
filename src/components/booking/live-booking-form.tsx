@@ -32,6 +32,13 @@ interface InstructorOption {
   sportPrices: Record<string, number>;
 }
 
+interface CourtOption {
+  id: string;
+  name: string;
+  sport: string;
+  location: string;
+}
+
 type CourtPriceMatrix = Record<string, Record<PricingTier, number>>;
 
 interface SlotOption {
@@ -54,31 +61,6 @@ interface AvailabilityPayload {
   slots: SlotOption[];
 }
 
-interface BookingApiSuccessPayload {
-  message: string;
-  source: "db" | "demo-fallback";
-  data: {
-    booking: {
-      id: string;
-      status: string;
-      priceTotal: number;
-      currency: string;
-      resources?: Array<{ resourceType: "court" | "instructor"; resourceId: string }>;
-    };
-    payment: { provider: string; status: string };
-  };
-}
-
-interface BookingApiInsufficientPayload {
-  error: string;
-  code: "INSUFFICIENT_WALLET_BALANCE";
-  holdId: string;
-  currentBalanceKzt: number;
-  amountRequiredKzt: number;
-  shortfallKzt: number;
-  expiresAt: string;
-}
-
 interface BookingHoldsApiSuccessPayload {
   message: string;
   data: {
@@ -92,6 +74,32 @@ interface BookingHoldsApiSuccessPayload {
     totalAmountRequiredKzt: number;
     currency: string;
   };
+}
+
+interface BookingSeriesApiSuccessPayload {
+  message: string;
+  source: "db";
+  data: {
+    bookings: Array<{
+      id: string;
+      startTime: string;
+      endTime: string;
+      priceTotal: number;
+      currency: string;
+      resources?: Array<{ resourceType: "court" | "instructor"; resourceId: string }>;
+    }>;
+    totalAmount: number;
+    currency: string;
+  };
+}
+
+interface BookingSeriesApiInsufficientPayload {
+  error: string;
+  code: "INSUFFICIENT_WALLET_BALANCE_SERIES";
+  currentBalanceKzt: number;
+  amountRequiredKzt: number;
+  shortfallKzt: number;
+  data: BookingHoldsApiSuccessPayload["data"];
 }
 
 interface BookingSuccessSession {
@@ -118,6 +126,7 @@ export interface LiveBookingFormProps {
   locations: Array<{ id: string; slug: string; name: string; address: string }>;
   selectedLocationSlug: string;
   services: ServiceOption[];
+  courts: CourtOption[];
   courtNames: Record<string, string>;
   instructors: InstructorOption[];
   courtPrices: CourtPriceMatrix;
@@ -248,6 +257,7 @@ export function LiveBookingForm({
   locations,
   selectedLocationSlug,
   services,
+  courts,
   courtNames,
   instructors,
   courtPrices,
@@ -573,13 +583,14 @@ export function LiveBookingForm({
 
     const svc = resolvedService;
     const instrId = svc.requiresInstructor ? selectedInstructorId : undefined;
+    const holdIds = selectedHoldIdsKey ? selectedHoldIdsKey.split(",") : [];
     let cancelled = false;
 
     async function load() {
       setAvailabilityLoading(true);
       setAvailabilityError(null);
       try {
-        const payload = await fetchAvailability(selectedLocationSlug, svc.id, date, instrId, selectedHoldIds);
+        const payload = await fetchAvailability(selectedLocationSlug, svc.id, date, instrId, holdIds);
         if (!cancelled) setAvailability(payload);
       } catch (err) {
         if (!cancelled) {
@@ -605,6 +616,7 @@ export function LiveBookingForm({
 
     const svc = resolvedService;
     const instrId = svc.requiresInstructor ? selectedInstructorId : undefined;
+    const holdIds = selectedHoldIdsKey ? selectedHoldIdsKey.split(",") : [];
     let cancelled = false;
     setAutoSearchKey(key);
 
@@ -612,7 +624,7 @@ export function LiveBookingForm({
       for (let i = 1; i <= 14; i++) {
         const next = addDays(date, i);
         try {
-          const result = await fetchAvailability(selectedLocationSlug, svc.id, next, instrId, selectedHoldIds);
+          const result = await fetchAvailability(selectedLocationSlug, svc.id, next, instrId, holdIds);
           if (cancelled) return;
           if (result.slots.length > 0) {
             setAutoDateMessage(`На ${date} слотов нет. Показана ближайшая дата: ${next}.`);
@@ -654,16 +666,10 @@ export function LiveBookingForm({
 
   // Timetable columns — always courts (for both court rental and training)
   const timetableColumns = useMemo(() => {
-    if (availableTimeSlots.length === 0) return [];
-    const seen = new Set<string>();
-    const ids: string[] = [];
-    for (const slot of availableTimeSlots) {
-      for (const id of slot.availableCourtIds) {
-        if (!seen.has(id)) { seen.add(id); ids.push(id); }
-      }
-    }
-    return ids.map((id) => ({ id, label: courtNames[id] ?? id }));
-  }, [availableTimeSlots, courtNames]);
+    return courts
+      .filter((court) => court.location === selectedLocationSlug && court.sport === sport)
+      .map((court) => ({ id: court.id, label: court.name }));
+  }, [courts, selectedLocationSlug, sport]);
 
   // Validate selected cells when availability changes (resourceId is always a courtId)
   useEffect(() => {
@@ -677,12 +683,34 @@ export function LiveBookingForm({
     });
   }, [availableTimeSlots]);
 
+  useEffect(() => {
+    if (serviceKind !== "training") return;
+
+    setSelectedCells((prev) => {
+      const seenTimeKeys = new Set<string>();
+      const next = prev.filter((cell) => {
+        if (seenTimeKeys.has(cell.timeKey)) {
+          return false;
+        }
+        seenTimeKeys.add(cell.timeKey);
+        return true;
+      });
+      return next.length === prev.length ? prev : next;
+    });
+  }, [serviceKind]);
+
   function toggleCell(timeKey: string, resourceId: string) {
     setSelectedCells((prev) => {
       const exists = prev.some((cell) => cell.timeKey === timeKey && cell.resourceId === resourceId);
-      return exists
-        ? prev.filter((cell) => !(cell.timeKey === timeKey && cell.resourceId === resourceId))
-        : [...prev, { timeKey, resourceId }];
+      if (exists) {
+        return prev.filter((cell) => !(cell.timeKey === timeKey && cell.resourceId === resourceId));
+      }
+
+      if (serviceKind === "training") {
+        return [...prev.filter((cell) => cell.timeKey !== timeKey), { timeKey, resourceId }];
+      }
+
+      return [...prev, { timeKey, resourceId }];
     });
   }
 
@@ -821,99 +849,91 @@ export function LiveBookingForm({
       return;
     }
 
-    const totalAttempts = selectedCells.length;
-    const booked: BookingSuccessSession[] = [];
-    const failed: string[] = [];
-
-    for (const cell of selectedCells) {
-      const slot = availableTimeSlots.find((s) => getSlotKey(s) === cell.timeKey);
-      if (!slot) { failed.push(`${cell.timeKey}: слот недоступен`); continue; }
-
-      const courtId = cell.resourceId;
-      const instructorId = serviceKind === "training" ? selectedInstructorId : undefined;
-
-      if (!courtId) { failed.push(`${slot.startTime}: нет свободного корта`); continue; }
-
-      const res = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serviceId: resolvedService.id,
-          location: selectedLocationSlug,
-          date,
-          startTime: slot.startTime,
-          durationMin: 60,
-          courtId,
-          instructorId,
-          holdId: cell.holdId,
-          customer: {
-            name: initialCustomer?.name ?? "",
-            email: initialCustomer?.email ?? "",
-            phone: initialCustomer?.phone ?? "",
-          },
-        }),
-      });
-
-      const payload = (await res.json().catch(() => null)) as
-        | BookingApiSuccessPayload
-        | BookingApiInsufficientPayload
-        | { error?: string }
-        | null;
-
-      if (!res.ok && payload && "code" in payload && payload.code === "INSUFFICIENT_WALLET_BALANCE") {
-        setSelectedCells((prev) =>
-          prev.map((selectedCell) =>
-            selectedCell.timeKey === cell.timeKey && selectedCell.resourceId === cell.resourceId
-              ? { ...selectedCell, holdId: payload.holdId }
-              : selectedCell,
-          ),
-        );
-        setSubmitLoading(false);
-        setSubmitWarning("Слот временно удержан для вас. Пополните баланс и вернитесь к бронированию.");
-        setSubmitError(
-          `Недостаточно средств: нужно ${formatMoneyKzt(payload.amountRequiredKzt)}, не хватает ${formatMoneyKzt(payload.shortfallKzt)}.`,
-        );
-        return;
-      }
-
-      if (!res.ok || (payload && "source" in payload && (payload as BookingApiSuccessPayload).source === "demo-fallback")) {
-        const msg = payload && "error" in payload && payload.error ? payload.error : "Не удалось создать бронирование";
-        const label = `${slot.startTime} (${courtNames[courtId] ?? courtId}${serviceKind === "training" && selectedTrainer ? ` · ${selectedTrainer.name}` : ""})`;
-        failed.push(`${label}: ${msg}`);
-        continue;
-      }
-
-      const ok = payload as BookingApiSuccessPayload;
-      const assignedCourtId =
-        ok.data.booking.resources?.find((r) => r.resourceType === "court")?.resourceId ?? courtId;
-      const trainerName = serviceKind === "training" ? (selectedTrainer?.name ?? undefined) : undefined;
-      booked.push({
+    const res = await fetch("/api/bookings/series", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serviceId: resolvedService.id,
+        location: selectedLocationSlug,
         date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        courtLabel: formatCourtLabel(assignedCourtId, courtNames),
-        trainerName,
-        amount: ok.data.booking.priceTotal,
-        currency: ok.data.booking.currency,
-      });
-    }
+        durationMin: 60,
+        instructorId: serviceKind === "training" ? selectedInstructorId : undefined,
+        slots: selectedCells.map((cell) => ({
+          startTime: cell.timeKey.split("|")[0],
+          courtId: cell.resourceId,
+          holdId: cell.holdId,
+        })),
+        customer: {
+          name: initialCustomer?.name ?? "",
+          email: initialCustomer?.email ?? "",
+          phone: initialCustomer?.phone ?? "",
+        },
+      }),
+    });
 
-    setSubmitLoading(false);
+    const payload = (await res.json().catch(() => null)) as
+      | BookingSeriesApiSuccessPayload
+      | BookingSeriesApiInsufficientPayload
+      | { error?: string }
+      | null;
 
-    if (booked.length === 0) {
-      setSubmitError(failed[0] ?? "Не удалось создать бронирование");
+    if (!res.ok && payload && "code" in payload && payload.code === "INSUFFICIENT_WALLET_BALANCE_SERIES") {
+      const holdsBySlotKey = new Map(
+        payload.data.holds.map((hold) => [`${hold.startTime}:${hold.courtId}`, hold.holdId]),
+      );
+      setSelectedCells((prev) =>
+        prev.map((cell) => ({
+          ...cell,
+          holdId: holdsBySlotKey.get(`${cell.timeKey.split("|")[0]}:${cell.resourceId}`) ?? cell.holdId,
+        })),
+      );
+      const earliestExpiresAt = payload.data.holds
+        .map((hold) => new Date(hold.expiresAtIso).getTime())
+        .reduce((min, time) => Math.min(min, time), Infinity);
+      if (Number.isFinite(earliestExpiresAt)) {
+        setHoldExpiresAtMs(earliestExpiresAt);
+      }
+      setSubmitLoading(false);
+      setSubmitWarning("Слоты временно удержаны для вас. Пополните баланс и вернитесь к бронированию.");
+      setSubmitError(
+        `Недостаточно средств для всей серии: требуется ${formatMoneyKzt(payload.amountRequiredKzt)}, не хватает ${formatMoneyKzt(payload.shortfallKzt)}.`,
+      );
       return;
     }
 
+    if (!res.ok || !payload || !("data" in payload)) {
+      setSubmitLoading(false);
+      setSubmitError(payload && "error" in payload && payload.error ? payload.error : "Не удалось создать бронирование");
+      return;
+    }
+    if (!("bookings" in payload.data)) {
+      setSubmitLoading(false);
+      setSubmitError("Не удалось создать бронирование");
+      return;
+    }
+
+    const booked = payload.data.bookings.map((booking) => {
+      const slot = availableTimeSlots.find((candidate) => candidate.startTime === booking.startTime);
+      const assignedCourtId =
+        booking.resources?.find((resource) => resource.resourceType === "court")?.resourceId ?? "";
+      return {
+        date,
+        startTime: booking.startTime,
+        endTime: slot?.endTime ?? booking.endTime,
+        courtLabel: formatCourtLabel(assignedCourtId, courtNames),
+        trainerName: serviceKind === "training" ? (selectedTrainer?.name ?? undefined) : undefined,
+        amount: booking.priceTotal,
+        currency: booking.currency,
+      };
+    });
+
+    setSubmitLoading(false);
     setSubmitSuccessSummary({
       sessions: booked,
-      totalAmount: booked.reduce((s, b) => s + b.amount, 0),
-      currency: booked[0]?.currency ?? "KZT",
+      totalAmount: payload.data.totalAmount,
+      currency: payload.data.currency,
     });
     setSelectedCells([]);
-    if (failed.length > 0) {
-      setSubmitWarning(`${booked.length} из ${totalAttempts} бронирований создано. Ошибка: ${failed[0]}`);
-    }
     setReloadKey((k) => k + 1);
   }
 
@@ -1204,7 +1224,9 @@ export function LiveBookingForm({
                                   ? "✓"
                                   : isAvailable && cellPrice !== null
                                   ? formatMoneyKzt(cellPrice)
-                                  : null}
+                                  : isAvailable
+                                  ? "Свободно"
+                                  : "Занято"}
                               </button>
                             </td>
                           );

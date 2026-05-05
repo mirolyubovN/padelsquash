@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHero } from "@/src/components/page-hero";
 import { AccountCancelBookingForm } from "@/src/components/account/account-cancel-booking-form";
 import { AccountTabs } from "@/src/components/account/account-tabs";
-import { cancelCustomerBooking, getAccountBookings } from "@/src/lib/account/bookings";
+import { cancelCustomerAccountEventRegistration, cancelCustomerBooking, getAccountBookings } from "@/src/lib/account/bookings";
 import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
 import { canAccessAdminPortal } from "@/src/lib/auth/roles";
 import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy";
@@ -43,7 +43,7 @@ export default async function AccountBookingsPage({
         : null;
 
   const successMessage =
-    params.success === "cancelled" ? "Бронирование отменено." : null;
+    params.success === "cancelled" ? "Запись отменена. Если была оплата с баланса, возврат выполнен." : null;
 
   async function cancelAction(formData: FormData) {
     "use server";
@@ -52,17 +52,30 @@ export default async function AccountBookingsPage({
       redirect("/admin/bookings");
     }
     const bookingId = String(formData.get("bookingId") ?? "");
+    const eventId = String(formData.get("eventId") ?? "");
+    const itemType = String(formData.get("itemType") ?? "booking");
 
-    if (!bookingId) {
+    if (itemType === "event" && !eventId) {
+      redirect("/account/bookings?error=cancel_failed");
+    }
+
+    if (itemType !== "event" && !bookingId) {
       redirect("/account/bookings?error=cancel_failed");
     }
 
     let errorCode: "cancel_not_allowed" | "cancel_failed" | null = null;
     try {
-      await cancelCustomerBooking({
-        userId: actionSession.user.id,
-        bookingId,
-      });
+      if (itemType === "event") {
+        await cancelCustomerAccountEventRegistration({
+          userId: actionSession.user.id,
+          eventId,
+        });
+      } else {
+        await cancelCustomerBooking({
+          userId: actionSession.user.id,
+          bookingId,
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (
@@ -85,6 +98,8 @@ export default async function AccountBookingsPage({
     revalidatePath("/account");
     revalidatePath("/account/bookings");
     revalidatePath("/admin/bookings");
+    revalidatePath("/admin/events");
+    revalidatePath("/events");
     redirect("/account/bookings?success=cancelled");
   }
 
@@ -133,6 +148,9 @@ export default async function AccountBookingsPage({
                         <div className="account-history__card-head">
                           <div>
                             <p className="account-history__card-title">{row.serviceName} - {row.courtName}</p>
+                            {row.itemType === "event" ? (
+                              <p className="admin-bookings__cell-sub">Событие</p>
+                            ) : null}
                           </div>
                           <p className="account-history__card-price">{row.amountKzt}</p>
                         </div>
@@ -163,6 +181,8 @@ export default async function AccountBookingsPage({
                           {row.canCancel ? (
                             <AccountCancelBookingForm
                               bookingId={row.id}
+                              itemType={row.itemType}
+                              eventId={row.eventId}
                               cancellationDeadlineText={row.cancellationDeadlineText}
                               action={cancelAction}
                             />

@@ -77,10 +77,6 @@ export function generateAvailableSlots(input: AvailabilityInput): AvailableSlot[
         )
       : [];
 
-    if (input.service.requiresCourt && availableCourtIds.length === 0) {
-      continue;
-    }
-
     const candidateInstructorIds =
       input.service.requiresInstructor && input.requestedInstructorId
         ? input.instructorIds.filter((id) => id === input.requestedInstructorId)
