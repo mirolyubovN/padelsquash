@@ -67,7 +67,7 @@ export async function getAvailabilityContextFromDb(args: {
 
   const { startUtc, endUtc } = venueDateRangeUtc(args.date);
 
-  const [openingHours, courts, instructors, exceptions, bookings, bookingHolds, clubEvents] = await Promise.all([
+  const [openingHours, courts, instructors, exceptions, bookings, bookingHolds] = await Promise.all([
     prisma.openingHour.findMany({
       where: { locationId: selectedLocation.id },
       orderBy: { dayOfWeek: "asc" },
@@ -127,40 +127,46 @@ export async function getAvailabilityContextFromDb(args: {
         instructorId: true,
       },
     }),
-    prisma.clubEvent.findMany({
-      where: {
-        status: { not: "cancelled" },
-        startsAt: { lt: endUtc },
-        endsAt: { gt: startUtc },
-        courts: {
-          some: {
-            court: {
-              locationId: selectedLocation.id,
-              sportId: service.sportId,
-            },
-          },
-        },
-      },
-      select: {
-        id: true,
-        startsAt: true,
-        endsAt: true,
-        courts: {
-          where: {
-            court: {
-              locationId: selectedLocation.id,
-              sportId: service.sportId,
-            },
-          },
-          select: {
-            courtId: true,
-          },
-        },
-      },
-    }),
   ]);
 
   const instructorIds = instructors.map((row: { id: string }) => row.id);
+  const clubEvents = await prisma.clubEvent.findMany({
+    where: {
+      status: { not: "cancelled" },
+      startsAt: { lt: endUtc },
+      endsAt: { gt: startUtc },
+      OR: [
+        {
+          courts: {
+            some: {
+              court: {
+                locationId: selectedLocation.id,
+                sportId: service.sportId,
+              },
+            },
+          },
+        },
+        ...(instructorIds.length > 0 ? [{ instructorId: { in: instructorIds } }] : []),
+      ],
+    },
+    select: {
+      id: true,
+      instructorId: true,
+      startsAt: true,
+      endsAt: true,
+      courts: {
+        where: {
+          court: {
+            locationId: selectedLocation.id,
+            sportId: service.sportId,
+          },
+        },
+        select: {
+          courtId: true,
+        },
+      },
+    },
+  });
 
   let instructorSchedules: Array<{
     resourceId: string;
@@ -290,10 +296,13 @@ export async function getAvailabilityContextFromDb(args: {
         startAt: row.startsAt.toISOString(),
         endAt: row.endsAt.toISOString(),
         status: "confirmed" as const,
-        resourceLinks: row.courts.map((eventCourt) => ({
-          resourceType: "court" as const,
-          resourceId: eventCourt.courtId,
-        })),
+        resourceLinks: [
+          ...row.courts.map((eventCourt) => ({
+            resourceType: "court" as const,
+            resourceId: eventCourt.courtId,
+          })),
+          ...(row.instructorId ? [{ resourceType: "instructor" as const, resourceId: row.instructorId }] : []),
+        ],
       })),
     ],
   };

@@ -16,29 +16,49 @@ interface CourtOption {
   location: { name: string };
 }
 
+interface InstructorOption {
+  id: string;
+  name: string;
+  instructorSports: Array<{ sportId: string }>;
+  instructorLocations: Array<{ locationId: string }>;
+}
+
 interface EventCourtPickerProps {
   sports: SportOption[];
   courts: CourtOption[];
+  instructors: InstructorOption[];
   defaultSportId?: string | null;
   defaultCourtIds?: string[];
+  defaultInstructorId?: string | null;
   idPrefix: string;
 }
 
 export function EventCourtPicker({
   sports,
   courts,
+  instructors,
   defaultSportId,
   defaultCourtIds = [],
+  defaultInstructorId,
   idPrefix,
 }: EventCourtPickerProps) {
   const initialSportId = defaultSportId || sports[0]?.id || "";
   const [sportId, setSportId] = useState(initialSportId);
+  const [instructorId, setInstructorId] = useState(defaultInstructorId ?? "");
   const [selectedCourtIds, setSelectedCourtIds] = useState(() => new Set(defaultCourtIds));
   const [error, setError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const sportCourts = useMemo(() => courts.filter((court) => court.sportId === sportId), [courts, sportId]);
+  const sportInstructors = useMemo(
+    () => instructors.filter((instructor) => instructor.instructorSports.some((item) => item.sportId === sportId)),
+    [instructors, sportId],
+  );
   const selectedSportCourtCount = sportCourts.filter((court) => selectedCourtIds.has(court.id)).length;
+
+  const effectiveInstructorId = sportInstructors.some((instructor) => instructor.id === instructorId)
+    ? instructorId
+    : "";
 
   useEffect(() => {
     const form = rootRef.current?.closest("form");
@@ -131,6 +151,29 @@ export function EventCourtPicker({
           </p>
         ) : null}
       </fieldset>
+
+      <div className="admin-form__group">
+        <label className="admin-form__label" htmlFor={`${idPrefix}-instructor`}>
+          Тренер
+        </label>
+        <select
+          id={`${idPrefix}-instructor`}
+          name="instructorId"
+          className="admin-form__field"
+          value={effectiveInstructorId}
+          onChange={(event) => setInstructorId(event.target.value)}
+        >
+          <option value="">Без тренера</option>
+          {sportInstructors.map((instructor) => (
+            <option key={instructor.id} value={instructor.id}>
+              {instructor.name}
+            </option>
+          ))}
+        </select>
+        {sportInstructors.length === 0 ? (
+          <p className="admin-event-court-picker__hint">Для выбранного спорта нет активных тренеров.</p>
+        ) : null}
+      </div>
     </div>
   );
 }

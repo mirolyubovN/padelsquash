@@ -57,3 +57,23 @@
 - Availability UIs should distinguish "no operating time" from "fully occupied"; do not filter out fully booked/event-blocked time rows, render them as disabled cells so users understand why a time cannot be selected.
 - For uploaded public assets, do not use native `type="url"` inputs when the app stores relative `/uploads/...` paths; use text input plus preview/selection UX, and make uploaded media selectable wherever the same field references media assets.
 - When media belongs to a domain entity with multiple photos, add an explicit ordered relation instead of inferring ownership from global media categories; categories describe usage pools, not entity attachment.
+
+## Lesson 2026-05-05 - recurring event UX
+
+- When grouping recurring events publicly, do not simply nest all generated instances with repeated CTAs. The correct UX is one main event card, a date selector, selected-date availability, and one action for the selected concrete occurrence.
+
+## Lesson 2026-05-05 - recurring event modal selection
+
+- Public recurring event cards should not expose aggregate date counts or total free-place counts. Keep the card focused on the event, then open a modal where the user selects a concrete date and sees that date's availability/action.
+
+## Lesson 2026-05-05 - fixed modals inside transformed cards
+
+- Do not render `position: fixed` modals inside elements that can receive `transform` (for example hover-lift cards). A transformed ancestor becomes the fixed-position containing block and can make the modal jump or flicker; render the modal as a sibling/outside the transformed card or via a portal.
+
+## Lesson 2026-05-05 - event trainer compatibility and blocking
+
+- Event instructor assignment must be treated as a real resource reservation: validate instructor sport/location compatibility on create/edit, prevent overlapping event/booking/hold conflicts, and include assigned instructors in public/admin availability blockers.
+
+## Lesson 2026-05-05 - optional admin client email
+
+- When making admin-created customer email optional, do not make `User.email` nullable casually because auth, wallet, activation links, and search use it as a unique key. Generate an internal placeholder email and hide it in operator-facing UI where possible.

@@ -1,3 +1,103 @@
+# Session Todo (2026-05-05 - optional email for admin new client)
+
+## Plan
+
+- [x] Make `/admin/clients` new-client email optional in the UI.
+- [x] Keep `User.email` schema intact by generating a unique internal placeholder email when admin leaves email blank.
+- [x] Preserve uniqueness checks for real emails and avoid duplicate client creation by phone when email is missing.
+- [x] Hide internal placeholder emails in the client list display where practical.
+- [x] Verify targeted lint/build for creating a client without email.
+
+## Review
+
+- `/admin/clients` new-client form no longer requires email.
+- When email is blank, the create action generates a unique internal `client-<uuid>@no-email.padelsquash.local` value to satisfy the existing required unique `User.email` schema without a migration.
+- Real email uniqueness checks remain unchanged when an email is provided.
+- If email is omitted, existing customer detection falls back to phone to avoid obvious duplicate creation.
+- Client list displays `Email не указан` for generated placeholder emails instead of exposing the internal value.
+- Verification:
+  - `npx eslint app\admin\clients\page.tsx` passed.
+  - `npm run build` passed.
+
+---# Session Todo (2026-05-05 - event trainer compatibility and blocking)
+
+## Plan
+
+- [x] Add server-side event validation so selected instructors must be active, support the selected sport, and match selected location when provided.
+- [x] Extend event time conflict checks so assigned instructors cannot overlap bookings, active holds, or other non-cancelled events.
+- [x] Extend booking availability/conflict logic so an instructor assigned to an event is unavailable for training bookings during the event.
+- [x] Update `/admin/events` trainer selection UI to filter trainers by selected sport and avoid incompatible trainer choices.
+- [x] Verify targeted lint/build and a DB service check for wrong-sport rejection plus instructor blocking.
+
+## Review
+
+- Event create/edit now validates selected instructor server-side: active instructor, supports selected sport, and belongs to selected location when a location is selected.
+- Event time conflict checks now include instructor resources, so event-assigned trainers cannot overlap bookings, active holds, or other non-cancelled events.
+- Booking conflict validation now treats an event-assigned instructor as occupied, even if the court is not the conflicting resource.
+- Availability context now injects event-assigned instructors as existing booking resources, so training availability hides/blocks the trainer during event time.
+- `/admin/events` trainer selection moved into the sport-aware picker and filters trainers by selected sport.
+- Verification:
+  - `npx eslint app\admin\events\page.tsx src\components\admin\event-court-picker.tsx src\lib\events\service.ts src\lib\availability\db.ts src\lib\bookings\availability-validator.ts` passed.
+  - Targeted `npx tsx` DB check passed: wrong-sport trainer rejected, valid event trainer blocks booking conflict validation, and availability context includes the event trainer blocker.
+  - `npm run build` passed.
+
+---# Session Todo (2026-05-05 - event modal stability)
+
+## Plan
+
+- [x] Move the event date modal outside the transformed card element so `position: fixed` is viewport-relative.
+- [x] Reset modal backdrop button styling to avoid browser/default button artifacts.
+- [x] Verify targeted lint/build and diff check.
+
+## Review
+
+- Moved the public event modal out of the hover-transformed event card so the fixed overlay is positioned against the viewport, not the transformed card.
+- Reset backdrop button border/padding/cursor styling to prevent default button artifacts.
+- Verification:
+  - `npx eslint app\events\page.tsx src\components\events\public-event-card.tsx src\lib\events\service.ts` passed.
+  - `npm run build` passed.
+
+---# Session Todo (2026-05-05 - recurring event modal date picker)
+
+## Plan
+
+- [x] Remove aggregate date/free-place counts from public event cards.
+- [x] Move recurring/occurrence date selection into a popup modal opened from the main card.
+- [x] Keep selected-date availability, price, and register/cancel action inside the modal only.
+- [x] Verify targeted lint/build and update review notes.
+
+## Review
+
+- Removed aggregate date count and total free-place count from public event cards.
+- Main event card now shows event information, price range, nearest date, and one `Выбрать дату` button.
+- Date selection moved into a modal popup; the modal shows selected-date availability, selected-date price, and the single register/cancel action for that concrete event occurrence.
+- Verification:
+  - `npx eslint app\events\page.tsx src\components\events\public-event-card.tsx src\lib\events\service.ts` passed.
+  - `npm run build` passed.
+
+---# Session Todo (2026-05-05 - recurring event public grouping)
+
+## Plan
+
+- [x] Preserve the existing data model: recurring instances remain separate `ClubEvent` rows so booking, capacity, refunds, court blocking, and admin per-instance edits keep working.
+- [x] Add a public event grouping layer in `src/lib/events/service.ts` that groups upcoming published events by `seriesId` and exposes per-date occurrence rows with spots/capacity/registration state.
+- [x] Rework public `/events` to render one main card per recurring series, with date/occurrence selection inside the card and visible availability for each selected date.
+- [x] Keep one-off events as single-card groups so current non-recurring behavior still works.
+- [x] Verify with lint/build and a targeted data check proving recurring instances collapse into one public group while registration still targets a concrete event ID.
+
+## Review
+
+- Kept the instance-based event model intact: registration, cancellation, capacity, court blocking, refunds, and admin edits still target concrete `ClubEvent.id` rows.
+- Added `getPublicEventGroups()` so `/events` receives one public group per recurring `seriesId`, with occurrence-level availability and registration state.
+- Replaced repeated per-date CTAs with one public event card and a date selector; the card shows availability/price for the selected date and only one register/cancel action.
+- One-off events are represented as single-occurrence groups.
+- Verification:
+  - `npx eslint app\events\page.tsx src\components\events\public-event-card.tsx src\lib\events\service.ts` passed.
+  - `npm run build` passed.
+  - Targeted `npx tsx` check passed: 2 recurring instances collapsed to one public group, registration applied only to the selected occurrence, and cleanup completed.
+  - Full `npm run lint` was attempted and remains blocked by an unrelated existing `src/components/palette-switcher.tsx` `react-hooks/set-state-in-effect` error plus known image warnings.
+
+---
 # Session Todo (2026-02-23)
 
 ## Plan (2026-05-04 - public redesign + CMS decision)

@@ -39,6 +39,7 @@ const eventUpdateSchema = eventCreateSchema.omit({ recurrence: true, repeatCount
 
 export interface PublicEventRow {
   id: string;
+  seriesId: string | null;
   title: string;
   description: string | null;
   category: string;
@@ -60,8 +61,30 @@ export interface PublicEventRow {
   activeRegistrationId: string | null;
 }
 
-export interface AdminEventRow extends PublicEventRow {
+export interface PublicEventGroup {
+  id: string;
   seriesId: string | null;
+  isRecurring: boolean;
+  title: string;
+  description: string | null;
+  category: string;
+  categoryLabel: string;
+  level: string | null;
+  sportName: string | null;
+  courtNames: string[];
+  locationName: string | null;
+  instructorName: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  priceMinKzt: number;
+  priceMaxKzt: number;
+  totalCapacity: number;
+  totalConfirmedCount: number;
+  totalSpotsLeft: number;
+  occurrences: PublicEventRow[];
+}
+
+export interface AdminEventRow extends PublicEventRow {
   createdAt: Date;
   sportId: string | null;
   locationId: string | null;
@@ -135,7 +158,7 @@ function mapEventRow(
 
   return {
     id: event.id,
-    seriesId: event.seriesId,
+    seriesId: event.seriesId ?? null,
     title: event.title,
     description: event.description,
     category: event.category,
@@ -186,7 +209,17 @@ export async function getAdminEventOptions() {
     prisma.instructor.findMany({
       where: { active: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        instructorSports: {
+          select: { sportId: true },
+        },
+        instructorLocations: {
+          where: { active: true },
+          select: { locationId: true },
+        },
+      },
     }),
   ]);
 
@@ -227,10 +260,50 @@ async function assertCourtSelection(
   }
 }
 
+async function assertInstructorSelection(
+  tx: Prisma.TransactionClient,
+  input: { sportId: string; locationId?: string; instructorId?: string },
+) {
+  if (!input.instructorId) return;
+
+  const instructor = await tx.instructor.findUnique({
+    where: { id: input.instructorId },
+    select: {
+      name: true,
+      active: true,
+      instructorSports: {
+        where: { sportId: input.sportId },
+        select: { id: true },
+      },
+      instructorLocations: input.locationId
+        ? {
+            where: { locationId: input.locationId, active: true },
+            select: { id: true },
+          }
+        : undefined,
+    },
+  });
+
+  if (!instructor || !instructor.active) {
+    throw new Error("Выберите действующего тренера для события");
+  }
+  if (instructor.instructorSports.length === 0) {
+    throw new Error(`Тренер ${instructor.name} не ведет выбранный спорт`);
+  }
+  if (input.locationId && instructor.instructorLocations.length === 0) {
+    throw new Error(`Тренер ${instructor.name} не доступен в выбранной локации`);
+  }
+}
+
 async function assertEventCourtTimeClear(
   tx: Prisma.TransactionClient,
-  input: { courtIds: string[]; startsAt: Date; endsAt: Date; excludeEventId?: string },
+  input: { courtIds: string[]; startsAt: Date; endsAt: Date; instructorId?: string; excludeEventId?: string },
 ) {
+  const resourceFilters = [
+    ...input.courtIds.map((courtId) => ({ resourceType: "court" as const, resourceId: courtId })),
+    ...(input.instructorId ? [{ resourceType: "instructor" as const, resourceId: input.instructorId }] : []),
+  ];
+
   const bookingConflict = await tx.booking.findFirst({
     where: {
       status: { in: ["pending_payment", "confirmed"] },
@@ -238,8 +311,7 @@ async function assertEventCourtTimeClear(
       endAt: { gt: input.startsAt },
       resources: {
         some: {
-          resourceType: "court",
-          resourceId: { in: input.courtIds },
+          OR: resourceFilters,
         },
       },
     },
@@ -256,7 +328,10 @@ async function assertEventCourtTimeClear(
       expiresAt: { gt: new Date() },
       startAt: { lt: input.endsAt },
       endAt: { gt: input.startsAt },
-      courtId: { in: input.courtIds },
+      OR: [
+        { courtId: { in: input.courtIds } },
+        ...(input.instructorId ? [{ instructorId: input.instructorId }] : []),
+      ],
     },
     select: { id: true },
   });
@@ -271,11 +346,16 @@ async function assertEventCourtTimeClear(
       status: { not: "cancelled" },
       startsAt: { lt: input.endsAt },
       endsAt: { gt: input.startsAt },
-      courts: {
-        some: {
-          courtId: { in: input.courtIds },
+      OR: [
+        {
+          courts: {
+            some: {
+              courtId: { in: input.courtIds },
+            },
+          },
         },
-      },
+        ...(input.instructorId ? [{ instructorId: input.instructorId }] : []),
+      ],
     },
     select: { id: true },
   });
@@ -373,6 +453,52 @@ export async function getPublicEvents(customerId?: string): Promise<PublicEventR
   return events.map((event) => mapEventRow(event, customerId));
 }
 
+export async function getPublicEventGroups(customerId?: string): Promise<PublicEventGroup[]> {
+  const events = await getPublicEvents(customerId);
+  const groupsByKey = new Map<string, PublicEventRow[]>();
+
+  for (const event of events) {
+    const key = event.seriesId ?? event.id;
+    const group = groupsByKey.get(key);
+    if (group) {
+      group.push(event);
+    } else {
+      groupsByKey.set(key, [event]);
+    }
+  }
+
+  return Array.from(groupsByKey.entries())
+    .map(([key, occurrences]) => {
+      const sortedOccurrences = [...occurrences].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+      const first = sortedOccurrences[0];
+      const prices = sortedOccurrences.map((event) => event.priceKzt);
+
+      return {
+        id: key,
+        seriesId: first.seriesId,
+        isRecurring: Boolean(first.seriesId),
+        title: first.title,
+        description: first.description,
+        category: first.category,
+        categoryLabel: first.categoryLabel,
+        level: first.level,
+        sportName: first.sportName,
+        courtNames: first.courtNames,
+        locationName: first.locationName,
+        instructorName: first.instructorName,
+        startsAt: first.startsAt,
+        endsAt: first.endsAt,
+        priceMinKzt: Math.min(...prices),
+        priceMaxKzt: Math.max(...prices),
+        totalCapacity: sortedOccurrences.reduce((sum, event) => sum + event.capacity, 0),
+        totalConfirmedCount: sortedOccurrences.reduce((sum, event) => sum + event.confirmedCount, 0),
+        totalSpotsLeft: sortedOccurrences.reduce((sum, event) => sum + event.spotsLeft, 0),
+        occurrences: sortedOccurrences,
+      };
+    })
+    .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+}
+
 export async function createEventsFromForm(formData: FormData, actorUserId: string) {
   const parsed = eventCreateSchema.safeParse({
     title: formData.get("title"),
@@ -405,6 +531,7 @@ export async function createEventsFromForm(formData: FormData, actorUserId: stri
 
   return prisma.$transaction(async (tx) => {
     await assertCourtSelection(tx, input);
+    await assertInstructorSelection(tx, input);
 
     const series =
       input.recurrence === "weekly" && instanceCount > 1
@@ -431,6 +558,7 @@ export async function createEventsFromForm(formData: FormData, actorUserId: stri
         courtIds: input.courtIds,
         startsAt,
         endsAt,
+        instructorId: input.instructorId,
       });
 
       created.push(
@@ -502,11 +630,13 @@ export async function updateEventFromForm(formData: FormData) {
     }
 
     await assertCourtSelection(tx, input);
+    await assertInstructorSelection(tx, input);
     if (input.status !== "cancelled") {
       await assertEventCourtTimeClear(tx, {
         courtIds: input.courtIds,
         startsAt,
         endsAt,
+        instructorId: input.instructorId,
         excludeEventId: input.eventId,
       });
     }

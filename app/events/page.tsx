@@ -2,11 +2,12 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { PublicEventCard, type PublicEventCardGroup } from "@/src/components/events/public-event-card";
 import { PageHero } from "@/src/components/page-hero";
 import {
   cancelCustomerEventRegistration,
   EventRegistrationError,
-  getPublicEvents,
+  getPublicEventGroups,
   registerCustomerForEvent,
 } from "@/src/lib/events/service";
 import { canAccessAdminPortal, normalizeRole } from "@/src/lib/auth/roles";
@@ -23,6 +24,21 @@ export const dynamic = "force-dynamic";
 
 function eventTimeLabel(startAt: Date, endAt: Date): string {
   return `${formatDateInVenueTimezone(startAt)}, ${formatTimeInVenueTimezone(startAt)}-${formatTimeInVenueTimezone(endAt)}`;
+}
+
+function eventShortTimeLabel(startAt: Date, endAt: Date): string {
+  return `${formatTimeInVenueTimezone(startAt)}-${formatTimeInVenueTimezone(endAt)}`;
+}
+
+function priceLabel(priceMinKzt: number, priceMaxKzt: number): string {
+  if (priceMinKzt === priceMaxKzt) {
+    return `${priceMinKzt.toLocaleString("ru-KZ")} ₸`;
+  }
+  return `${priceMinKzt.toLocaleString("ru-KZ")}-${priceMaxKzt.toLocaleString("ru-KZ")} ₸`;
+}
+
+function singlePriceLabel(priceKzt: number): string {
+  return `${priceKzt.toLocaleString("ru-KZ")} ₸`;
 }
 
 function errorMessage(code?: string): string | null {
@@ -55,7 +71,29 @@ export default async function EventsPage({
   const [session, params] = await Promise.all([auth(), searchParams]);
   const role = normalizeRole(session?.user?.role);
   const customerId = session?.user?.id && !canAccessAdminPortal(role) ? session.user.id : undefined;
-  const events = await getPublicEvents(customerId);
+  const eventGroups = await getPublicEventGroups(customerId);
+  const publicEventGroups: PublicEventCardGroup[] = eventGroups.map((eventGroup) => ({
+    id: eventGroup.id,
+    isRecurring: eventGroup.isRecurring,
+    title: eventGroup.title,
+    description: eventGroup.description,
+    nearestLabel: eventTimeLabel(eventGroup.startsAt, eventGroup.endsAt),
+    priceLabel: priceLabel(eventGroup.priceMinKzt, eventGroup.priceMaxKzt),
+    sportName: eventGroup.sportName,
+    courtNames: eventGroup.courtNames,
+    level: eventGroup.level,
+    instructorName: eventGroup.instructorName,
+    locationName: eventGroup.locationName,
+    occurrences: eventGroup.occurrences.map((event) => ({
+      id: event.id,
+      dateLabel: formatDateInVenueTimezone(event.startsAt),
+      timeLabel: eventShortTimeLabel(event.startsAt, event.endsAt),
+      priceLabel: singlePriceLabel(event.priceKzt),
+      spotsLeft: event.spotsLeft,
+      capacity: event.capacity,
+      isRegistered: event.isRegistered,
+    })),
+  }));
   const message =
     params.success === "registered"
       ? "Вы записаны на событие. Оплата списана с баланса."
@@ -145,7 +183,7 @@ export default async function EventsPage({
         </p>
       ) : null}
 
-      {events.length === 0 ? (
+      {eventGroups.length === 0 ? (
         <section className="rule-list">
           <h2 className="rule-list__title">Пока нет опубликованных событий</h2>
           <p className="card-grid__text">
@@ -157,47 +195,14 @@ export default async function EventsPage({
         </section>
       ) : (
         <section className="card-grid" aria-label="Список событий">
-          {events.map((event) => {
-            const isFull = event.spotsLeft <= 0;
-            return (
-              <article key={event.id} className="card-grid__item event-card">
-                <h2 className="card-grid__title">{event.title}</h2>
-                <p className="card-grid__meta">{eventTimeLabel(event.startsAt, event.endsAt)}</p>
-                {event.description ? <p className="card-grid__text">{event.description}</p> : null}
-                <ul className="tag-list">
-                  {event.sportName ? <li className="tag-list__item">{event.sportName}</li> : null}
-                  {event.courtNames.length > 0 ? <li className="tag-list__item">Корты: {event.courtNames.join(", ")}</li> : null}
-                  {event.level ? <li className="tag-list__item">{event.level}</li> : null}
-                  {event.instructorName ? <li className="tag-list__item">Тренер: {event.instructorName}</li> : null}
-                  {event.locationName ? <li className="tag-list__item">{event.locationName}</li> : null}
-                </ul>
-                <div className="event-card__summary">
-                  <span>{event.priceKzt.toLocaleString("ru-KZ")} ₸</span>
-                  <span>Свободно: {event.spotsLeft} из {event.capacity}</span>
-                </div>
-                <div className="card-grid__actions">
-                  {event.isRegistered ? (
-                    <form action={cancelAction} className="event-card__registered-form">
-                      <input type="hidden" name="eventId" value={event.id} />
-                      <span className="event-card__registered">Вы записаны</span>
-                      <button type="submit" className="listing-page__link-button">
-                        Отменить запись
-                      </button>
-                    </form>
-                  ) : isFull ? (
-                    <span className="event-card__registered event-card__registered--muted">Мест нет</span>
-                  ) : (
-                    <form action={registerAction}>
-                      <input type="hidden" name="eventId" value={event.id} />
-                      <button type="submit" className="card-grid__button">
-                        Записаться
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </article>
-            );
-          })}
+          {publicEventGroups.map((eventGroup) => (
+            <PublicEventCard
+              key={eventGroup.id}
+              eventGroup={eventGroup}
+              registerAction={registerAction}
+              cancelAction={cancelAction}
+            />
+          ))}
         </section>
       )}
     </div>

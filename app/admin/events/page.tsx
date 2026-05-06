@@ -118,22 +118,18 @@ export default async function AdminEventsPage() {
               <label className="admin-form__label" htmlFor="event-level">Уровень</label>
               <input id="event-level" name="level" className="admin-form__field" placeholder="Новички / средний / все уровни" />
             </div>
-            <EventCourtPicker sports={options.sports} courts={options.courts} idPrefix="event-create" />
+            <EventCourtPicker
+              sports={options.sports}
+              courts={options.courts}
+              instructors={options.instructors}
+              idPrefix="event-create"
+            />
             <div className="admin-form__group">
               <label className="admin-form__label" htmlFor="event-location">Локация</label>
               <select id="event-location" name="locationId" className="admin-form__field" defaultValue={options.locations[0]?.id ?? ""}>
                 <option value="">Не привязывать</option>
                 {options.locations.map((location) => (
                   <option key={location.id} value={location.id}>{location.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-instructor">Тренер</label>
-              <select id="event-instructor" name="instructorId" className="admin-form__field" defaultValue="">
-                <option value="">Без тренера</option>
-                {options.instructors.map((instructor) => (
-                  <option key={instructor.id} value={instructor.id}>{instructor.name}</option>
                 ))}
               </select>
             </div>
@@ -247,8 +243,10 @@ export default async function AdminEventsPage() {
                             <EventCourtPicker
                               sports={options.sports}
                               courts={options.courts}
+                              instructors={options.instructors}
                               defaultSportId={event.sportId}
                               defaultCourtIds={event.courtIds}
+                              defaultInstructorId={event.instructorId}
                               idPrefix={`event-edit-${event.id}`}
                             />
                             <div className="admin-form__group">
@@ -257,15 +255,6 @@ export default async function AdminEventsPage() {
                                 <option value="">Не привязывать</option>
                                 {options.locations.map((location) => (
                                   <option key={location.id} value={location.id}>{location.name}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-instructor-${event.id}`}>Тренер</label>
-                              <select id={`event-instructor-${event.id}`} name="instructorId" className="admin-form__field" defaultValue={event.instructorId ?? ""}>
-                                <option value="">Без тренера</option>
-                                {options.instructors.map((instructor) => (
-                                  <option key={instructor.id} value={instructor.id}>{instructor.name}</option>
                                 ))}
                               </select>
                             </div>

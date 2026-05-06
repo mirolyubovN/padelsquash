@@ -34,6 +34,14 @@ function getRequestOrigin(headerStore: Headers): string {
   return `${proto}://${host}`;
 }
 
+function buildPlaceholderCustomerEmail(): string {
+  return `client-${randomUUID()}@no-email.padelsquash.local`;
+}
+
+function isPlaceholderCustomerEmail(email: string): boolean {
+  return email.endsWith("@no-email.padelsquash.local");
+}
+
 export default async function AdminClientsPage({
   searchParams,
 }: {
@@ -100,20 +108,23 @@ export default async function AdminClientsPage({
     const firstName = String(formData.get("firstName") ?? "").trim();
     const lastName = String(formData.get("lastName") ?? "").trim();
     const phone = String(formData.get("phone") ?? "").trim();
-    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const requestedEmail = String(formData.get("email") ?? "").trim().toLowerCase();
+    const email = requestedEmail || buildPlaceholderCustomerEmail();
     const fullName = `${firstName} ${lastName}`.trim();
-    if (!firstName || !lastName || !phone || !email) redirect("/admin/clients?error=customer_failed");
+    if (!firstName || !lastName || !phone) redirect("/admin/clients?error=customer_failed");
 
     let existing: { id: string; role: string } | null = null;
     try {
-      existing = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } });
+      existing = requestedEmail
+        ? await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } })
+        : await prisma.user.findFirst({ where: { phone, role: "customer" }, select: { id: true, role: true } });
     } catch {
       redirect("/admin/clients?error=customer_failed");
     }
 
     if (existing) {
       if (existing.role !== "customer") redirect("/admin/clients?error=customer_failed");
-      redirect(`/admin/clients?success=customer_exists&q=${encodeURIComponent(email)}`);
+      redirect(`/admin/clients?success=customer_exists&q=${encodeURIComponent(requestedEmail || phone)}`);
     }
 
     try {
@@ -133,7 +144,7 @@ export default async function AdminClientsPage({
     }
 
     revalidatePath("/admin/clients");
-    redirect(`/admin/clients?success=customer_created&q=${encodeURIComponent(email)}`);
+    redirect(`/admin/clients?success=customer_created&q=${encodeURIComponent(requestedEmail || phone)}`);
   }
 
   async function updateCustomerContactsAction(formData: FormData) {
@@ -269,7 +280,11 @@ export default async function AdminClientsPage({
                     <tr key={customer.id} className="admin-table__row">
                       <td className="admin-table__cell">
                         <div><Link href={`/admin/clients/${customer.id}`}>{customer.name}</Link></div>
-                        <div className="admin-bookings__cell-sub"><Link href={`/admin/clients/${customer.id}`}>{customer.email}</Link></div>
+                        <div className="admin-bookings__cell-sub">
+                          <Link href={`/admin/clients/${customer.id}`}>
+                            {isPlaceholderCustomerEmail(customer.email) ? "Email не указан" : customer.email}
+                          </Link>
+                        </div>
                         <div className="admin-bookings__cell-sub">{customer.phone}</div>
                       </td>
                       <td className="admin-table__cell">{formatMoneyKzt(customer.balanceKzt)}</td>
@@ -390,7 +405,8 @@ export default async function AdminClientsPage({
             </div>
             <div className="admin-form__group">
               <label className="admin-form__label" htmlFor="client-email">Email</label>
-              <input id="client-email" name="email" type="email" className="admin-form__field" required />
+              <input id="client-email" name="email" type="email" className="admin-form__field" />
+              <p className="admin-bookings__cell-sub">Необязательно. Можно добавить позже в карточке клиента.</p>
             </div>
           </div>
           <div className="admin-form__actions">

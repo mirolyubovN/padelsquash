@@ -216,17 +216,26 @@ async function assertNoBookingConflict(args: AssertBookingSlotAvailableArgs, sta
     throw new Error("Слот уже занят");
   }
 
-  if (args.courtId) {
+  if (args.courtId || args.instructorId) {
     const eventConflict = await args.tx.clubEvent.findFirst({
       where: {
         status: { not: "cancelled" },
         startsAt: { lt: endAt },
         endsAt: { gt: startAt },
-        courts: {
-          some: {
-            courtId: args.courtId,
-          },
-        },
+        OR: [
+          ...(args.courtId
+            ? [
+                {
+                  courts: {
+                    some: {
+                      courtId: args.courtId,
+                    },
+                  },
+                },
+              ]
+            : []),
+          ...(args.instructorId ? [{ instructorId: args.instructorId }] : []),
+        ],
       },
       select: { id: true },
     });
