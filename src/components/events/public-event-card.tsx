@@ -50,6 +50,26 @@ export function PublicEventCard({ eventGroup, registerAction, cancelAction }: Pu
   ].filter(Boolean);
 
   const isFull = !selectedOccurrence || selectedOccurrence.spotsLeft <= 0;
+  const showDateModal = eventGroup.isRecurring;
+
+  const occurrenceAction = selectedOccurrence?.isRegistered ? (
+    <form action={cancelAction} className="event-card__registered-form">
+      <input type="hidden" name="eventId" value={selectedOccurrence.id} />
+      <span className="event-card__registered">Вы записаны</span>
+      <button type="submit" className="listing-page__link-button">
+        Отменить запись
+      </button>
+    </form>
+  ) : isFull ? (
+    <span className="event-card__registered event-card__registered--muted">Мест нет</span>
+  ) : selectedOccurrence ? (
+    <form action={registerAction}>
+      <input type="hidden" name="eventId" value={selectedOccurrence.id} />
+      <button type="submit" className="card-grid__button">
+        Записаться
+      </button>
+    </form>
+  ) : null;
 
   return (
     <>
@@ -58,7 +78,7 @@ export function PublicEventCard({ eventGroup, registerAction, cancelAction }: Pu
           {eventGroup.isRecurring ? "Регулярное событие" : "Событие"}
         </div>
         <h2 className="card-grid__title">{eventGroup.title}</h2>
-        <p className="card-grid__meta">Ближайшая дата: {eventGroup.nearestLabel}</p>
+        <p className="card-grid__meta">{eventGroup.isRecurring ? "Ближайшая дата" : "Дата"}: {eventGroup.nearestLabel}</p>
         {eventGroup.description ? <p className="card-grid__text">{eventGroup.description}</p> : null}
         <ul className="tag-list">
           {tags.map((tag) => (
@@ -72,13 +92,17 @@ export function PublicEventCard({ eventGroup, registerAction, cancelAction }: Pu
         </div>
 
         <div className="card-grid__actions">
-          <button type="button" className="card-grid__button" onClick={() => setIsModalOpen(true)}>
-            Выбрать дату
-          </button>
+          {showDateModal ? (
+            <button type="button" className="card-grid__button" onClick={() => setIsModalOpen(true)}>
+              Выбрать дату
+            </button>
+          ) : (
+            occurrenceAction
+          )}
         </div>
       </article>
 
-      {isModalOpen ? (
+      {showDateModal && isModalOpen ? (
         <div className="event-card-modal" role="dialog" aria-modal="true" aria-labelledby={`event-modal-title-${eventGroup.id}`}>
           <button
             type="button"
@@ -139,24 +163,7 @@ export function PublicEventCard({ eventGroup, registerAction, cancelAction }: Pu
             ) : null}
 
             <div className="card-grid__actions">
-              {selectedOccurrence?.isRegistered ? (
-                <form action={cancelAction} className="event-card__registered-form">
-                  <input type="hidden" name="eventId" value={selectedOccurrence.id} />
-                  <span className="event-card__registered">Вы записаны</span>
-                  <button type="submit" className="listing-page__link-button">
-                    Отменить запись
-                  </button>
-                </form>
-              ) : isFull ? (
-                <span className="event-card__registered event-card__registered--muted">Мест нет</span>
-              ) : selectedOccurrence ? (
-                <form action={registerAction}>
-                  <input type="hidden" name="eventId" value={selectedOccurrence.id} />
-                  <button type="submit" className="card-grid__button">
-                    Записаться
-                  </button>
-                </form>
-              ) : null}
+              {occurrenceAction}
             </div>
           </div>
         </div>

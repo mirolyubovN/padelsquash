@@ -18,6 +18,7 @@ import {
 } from "./helpers";
 import { getAdminBookings, markBookingPaid, setBookingPaymentState, setBookingStatus } from "@/src/lib/admin/bookings";
 import { formatTimeInVenueTimezone, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
+import { cancelCustomerEventRegistration, registerCustomerForEvent } from "@/src/lib/events/service";
 
 describe("booking persistence (DB integration)", () => {
   afterAll(async () => {
@@ -491,6 +492,115 @@ describe("booking persistence (DB integration)", () => {
       expect.arrayContaining(["booking_charge", "booking_refund"]),
     );
     expect(balanceAfterCancellation).toBe(100_000);
+  });
+
+  it("refunds event payment on repeated cancel/rebook cycle and writes audit records", async () => {
+    const customer = await createCustomerWithWallet("it-event-cancel-rebook-refund", 20_000);
+    const eventDate = nextWeekdayIsoDate(63);
+    const startsAt = new Date(`${eventDate}T10:00:00.000Z`);
+    const endsAt = new Date(startsAt.getTime() + 90 * 60 * 1000);
+    const event = await prisma.clubEvent.create({
+      data: {
+        title: `IT event cancel-rebook ${Date.now()}`,
+        category: "group_training",
+        startsAt,
+        endsAt,
+        priceKzt: 1_500,
+        capacity: 8,
+        status: "published",
+      },
+      select: { id: true },
+    });
+
+    let registrationId: string | null = null;
+    try {
+      const balanceBefore = await getUserWalletBalance(customer.id);
+
+      await registerCustomerForEvent({ eventId: event.id, customerId: customer.id });
+      await cancelCustomerEventRegistration({ eventId: event.id, customerId: customer.id });
+      await registerCustomerForEvent({ eventId: event.id, customerId: customer.id });
+      await cancelCustomerEventRegistration({ eventId: event.id, customerId: customer.id });
+
+      const registration = await prisma.eventRegistration.findUniqueOrThrow({
+        where: {
+          eventId_customerId: {
+            eventId: event.id,
+            customerId: customer.id,
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          walletTransactions: {
+            where: {
+              type: {
+                in: ["event_charge", "event_refund"],
+              },
+            },
+            select: {
+              type: true,
+              amount: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      });
+      registrationId = registration.id;
+
+      const charges = registration.walletTransactions.filter((tx) => tx.type === "event_charge");
+      const refunds = registration.walletTransactions.filter((tx) => tx.type === "event_refund");
+      const chargedTotal = charges.reduce((sum, tx) => sum + Math.max(0, -Number(tx.amount)), 0);
+      const refundedTotal = refunds.reduce((sum, tx) => sum + Math.max(0, Number(tx.amount)), 0);
+      const balanceAfter = await getUserWalletBalance(customer.id);
+
+      expect(registration.status).toBe("cancelled");
+      expect(charges).toHaveLength(2);
+      expect(refunds).toHaveLength(2);
+      expect(refundedTotal).toBe(chargedTotal);
+      expect(balanceAfter).toBe(balanceBefore);
+
+      const auditRows = await prisma.auditLog.findMany({
+        where: {
+          entityType: "event_registration",
+          entityId: registration.id,
+          action: { in: ["event.register", "event.cancel_registration"] },
+        },
+        orderBy: { createdAt: "asc" },
+        select: {
+          action: true,
+          actorUserId: true,
+        },
+      });
+
+      expect(auditRows).toHaveLength(4);
+      expect(auditRows.map((row) => row.action)).toEqual([
+        "event.register",
+        "event.cancel_registration",
+        "event.register",
+        "event.cancel_registration",
+      ]);
+      expect(auditRows.every((row) => row.actorUserId === customer.id)).toBe(true);
+    } finally {
+      if (registrationId) {
+        await prisma.auditLog.deleteMany({
+          where: {
+            entityType: "event_registration",
+            entityId: registrationId,
+          },
+        });
+        await prisma.walletTransaction.deleteMany({
+          where: {
+            eventRegistrationId: registrationId,
+          },
+        });
+        await prisma.eventRegistration.deleteMany({
+          where: { id: registrationId },
+        });
+      }
+      await prisma.clubEvent.deleteMany({
+        where: { id: event.id },
+      });
+    }
   });
 
   it("allows admin to correct payment and booking status after a mistake", async () => {

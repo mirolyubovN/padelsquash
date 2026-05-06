@@ -19,6 +19,10 @@ const ACTION_LABELS: Record<string, string> = {
   "booking.cancel": "Отмена бронирования",
   "booking.status_change": "Изменение статуса брони",
   "booking.payment_change": "Изменение статуса оплаты",
+  "event.register": "Запись на событие",
+  "event.cancel_registration": "Отмена записи на событие",
+  "event.cancel": "Отмена события",
+  "event.status_change": "Изменение статуса события",
   "court.create": "Создание корта",
   "court.update": "Редактирование корта",
   "court.delete": "Удаление корта",
@@ -36,6 +40,8 @@ const ACTION_LABELS: Record<string, string> = {
 
 const ENTITY_LABELS: Record<string, string> = {
   booking: "Бронирование",
+  event: "Событие",
+  event_registration: "Запись на событие",
   court: "Корт",
   instructor: "Тренер",
   sport: "Вид спорта",

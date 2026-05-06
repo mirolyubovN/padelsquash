@@ -109,7 +109,7 @@ function getCancellationState(args: {
     const blockedReason =
       cancellationRule.policyKind === "morning_previous_day_midnight"
         ? `Для утреннего времени (${MORNING_WINDOW_LABEL}) отмена доступна только до 00:00 предыдущего дня.`
-        : `Отмена без штрафа доступна не позднее чем за ${FREE_CANCELLATION_HOURS} часов до начала.`;
+        : `Отмена доступна не позднее чем за ${FREE_CANCELLATION_HOURS} часов до начала.`;
 
     return {
       canCancel: false,

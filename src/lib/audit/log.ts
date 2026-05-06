@@ -4,6 +4,10 @@ export type AuditAction =
   | "booking.cancel"
   | "booking.status_change"
   | "booking.payment_change"
+  | "event.register"
+  | "event.cancel_registration"
+  | "event.cancel"
+  | "event.status_change"
   | "court.create"
   | "court.update"
   | "court.delete"
@@ -18,7 +22,7 @@ export type AuditAction =
   | "wallet.admin_credit"
   | "wallet.admin_debit";
 
-export type AuditEntityType = "booking" | "court" | "instructor" | "sport" | "wallet";
+export type AuditEntityType = "booking" | "event" | "event_registration" | "court" | "instructor" | "sport" | "wallet";
 
 export interface AuditEventArgs {
   actorUserId?: string;

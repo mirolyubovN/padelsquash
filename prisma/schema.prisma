@@ -93,6 +93,12 @@ enum EventRegistrationStatus {
   cancelled
 }
 
+enum VerificationPurpose {
+  registration
+  email_change
+  phone_change
+}
+
 model User {
   id               String    @id @default(cuid())
   name             String
@@ -106,6 +112,8 @@ model User {
   phoneVerifiedAt  DateTime?
   telegramChatId   String?
   telegramUsername String?
+  pendingEmail     String?
+  pendingPhone     String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -116,6 +124,7 @@ model User {
   bookingHolds              BookingHold[]              @relation("BookingHoldCustomer")
   eventRegistrations        EventRegistration[]        @relation("EventRegistrationCustomer")
   emailVerificationTokens   EmailVerificationToken[]
+  emailVerificationCodes    EmailVerificationCode[]
   phoneVerificationSessions PhoneVerificationSession[]
 }
 
@@ -137,6 +146,11 @@ model PhoneVerificationSession {
   id               String    @id @default(cuid())
   userId           String
   startToken       String    @unique
+  purpose          VerificationPurpose @default(registration)
+  targetPhone      String
+  codeHash         String?
+  codeSentAt       DateTime?
+  codeAttemptCount Int       @default(0)
   telegramChatId   String?
   telegramUserId   String?
   telegramUsername String?
@@ -148,6 +162,23 @@ model PhoneVerificationSession {
 
   @@index([userId, expiresAt])
   @@index([telegramUserId, expiresAt])
+}
+
+model EmailVerificationCode {
+  id           String              @id @default(cuid())
+  userId       String
+  purpose      VerificationPurpose @default(registration)
+  targetEmail  String
+  codeHash     String
+  attemptCount Int                 @default(0)
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, expiresAt])
+  @@index([targetEmail, purpose, expiresAt])
 }
 
 model Location {

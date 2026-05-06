@@ -61,14 +61,14 @@ export default async function AdminEventsPage() {
 
   async function statusAction(formData: FormData) {
     "use server";
-    await assertAdmin();
+    const actionSession = await assertAdmin();
     const eventId = String(formData.get("eventId") ?? "");
     const statusRaw = String(formData.get("status") ?? "");
     const status = statusRaw === "draft" || statusRaw === "published" || statusRaw === "cancelled" ? statusRaw : null;
     if (!eventId || !status) {
       throw new Error("Некорректный статус события");
     }
-    await setEventStatus({ eventId, status });
+    await setEventStatus({ eventId, status, actorUserId: actionSession.user.id });
     revalidateEvents();
   }
 
@@ -81,12 +81,12 @@ export default async function AdminEventsPage() {
 
   async function cancelParticipantAction(formData: FormData) {
     "use server";
-    await assertAdmin();
+    const actionSession = await assertAdmin();
     const registrationId = String(formData.get("registrationId") ?? "");
     if (!registrationId) {
       throw new Error("Некорректная запись на событие");
     }
-    await cancelEventRegistrationByAdmin({ registrationId });
+    await cancelEventRegistrationByAdmin({ registrationId, actorUserId: actionSession.user.id });
     revalidateEvents();
   }
 

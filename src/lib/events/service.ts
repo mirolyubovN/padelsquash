@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { logAuditEvent } from "@/src/lib/audit/log";
 import { prisma } from "@/src/lib/prisma";
 import { venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 
@@ -665,15 +666,31 @@ export async function updateEventFromForm(formData: FormData) {
   });
 }
 
-export async function setEventStatus(input: { eventId: string; status: "draft" | "published" | "cancelled" }) {
+export async function setEventStatus(input: { eventId: string; status: "draft" | "published" | "cancelled"; actorUserId?: string }) {
   if (input.status === "cancelled") {
-    await cancelEventWithRefunds({ eventId: input.eventId });
+    await cancelEventWithRefunds({ eventId: input.eventId, actorUserId: input.actorUserId });
     return;
   }
 
-  await prisma.clubEvent.update({
+  const updated = await prisma.clubEvent.update({
     where: { id: input.eventId },
     data: { status: input.status },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+    },
+  });
+
+  await logAuditEvent({
+    actorUserId: input.actorUserId,
+    action: "event.status_change",
+    entityType: "event",
+    entityId: updated.id,
+    detail: {
+      eventTitle: updated.title,
+      status: updated.status,
+    },
   });
 }
 
@@ -722,7 +739,7 @@ export class EventRegistrationError extends Error {
 }
 
 export async function registerCustomerForEvent(args: { eventId: string; customerId: string }) {
-  return prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${args.eventId}))`;
 
@@ -823,14 +840,37 @@ export async function registerCustomerForEvent(args: { eventId: string; customer
               eventId: event.id,
               eventTitle: event.title,
             },
-          },
-        });
+            },
+          });
       }
 
-      return registration;
+      return {
+        registrationId: registration.id,
+        eventId: event.id,
+        eventTitle: event.title,
+        customerId: args.customerId,
+        priceKzt,
+        reactivated: Boolean(existing),
+      };
     },
     { isolationLevel: "Serializable" },
   );
+
+  await logAuditEvent({
+    actorUserId: args.customerId,
+    action: "event.register",
+    entityType: "event_registration",
+    entityId: result.registrationId,
+    detail: {
+      eventId: result.eventId,
+      eventTitle: result.eventTitle,
+      customerId: result.customerId,
+      priceKzt: result.priceKzt,
+      reactivated: result.reactivated,
+    },
+  });
+
+  return result;
 }
 
 async function cancelEventRegistrationInTx(
@@ -844,16 +884,22 @@ async function cancelEventRegistrationInTx(
       id: string;
       title: string;
     };
-    walletTransactions: Array<{ type: string }>;
+    walletTransactions: Array<{ type: string; amount: Prisma.Decimal }>;
   },
 ) {
   if (registration.status !== "confirmed") {
     return { cancelled: false, refundedKzt: 0 };
   }
 
-  const hasCharge = registration.walletTransactions.some((transaction) => transaction.type === "event_charge");
-  const hasRefund = registration.walletTransactions.some((transaction) => transaction.type === "event_refund");
   const refundKzt = Number(registration.pricePaidKzt);
+  const chargedKzt = registration.walletTransactions
+    .filter((transaction) => transaction.type === "event_charge")
+    .reduce((sum, transaction) => sum + Math.max(0, -Number(transaction.amount)), 0);
+  const alreadyRefundedKzt = registration.walletTransactions
+    .filter((transaction) => transaction.type === "event_refund")
+    .reduce((sum, transaction) => sum + Math.max(0, Number(transaction.amount)), 0);
+  const refundableKzt = Math.max(0, chargedKzt - alreadyRefundedKzt);
+  const refundToApplyKzt = Math.min(refundKzt, refundableKzt);
 
   await tx.eventRegistration.update({
     where: { id: registration.id },
@@ -863,7 +909,7 @@ async function cancelEventRegistrationInTx(
     },
   });
 
-  if (hasCharge && !hasRefund && refundKzt > 0) {
+  if (refundToApplyKzt > 0) {
     const user = await tx.user.findUnique({
       where: { id: registration.customerId },
       select: { walletBalance: true },
@@ -873,7 +919,7 @@ async function cancelEventRegistrationInTx(
       throw new EventRegistrationError("Пользователь не найден", "CUSTOMER_REQUIRED");
     }
 
-    const nextBalance = Number(user.walletBalance) + refundKzt;
+    const nextBalance = Number(user.walletBalance) + refundToApplyKzt;
     await tx.user.update({
       where: { id: registration.customerId },
       data: { walletBalance: toDecimalAmount(nextBalance) },
@@ -884,7 +930,7 @@ async function cancelEventRegistrationInTx(
         userId: registration.customerId,
         eventRegistrationId: registration.id,
         type: "event_refund",
-        amount: toDecimalAmount(refundKzt),
+        amount: toDecimalAmount(refundToApplyKzt),
         balanceAfter: toDecimalAmount(nextBalance),
         currency: "KZT",
         note: `Возврат события: ${registration.event.title}`,
@@ -896,11 +942,11 @@ async function cancelEventRegistrationInTx(
     });
   }
 
-  return { cancelled: true, refundedKzt: hasCharge && !hasRefund ? refundKzt : 0 };
+  return { cancelled: true, refundedKzt: refundToApplyKzt };
 }
 
 export async function cancelCustomerEventRegistration(args: { eventId: string; customerId: string }) {
-  return prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${args.eventId}))`;
 
@@ -922,6 +968,7 @@ export async function cancelCustomerEventRegistration(args: { eventId: string; c
           walletTransactions: {
             select: {
               type: true,
+              amount: true,
             },
           },
         },
@@ -935,16 +982,35 @@ export async function cancelCustomerEventRegistration(args: { eventId: string; c
         throw new EventRegistrationError("Нельзя отменить запись на прошедшее событие", "EVENT_IN_PAST");
       }
 
-      await cancelEventRegistrationInTx(tx, registration);
-
-      return registration;
+      const cancellation = await cancelEventRegistrationInTx(tx, registration);
+      return {
+        registrationId: registration.id,
+        eventId: registration.event.id,
+        eventTitle: registration.event.title,
+        refundedKzt: cancellation.refundedKzt,
+      };
     },
     { isolationLevel: "Serializable" },
   );
+
+  await logAuditEvent({
+    actorUserId: args.customerId,
+    action: "event.cancel_registration",
+    entityType: "event_registration",
+    entityId: result.registrationId,
+    detail: {
+      eventId: result.eventId,
+      eventTitle: result.eventTitle,
+      cancelledBy: "customer",
+      refundedKzt: result.refundedKzt,
+    },
+  });
+
+  return result;
 }
 
-export async function cancelEventRegistrationByAdmin(args: { registrationId: string }) {
-  return prisma.$transaction(
+export async function cancelEventRegistrationByAdmin(args: { registrationId: string; actorUserId?: string }) {
+  const result = await prisma.$transaction(
     async (tx) => {
       const registration = await tx.eventRegistration.findUnique({
         where: { id: args.registrationId },
@@ -958,6 +1024,7 @@ export async function cancelEventRegistrationByAdmin(args: { registrationId: str
           walletTransactions: {
             select: {
               type: true,
+              amount: true,
             },
           },
         },
@@ -968,15 +1035,37 @@ export async function cancelEventRegistrationByAdmin(args: { registrationId: str
       }
 
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${registration.event.id}))`;
-      await cancelEventRegistrationInTx(tx, registration);
-      return registration;
+      const cancellation = await cancelEventRegistrationInTx(tx, registration);
+      return {
+        registrationId: registration.id,
+        eventId: registration.event.id,
+        eventTitle: registration.event.title,
+        customerId: registration.customerId,
+        refundedKzt: cancellation.refundedKzt,
+      };
     },
     { isolationLevel: "Serializable" },
   );
+
+  await logAuditEvent({
+    actorUserId: args.actorUserId,
+    action: "event.cancel_registration",
+    entityType: "event_registration",
+    entityId: result.registrationId,
+    detail: {
+      eventId: result.eventId,
+      eventTitle: result.eventTitle,
+      customerId: result.customerId,
+      cancelledBy: "admin",
+      refundedKzt: result.refundedKzt,
+    },
+  });
+
+  return result;
 }
 
-export async function cancelEventWithRefunds(args: { eventId: string }) {
-  return prisma.$transaction(
+export async function cancelEventWithRefunds(args: { eventId: string; actorUserId?: string }) {
+  const result = await prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${args.eventId}))`;
 
@@ -995,6 +1084,7 @@ export async function cancelEventWithRefunds(args: { eventId: string }) {
               walletTransactions: {
                 select: {
                   type: true,
+                  amount: true,
                 },
               },
             },
@@ -1021,8 +1111,22 @@ export async function cancelEventWithRefunds(args: { eventId: string }) {
         data: { status: "cancelled" },
       });
 
-      return { eventId: args.eventId, cancelledCount, refundedKzt };
+      return { eventId: args.eventId, eventTitle: event.title, cancelledCount, refundedKzt };
     },
     { isolationLevel: "Serializable" },
   );
+
+  await logAuditEvent({
+    actorUserId: args.actorUserId,
+    action: "event.cancel",
+    entityType: "event",
+    entityId: result.eventId,
+    detail: {
+      eventTitle: result.eventTitle,
+      cancelledCount: result.cancelledCount,
+      refundedKzt: result.refundedKzt,
+    },
+  });
+
+  return result;
 }

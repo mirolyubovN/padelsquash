@@ -66,8 +66,8 @@ export default async function AccountPage({
     <div className="account-page">
       <PageHero
         eyebrow="Личный кабинет"
-        title="Профиль клиента"
-        description={`Профиль пользователя, баланс и сводка по бронированиям. ${cancellationPolicySummary}`}
+        title="Мой профиль"
+        description={`Баланс и сводка по бронированиям. ${cancellationPolicySummary}`}
       />
 
       <AccountTabs active="profile" />
