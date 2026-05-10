@@ -19,10 +19,19 @@ export type AuditAction =
   | "sport.create"
   | "sport.update"
   | "sport.delete"
+  | "staff.create"
+  | "staff.update"
+  | "staff.role_change"
+  | "staff.password_reset"
+  | "staff.activate"
+  | "staff.deactivate"
+  | "staff.trainer_link"
+  | "staff.trainer_unlink"
+  | "notification.daily_digest"
   | "wallet.admin_credit"
   | "wallet.admin_debit";
 
-export type AuditEntityType = "booking" | "event" | "event_registration" | "court" | "instructor" | "sport" | "wallet";
+export type AuditEntityType = "booking" | "event" | "event_registration" | "court" | "instructor" | "sport" | "system" | "user" | "wallet";
 
 export interface AuditEventArgs {
   actorUserId?: string;

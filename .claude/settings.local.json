@@ -24,7 +24,8 @@
       "Bash(kill %1:*)",
       "Bash(curl:*)",
       "Bash(node_modules/.bin/sass:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(npx vitest *)"
     ]
   }
 }

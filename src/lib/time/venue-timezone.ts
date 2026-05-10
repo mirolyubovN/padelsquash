@@ -53,17 +53,21 @@ export function toVenueIsoDate(input: Date | string): string {
   return `${year}-${month}-${day}`;
 }
 
+export function addVenueDays(date: string, days: number): string {
+  const nextDate = new Date(`${date}T00:00:00Z`);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  const yyyy = nextDate.getUTCFullYear();
+  const mm = String(nextDate.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(nextDate.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function venueDateTimeToUtc(date: string, time: string): Date {
   return fromZonedTime(`${date}T${time}:00`, APP_TIMEZONE);
 }
 
 export function venueDateRangeUtc(date: string): { startUtc: Date; endUtc: Date } {
   const startUtc = venueDateTimeToUtc(date, "00:00");
-  const nextDate = new Date(`${date}T00:00:00Z`);
-  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
-  const yyyy = nextDate.getUTCFullYear();
-  const mm = String(nextDate.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(nextDate.getUTCDate()).padStart(2, "0");
-  const endUtc = venueDateTimeToUtc(`${yyyy}-${mm}-${dd}`, "00:00");
+  const endUtc = venueDateTimeToUtc(addVenueDays(date, 1), "00:00");
   return { startUtc, endUtc };
 }

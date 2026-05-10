@@ -225,6 +225,8 @@ async function main() {
   ]);
 
   await prisma.$transaction(async (tx) => {
+    await tx.telegramLinkToken.deleteMany();
+    await tx.telegramChannelConfig.deleteMany();
     await tx.walletTransaction.deleteMany();
     await tx.eventRegistration.deleteMany();
     await tx.clubEventCourt.deleteMany();
@@ -287,6 +289,7 @@ async function main() {
         phone: superAdminPhone,
         passwordHash: superAdminPasswordHash,
         role: "super_admin",
+        active: true,
         emailVerifiedAt: new Date(),
         phoneVerifiedAt: new Date(),
       },
@@ -299,6 +302,7 @@ async function main() {
         phone: adminPhone,
         passwordHash: adminPasswordHash,
         role: "admin",
+        active: true,
         emailVerifiedAt: new Date(),
         phoneVerifiedAt: new Date(),
       },
@@ -385,6 +389,7 @@ async function main() {
         phone: trainerPhone,
         passwordHash: trainerPasswordHash,
         role: "trainer",
+        active: true,
         instructorId: trainerInstructorId,
         emailVerifiedAt: new Date(),
         phoneVerifiedAt: new Date(),
@@ -398,6 +403,7 @@ async function main() {
         phone: customerPhone,
         passwordHash: customerPasswordHash,
         role: "customer",
+        active: true,
         emailVerifiedAt: new Date(),
         phoneVerifiedAt: new Date(),
       },

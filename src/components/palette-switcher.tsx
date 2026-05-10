@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 type Theme = "green" | "orange";
 
@@ -12,22 +12,22 @@ function readStoredTheme(): Theme {
   return value === "orange" ? "orange" : "green";
 }
 
+function subscribeTheme(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("padelsquash-theme-change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("padelsquash-theme-change", callback);
+  };
+}
+
 export function PaletteSwitcher() {
-  const [theme, setTheme] = useState<Theme>("green");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setTheme(readStoredTheme());
-    setMounted(true);
-  }, []);
-
+  const theme = useSyncExternalStore(subscribeTheme, readStoredTheme, () => "green");
   function apply(next: Theme) {
-    setTheme(next);
     document.documentElement.setAttribute("data-theme", next);
     window.localStorage.setItem(STORAGE_KEY, next);
+    window.dispatchEvent(new Event("padelsquash-theme-change"));
   }
-
-  if (!mounted) return null;
 
   return (
     <div className="palette-switcher" role="group" aria-label="Тема оформления">

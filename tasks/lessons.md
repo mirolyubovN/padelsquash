@@ -1,5 +1,6 @@
 # Lessons
 
+- When implementing trainer notification features, include every paid/trainer-associated activity type in the notification surface, not only `Booking` rows; club events with `instructorId` must appear in common chat and trainer digests/DMs.
 - When the user changes geography/market assumptions, update all related defaults together immediately: timezone, currency code, locale formatting, seed pricing, and file/module names that encode the old location.
 - Keep demo/hardcoded values centralized in one source file and avoid fake per-item uniqueness when the real product treats items as identical (e.g., same-spec courts by sport).
 - Default to the simplest pricing model that matches the business: fixed matrices beat generic rule engines unless the user explicitly needs rule composition.

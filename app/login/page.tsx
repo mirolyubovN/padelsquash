@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
@@ -29,9 +29,11 @@ export default async function LoginPage({
   const errorCode =
     params.error === "verification_required"
       ? "verification_required"
-      : params.error === "credentials"
-        ? "credentials"
-        : undefined;
+      : params.error === "account_disabled"
+        ? "account_disabled"
+        : params.error === "credentials"
+          ? "credentials"
+          : undefined;
   const verificationEmail = typeof params.email === "string" ? params.email.trim().toLowerCase() : undefined;
   const verificationHref = `/register/verify?email=${encodeURIComponent(verificationEmail ?? "")}&next=${encodeURIComponent(next)}`;
 
@@ -48,6 +50,7 @@ export default async function LoginPage({
       select: {
         passwordHash: true,
         role: true,
+        active: true,
         emailVerifiedAt: true,
         phoneVerifiedAt: true,
         pendingEmail: true,
@@ -56,7 +59,7 @@ export default async function LoginPage({
     });
 
     let redirectTo = safeNext;
-    if (user) {
+    if (user?.active) {
       let passwordValid = false;
       try {
         passwordValid = await bcrypt.compare(password, user.passwordHash);
@@ -85,6 +88,9 @@ export default async function LoginPage({
         redirectTo,
       });
     } catch (error) {
+      if (error instanceof CredentialsSignin && (error as { code?: string }).code === "account_disabled") {
+        redirect(`/login?error=account_disabled&next=${encodeURIComponent(safeNext)}`);
+      }
       if (error instanceof AuthError) {
         redirect(`/login?error=credentials&next=${encodeURIComponent(safeNext)}`);
       }
@@ -121,6 +127,11 @@ export default async function LoginPage({
           </>
         ) : (
           <>
+            {errorCode === "account_disabled" ? (
+              <p className="auth-panel__notice" role="alert">
+                Аккаунт отключен. Обратитесь к супер-администратору клуба.
+              </p>
+            ) : null}
             <p className="auth-panel__hint">
               Нет аккаунта?{" "}
               <Link href={`/register?next=${encodeURIComponent(next)}`} className="auth-panel__link">
@@ -128,7 +139,7 @@ export default async function LoginPage({
               </Link>
             </p>
 
-            <LoginForm next={next} errorCode={errorCode} action={loginAction} />
+            <LoginForm next={next} errorCode={errorCode === "credentials" ? "credentials" : undefined} action={loginAction} />
           </>
         )}
       </AuthPanel>

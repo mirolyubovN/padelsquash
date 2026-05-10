@@ -99,6 +99,12 @@ See `.env.example` for the full list.
 | `TELEGRAM_BOT_TOKEN` | - | Telegram bot token for phone confirmation + notifications |
 | `TELEGRAM_BOT_USERNAME` | - | Telegram bot username (without `@`) for deep-links |
 | `ENABLE_TELEGRAM_VERIFY_BOT` | `true` | Start the no-webhook Telegram polling bot for phone confirmation |
+| `ENABLE_DAILY_DIGEST` | `true` | Start the trainer/common-chat daily digest scheduler |
+| `DAILY_DIGEST_HOUR` | `21` | Venue-hour for the daily digest in `APP_TIMEZONE` |
+| `TELEGRAM_LINK_TTL_MINUTES` | `30` | Trainer Telegram subscription link lifetime |
+| `TRAINER_DM_CREATE_HORIZON_HOURS` | `48` | Trainer DM window for newly created bookings |
+| `TRAINER_DM_CANCEL_HORIZON_HOURS` | `168` | Trainer DM window for cancelled bookings |
+| `CRON_SECRET` | - | Bearer token for `POST /api/cron/daily-digest` |
 | `ALLOW_DEMO_FALLBACK` | `false` | Fall back to demo data if DB is unavailable |
 | `SEED_SUPER_ADMIN_EMAIL` | `admin@example.com` | Seeded super-admin email |
 | `SEED_SUPER_ADMIN_PASSWORD` | `Admin123!` | Seeded super-admin password |
@@ -163,6 +169,8 @@ Restart `npm run dev` after changing `.env`.
 | `trainer` | Manage own schedule and availability at `/trainer/schedule` |
 | `admin` | Operational admin panel, customer creation, manual balance adjustments, manual bookings, event operations |
 | `super_admin` | Full admin access, including sports/pricing/wallet bonus/media configuration |
+
+Super-admins manage staff accounts at `/admin/staff`: create `admin`, `super_admin`, and `trainer` users, issue activation links, reset passwords, deactivate accounts, and link trainer users to `Instructor` cards.
 
 ---
 
@@ -267,6 +275,28 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 - Clicking a customer name/email in `/admin/bookings` also opens `/admin/clients/[customerId]`.
 - `/admin/clients/[customerId]` shows customer balance, full booking history, and recent wallet operations.
 
+### Staff & Role Management
+
+Super-admins manage staff from `/admin/staff`.
+
+- Staff roles: `admin`, `super_admin`, and `trainer`.
+- New staff can receive an activation link for `/activate-account` or a manually set initial password.
+- Staff accounts have an `active` flag; inactive users cannot log in or continue through protected admin/trainer routes.
+- Trainer accounts must be linked to an `Instructor` card to access `/trainer/schedule`; `/admin/staff` supports linking existing cards or creating a new card inline.
+- Safety rules prevent self-deactivation, self-demotion, and disabling the last active super-admin.
+- Staff create/update/role/password/activation/link actions are written to `AuditLog`.
+
+### Notifications
+
+Telegram notifications use the no-webhook polling bot started from `instrumentation.ts`.
+
+- `/admin/settings/telegram` lets super-admins configure one common operations chat manually or by sending `/registerchat <secret>` in a Telegram group.
+- `/trainer/notifications` lets trainers connect or disconnect their personal Telegram DM using a time-limited `/start trainer_<token>` link.
+- Booking create/cancel notifications still go to admins; every booking event also goes to the common chat when configured, and trainer DMs are sent only inside the configured horizon windows.
+- Club event registrations/cancellations also notify the common chat and the assigned trainer when the event has an instructor.
+- Daily digest runs at `DAILY_DIGEST_HOUR` in `APP_TIMEZONE`: the common chat receives tomorrow's bookings and trainer-associated events grouped by trainer, and each subscribed trainer receives only their own schedule.
+- `POST /api/cron/daily-digest` can trigger the same digest manually with `Authorization: Bearer <CRON_SECRET>`.
+
 ### Admin Booking Operations
 
 - `/admin/calendar` blocks past-time booking creation.
@@ -284,8 +314,8 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
   - `wallet`: wallet-only (insufficient balance returns hold/top-up flow)
   - `cash`: manual in-club payment (cash or card) without wallet debit
 - Client balance is shown inline on admin booking create and updates by customer email lookup.
-- New booking/cancellation notifications are dispatched to admins.
-- Training session create/cancel notifications are dispatched to the assigned trainer.
+- New booking/cancellation notifications are dispatched to admins and the common Telegram chat.
+- Training and instructor-associated event create/cancel notifications are dispatched to the assigned trainer inside the configured DM horizon.
 
 ---
 
@@ -321,6 +351,7 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 | --- | --- |
 | `/trainer` | Trainer dashboard |
 | `/trainer/schedule` | Own availability and exceptions |
+| `/trainer/notifications` | Personal Telegram notification connection |
 
 ### Admin
 
@@ -334,17 +365,30 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 | `/admin/events` | Event creation, recurring instances, participants, CSV export, cancellation/refunds |
 | `/admin/media` | Super-admin media upload/library management |
 | `/admin/wallet` | Customer search/create, balance adjustments, bonus settings |
+| `/admin/staff` | Super-admin staff account and role management |
+| `/admin/settings/telegram` | Common Telegram operations chat settings |
 | `/admin/sports` | Centralized sport setup |
 | `/admin/courts` | Court management |
-| `/admin/instructors` | Trainer management |
+| `/admin/instructors` | Trainer card management (bio, photo, sport prices, schedule, week overrides) |
+| `/admin/instructors/[id]` | Trainer profile + sessions + earnings (super admin) |
+| `/admin/services` | Service catalog (court rental / training) |
+| `/admin/pricing/base` | Base court/instructor price matrix |
+| `/admin/pricing/rules` | Period-based price rules (morning / day / evening_weekend) |
 | `/admin/opening-hours` | Opening hours |
-| `/admin/exceptions` | Schedule exceptions |
+| `/admin/exceptions` | Schedule exceptions (closures, maintenance) |
+| `/admin/audit` | Audit log viewer |
 
 ### Integrations / Webhooks
 
 | Route | Description |
 | --- | --- |
-| Telegram polling bot | Started server-side from `instrumentation.ts` for phone confirmation |
+| Telegram polling bot | Started server-side from `instrumentation.ts` for phone confirmation; gated by `ENABLE_TELEGRAM_VERIFY_BOT` |
+| `app/api/cron/daily-digest` | Manual/external daily digest trigger with bearer `CRON_SECRET` |
+| `app/api/availability` | Booking availability lookup |
+| `app/api/bookings` | Booking creation API (single + multi-slot series) |
+| `app/api/bookings/holds` | Hold creation for top-up resume |
+| `app/api/admin/customers` | Admin customer creation/management |
+| `app/api/admin/upload` | Admin media upload |
 
 ---
 
@@ -459,3 +503,12 @@ Important: keep `NEXTAUTH_URL` and Playwright `baseURL` on `localhost`, not `127
 - Public redesign is still in preview/iteration state; `/preview/citysquash-style` exists but `/` has not been fully replaced.
 - CI and deployment documentation are still minimal.
 - Monitoring, alerts, backups, and production ops procedures are not complete.
+- No promo code support on bookings.
+
+## Upcoming Features (Specs)
+
+Detailed implementation specs for the next features land in [`tasks/`](tasks/):
+
+| Feature | Spec |
+| --- | --- |
+| Promo codes for bookings (admin-managed, customer-applied) | [`tasks/feature-promo-codes.md`](tasks/feature-promo-codes.md) |

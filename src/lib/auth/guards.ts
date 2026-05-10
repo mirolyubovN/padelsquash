@@ -33,6 +33,32 @@ function withRole(session: Session, role: AppRole): SessionWithRole {
   };
 }
 
+async function getSessionUserActive(session: Session): Promise<boolean> {
+  const userId = typeof session.user?.id === "string" ? session.user.id : "";
+  if (!userId) {
+    return false;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { active: true },
+  });
+
+  return Boolean(user?.active);
+}
+
+async function requireActiveSessionUser(session: Session): Promise<void> {
+  if (!(await getSessionUserActive(session))) {
+    redirect("/login?error=account_disabled");
+  }
+}
+
+async function assertActiveSessionUser(session: Session): Promise<void> {
+  if (!(await getSessionUserActive(session))) {
+    throw new Error("Аккаунт отключен");
+  }
+}
+
 export async function requireAdmin() {
   const session = await auth();
 
@@ -40,6 +66,7 @@ export async function requireAdmin() {
     redirect("/login?next=%2Fadmin");
   }
 
+  await requireActiveSessionUser(session);
   const role = normalizeRole(session.user.role);
 
   if (!canAccessAdminPortal(role)) {
@@ -56,6 +83,7 @@ export async function requireSuperAdmin() {
     redirect("/login?next=%2Fadmin");
   }
 
+  await requireActiveSessionUser(session);
   const role = normalizeRole(session.user.role);
 
   if (!canManagePricing(role)) {
@@ -72,6 +100,7 @@ export async function requireTrainer(nextPath = "/trainer/schedule") {
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 
+  await requireActiveSessionUser(session);
   const role = normalizeRole(session.user.role);
   const instructorId = typeof session.user.instructorId === "string" ? session.user.instructorId : null;
 
@@ -89,6 +118,7 @@ export async function requireInstructorScheduleAccess(instructorId: string, next
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 
+  await requireActiveSessionUser(session);
   const role = normalizeRole(session.user.role);
   const sessionInstructorId =
     typeof session.user.instructorId === "string" ? session.user.instructorId : null;
@@ -111,6 +141,7 @@ export async function requireAuthenticatedUser(nextPath = "/account") {
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 
+  await requireActiveSessionUser(session);
   const role = normalizeRole(session.user.role);
   if (role === "customer") {
     const userId = typeof session.user.id === "string" ? session.user.id : "";
@@ -150,6 +181,7 @@ export async function assertAdmin() {
   if (!session?.user) {
     throw new Error("Недостаточно прав");
   }
+  await assertActiveSessionUser(session);
   const role = normalizeRole(session.user.role);
   if (!canAccessAdminPortal(role)) {
     throw new Error("Недостаточно прав");
@@ -162,6 +194,7 @@ export async function assertSuperAdmin() {
   if (!session?.user) {
     throw new Error("Недостаточно прав");
   }
+  await assertActiveSessionUser(session);
   const role = normalizeRole(session.user.role);
   if (!canManagePricing(role)) {
     throw new Error("Недостаточно прав");
@@ -174,6 +207,7 @@ export async function assertTrainer() {
   if (!session?.user) {
     throw new Error("Недостаточно прав");
   }
+  await assertActiveSessionUser(session);
   const role = normalizeRole(session.user.role);
   const instructorId = typeof session.user.instructorId === "string" ? session.user.instructorId : null;
   if (!canAccessTrainerPortal(role) || !instructorId) {
@@ -187,6 +221,7 @@ export async function assertInstructorScheduleAccess(instructorId: string) {
   if (!session?.user) {
     throw new Error("Недостаточно прав");
   }
+  await assertActiveSessionUser(session);
 
   const role = normalizeRole(session.user.role);
   const sessionInstructorId =
@@ -206,6 +241,9 @@ export async function assertInstructorScheduleAccess(instructorId: string) {
 export async function isAdminSession(): Promise<boolean> {
   const session = await auth();
   if (!session?.user) {
+    return false;
+  }
+  if (!(await getSessionUserActive(session))) {
     return false;
   }
   return canAccessAdminPortal(normalizeRole(session.user.role));

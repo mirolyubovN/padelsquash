@@ -3,11 +3,11 @@ export async function register() {
     return;
   }
 
-  if (process.env.ENABLE_TELEGRAM_VERIFY_BOT === "false") {
-    return;
+  if (process.env.ENABLE_TELEGRAM_VERIFY_BOT !== "false") {
+    const { startTelegramVerifyBot } = await import("@/src/lib/notifications/telegram-verify-bot");
+    startTelegramVerifyBot();
   }
 
-  const { startTelegramVerifyBot } = await import("@/src/lib/notifications/telegram-verify-bot");
-  startTelegramVerifyBot();
+  const { startDailyDigestScheduler } = await import("@/src/lib/notifications/daily-digest-scheduler");
+  startDailyDigestScheduler();
 }
-

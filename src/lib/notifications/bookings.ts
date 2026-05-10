@@ -3,6 +3,8 @@ import { prisma } from "@/src/lib/prisma";
 import { isoToVenueTimezoneParts } from "@/src/lib/time/venue-timezone";
 import { sendEmailMessage } from "@/src/lib/notifications/email";
 import { sendTelegramMessage } from "@/src/lib/notifications/telegram";
+import { resolveCommonChatRecipient } from "@/src/lib/notifications/telegram-channels";
+import { shouldDmTrainersForEvent } from "@/src/lib/notifications/trainer-dm-policy";
 
 type BookingNotificationEvent = "created" | "cancelled";
 type CancellationSource = "customer" | "admin" | "trainer";
@@ -100,8 +102,31 @@ async function deliverToRecipient(recipient: NotificationRecipient, payload: { s
           chatId: recipient.telegramChatId,
           text: payload.text,
         })
-      : Promise.resolve(false),
+      : Promise.resolve(null),
   ]);
+}
+
+async function deliverTrainerDm(recipient: NotificationRecipient, payload: { text: string }) {
+  if (!recipient.telegramChatId) {
+    return false;
+  }
+
+  const result = await sendTelegramMessage({
+    chatId: recipient.telegramChatId,
+    text: payload.text,
+  });
+
+  if (!result.ok && result.reason === "chat_unreachable") {
+    await prisma.user.update({
+      where: { id: recipient.id },
+      data: {
+        telegramChatId: null,
+        telegramUsername: null,
+      },
+    }).catch(() => null);
+  }
+
+  return result.ok;
 }
 
 async function loadBookingNotificationContext(bookingId: string): Promise<BookingNotificationContext | null> {
@@ -248,9 +273,10 @@ async function notifyForBookingEvent(args: {
     return;
   }
 
-  const [adminRecipients, trainerRecipients] = await Promise.all([
+  const [adminRecipients, trainerRecipients, commonChat] = await Promise.all([
     resolveAdminRecipients(),
     resolveTrainerRecipients(context.instructorIds),
+    resolveCommonChatRecipient(),
   ]);
 
   const adminPayload = buildAdminMessage({
@@ -260,13 +286,27 @@ async function notifyForBookingEvent(args: {
   });
   await Promise.all(adminRecipients.map((recipient) => deliverToRecipient(recipient, adminPayload)));
 
-  if (trainerRecipients.length > 0) {
+  if (commonChat) {
+    await sendTelegramMessage({
+      chatId: commonChat.chatId,
+      text: adminPayload.text,
+    });
+  }
+
+  if (
+    trainerRecipients.length > 0 &&
+    shouldDmTrainersForEvent({
+      event: args.event,
+      bookingStartAt: context.startAt,
+      now: new Date(),
+    })
+  ) {
     const trainerPayload = buildTrainerMessage({
       event: args.event,
       context,
       cancelledBy: args.cancelledBy,
     });
-    await Promise.all(trainerRecipients.map((recipient) => deliverToRecipient(recipient, trainerPayload)));
+    await Promise.all(trainerRecipients.map((recipient) => deliverTrainerDm(recipient, trainerPayload)));
   }
 }
 

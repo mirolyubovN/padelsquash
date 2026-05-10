@@ -55,7 +55,6 @@ function parseWeekParam(week: string | undefined): string | null {
 function getEarningsDateRange(period: string): { dateFrom: string; dateTo: string; label: string } {
   const now = new Date();
   const almaty = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-  const todayIso = almaty.toISOString().split("T")[0];
 
   if (period === "week") {
     const day = almaty.getUTCDay();
@@ -226,6 +225,12 @@ export default async function TrainerSchedulePage({
         title={`Мое расписание: ${data.instructor.name}`}
         description="Управляйте доступными интервалами и исключениями без лишних разделов админ-панели."
       />
+
+      <div className="admin-bookings__actions">
+        <Link href="/trainer/notifications" className="admin-bookings__action-button">
+          Telegram-уведомления
+        </Link>
+      </div>
 
       <div className="admin-table">
         <table className="admin-table__table">

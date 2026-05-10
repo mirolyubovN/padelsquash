@@ -4,10 +4,43 @@ interface TelegramSendMessageInput {
   replyMarkup?: Record<string, unknown>;
 }
 
+export type TelegramSendResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "not_configured" | "transient" | "chat_unreachable";
+      status?: number;
+      description?: string;
+    };
+
+const CHAT_UNREACHABLE_DESCRIPTIONS = [
+  "bot was blocked by the user",
+  "user is deactivated",
+  "chat not found",
+  "bot was kicked",
+  "chat_write_forbidden",
+  "have no rights to send a message",
+  "group chat was upgraded",
+  "peer_id_invalid",
+];
+
+function classifyTelegramFailure(status: number, description: string): "transient" | "chat_unreachable" {
+  if (status === 403) return "chat_unreachable";
+  if (status === 400) {
+    const lower = description.toLowerCase();
+    if (CHAT_UNREACHABLE_DESCRIPTIONS.some((needle) => lower.includes(needle))) {
+      return "chat_unreachable";
+    }
+  }
+  return "transient";
+}
+
 export interface TelegramUpdateMessage {
   message_id?: number;
   chat?: {
     id?: number | string;
+    title?: string;
+    type?: string;
   };
   from?: {
     id?: number | string;
@@ -46,11 +79,11 @@ function getTelegramApiUrl(path: string): string | null {
   return `https://api.telegram.org/bot${token}/${path}`;
 }
 
-export async function sendTelegramMessage(input: TelegramSendMessageInput): Promise<boolean> {
+export async function sendTelegramMessage(input: TelegramSendMessageInput): Promise<TelegramSendResult> {
   const url = getTelegramApiUrl("sendMessage");
   if (!url) {
     console.info("[telegram] Bot token is not configured; skipping message delivery", { chatId: input.chatId });
-    return false;
+    return { ok: false, reason: "not_configured" };
   }
 
   try {
@@ -67,19 +100,32 @@ export async function sendTelegramMessage(input: TelegramSendMessageInput): Prom
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      console.error("[telegram] Telegram API responded with error", {
-        status: response.status,
-        body: errorText,
-      });
-      return false;
+    if (response.ok) {
+      return { ok: true };
     }
 
-    return true;
+    const errorText = await response.text().catch(() => "");
+    let description = errorText;
+    try {
+      const parsed = JSON.parse(errorText) as { description?: string };
+      if (parsed?.description) description = parsed.description;
+    } catch {
+      // keep raw text
+    }
+
+    console.error("[telegram] Telegram API responded with error", {
+      status: response.status,
+      body: errorText,
+    });
+    return {
+      ok: false,
+      reason: classifyTelegramFailure(response.status, description),
+      status: response.status,
+      description,
+    };
   } catch (error) {
     console.error("[telegram] Failed to send Telegram message", { error });
-    return false;
+    return { ok: false, reason: "transient" };
   }
 }
 

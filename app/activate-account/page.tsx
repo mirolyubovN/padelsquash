@@ -12,7 +12,7 @@ import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
   title: "Активация аккаунта | Padel & Squash KZ",
-  description: "Задайте пароль для доступа в личный кабинет клиента.",
+  description: "Задайте пароль для доступа к аккаунту.",
   path: "/activate-account",
   noIndex: true,
 });
@@ -142,7 +142,7 @@ export default async function ActivateAccountPage({
       <PageHero
         eyebrow="Активация"
         title="Задайте пароль для аккаунта"
-        description="После установки пароля вы сможете входить в личный кабинет и управлять своими бронированиями."
+        description="После установки пароля вы сможете войти в свой раздел платформы."
       />
 
       <AuthPanel title="Активация аккаунта" titleId="activate-account-title" brandSubtitle="Доступ к личному кабинету">
@@ -166,7 +166,7 @@ export default async function ActivateAccountPage({
           ) : (
             <>
               <div className="auth-form__group">
-                <label className="auth-form__label">Клиент</label>
+                <label className="auth-form__label">Аккаунт</label>
                 <div className="auth-form__field" aria-readonly="true">{activationUser.name}</div>
               </div>
               <div className="auth-form__group">

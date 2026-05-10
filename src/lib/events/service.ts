@@ -3,6 +3,11 @@ import { z } from "zod";
 import { logAuditEvent } from "@/src/lib/audit/log";
 import { prisma } from "@/src/lib/prisma";
 import { venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
+import {
+  notifyClubEventCancelled,
+  notifyEventRegistrationCancelled,
+  notifyEventRegistrationCreated,
+} from "@/src/lib/notifications/events";
 
 const eventCategoryLabels: Record<string, string> = {
   club_day: "Клубный день",
@@ -870,6 +875,8 @@ export async function registerCustomerForEvent(args: { eventId: string; customer
     },
   });
 
+  await notifyEventRegistrationCreated({ registrationId: result.registrationId });
+
   return result;
 }
 
@@ -1006,6 +1013,8 @@ export async function cancelCustomerEventRegistration(args: { eventId: string; c
     },
   });
 
+  await notifyEventRegistrationCancelled({ registrationId: result.registrationId });
+
   return result;
 }
 
@@ -1060,6 +1069,8 @@ export async function cancelEventRegistrationByAdmin(args: { registrationId: str
       refundedKzt: result.refundedKzt,
     },
   });
+
+  await notifyEventRegistrationCancelled({ registrationId: result.registrationId });
 
   return result;
 }
@@ -1127,6 +1138,8 @@ export async function cancelEventWithRefunds(args: { eventId: string; actorUserI
       refundedKzt: result.refundedKzt,
     },
   });
+
+  await notifyClubEventCancelled({ eventId: result.eventId });
 
   return result;
 }

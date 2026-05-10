@@ -1,3 +1,75 @@
+# Session Todo (2026-05-10 - trainer Telegram notifications)
+
+## Plan
+
+- [x] Add Prisma schema/migrations for `TelegramChannelConfig`, `TelegramLinkToken`, and `TelegramLinkPurpose`; update generated client and seed cleanup safety.
+- [x] Generalize the polling bot from customer verification only to a shared Telegram bot dispatcher with `/start trainer_<token>`, `/registerchat <secret>`, `/getchatid`, and existing contact-share handling preserved.
+- [x] Add common Telegram channel settings service and `/admin/settings/telegram` for manual chat ID, signed registration secret, test message, disconnect, and manual digest trigger.
+- [x] Add trainer notification service and `/trainer/notifications` with deep link generation, connection status, and disconnect flow; link it from trainer schedule.
+- [x] Refactor booking notifications so common chat receives all booking create/cancel events, while trainer DMs are gated by `TRAINER_DM_CREATE_HORIZON_HOURS` / `TRAINER_DM_CANCEL_HORIZON_HOURS`.
+- [x] Add daily digest worker, cron startup in `instrumentation.ts`, and `POST /api/cron/daily-digest` with bearer `CRON_SECRET`, including trainer-associated club events.
+- [x] Add env/docs/nav updates for Telegram channel, trainer notifications, digest, and new routes; remove completed trainer notification known-gap/upcoming-spec notes.
+- [x] Add focused unit/integration coverage for trainer DM policy, trainer link token consumption, register-chat secret handling, and daily digest formatting.
+- [x] Run Prisma format/generate/migrate, targeted tests, lint, build, and final diff checks.
+
+## Review
+
+- Implemented trainer Telegram notifications:
+  - Common operations chat settings at `/admin/settings/telegram`.
+  - Trainer DM connection management at `/trainer/notifications`.
+  - Shared Telegram polling commands for `/start trainer_<token>`, `/registerchat <secret>`, `/getchatid`, and existing customer phone verification.
+  - Booking create/cancel notifications to common chat plus horizon-gated trainer DMs.
+  - Club event registration/cancellation/full-cancellation notifications to common chat and the assigned trainer when the event has an instructor.
+  - Daily digest scheduler and bearer-protected `POST /api/cron/daily-digest`, including tomorrow's bookings and trainer-associated club events grouped by trainer.
+- Updated README, `.env.example`, route docs, `docs/next-session-prompt.md`, and lessons. Feature 3 in the handoff is now promo codes.
+- Verification completed:
+  - `npx prisma format`
+  - `npx prisma generate`
+  - `npx prisma migrate deploy`
+  - `npx eslint src\lib\notifications\daily-digest.ts src\lib\notifications\events.ts src\lib\trainer\notifications.ts src\lib\events\service.ts tests\unit\daily-digest.test.ts`
+  - `npx tsc --noEmit --incremental false`
+  - `npx vitest run tests\unit\trainer-dm-policy.test.ts tests\unit\daily-digest.test.ts`
+  - `npx eslint tests\integration\telegram-notifications.test.ts`
+  - `npx vitest run tests\integration\telegram-notifications.test.ts --maxWorkers=1`
+  - `npm run lint` passed with existing `<img>` warnings only.
+  - `npm run build` passed.
+  - `git diff --check` passed with CRLF warnings only.
+- Live Telegram delivery was not manually exercised because no real bot token/chat was provided in this session; delivery code was verified through service tests and build/type checks.
+
+---
+# Session Todo (2026-05-10 - user role management)
+
+## Plan
+
+- [x] Confirm scope for Feature 1: super-admin staff management at `/admin/staff`, including `User.active`, staff CRUD, password reset/activation links, trainer-to-instructor linking, audit logging, and docs/test updates.
+- [x] Add and apply Prisma migration `20260601002000_user_active_flag`; update `prisma/schema.prisma`, generated client, and `prisma/seed.ts` so seeded users are explicitly active.
+- [x] Update auth and guards so inactive users cannot log in or continue through admin/trainer/customer guarded routes; surface `account_disabled` in the login UI.
+- [x] Extract staff management server logic into `src/lib/admin/staff.ts` plus Zod validation in `src/lib/admin/staff-schema.ts`, reusing the account setup token flow for any staff role.
+- [x] Implement safety rules server-side: super-admin only, no self-deactivate, no self-demote, no deactivating the last active super admin, trainer role requires an instructor link, and friendly duplicate-email handling.
+- [x] Build `/admin/staff` list/create/manage UI following existing admin table/modal patterns, including role/active/search filters, activation-link display, admin/super-admin role changes, password reset, and trainer instructor relink/unlink.
+- [x] Add `/admin/staff` to the super-admin navigation and keep all visible UI strings Russian-only.
+- [x] Add focused unit/integration coverage for staff actions, auth disabled-user behavior, and trainer inline/link creation; add a Playwright smoke for creating/activating staff where practical.
+- [x] Update README routes/core-flow/user-role notes and remove the staff-management known gap/upcoming-spec entry after the feature is complete.
+- [x] Run verification: `npx prisma format`, `npx prisma generate`, `npx prisma migrate deploy`, targeted tests, `npm run lint`, `npm run build`, and browser smoke for `/admin/staff`.
+
+## Review
+
+- Planning only so far. Read `docs/next-session-prompt.md`, `README.md`, `tasks/lessons.md`, `tasks/feature-user-role-management.md`, related feature specs, `prisma/schema.prisma`, local Next 16 docs for routes/forms/server-client components, and existing auth/admin activation patterns.
+- Current working tree already had uncommitted docs/spec changes before implementation work: `README.md`, `docs/next-session-prompt.md`, and the three `tasks/feature-*.md` files.
+- Implemented `User.active`, staff management at `/admin/staff`, inactive-account auth/guard handling, staff server actions/schemas, manual password confirmation, audit action types, nav/docs updates, integration coverage, and Playwright activation smoke.
+- Verification completed so far:
+  - `npx prisma generate` passed.
+  - `npx prisma format` passed after rerun with approval; initial sandbox run hit `EPERM` writing `prisma/schema.prisma`.
+  - `npx prisma migrate deploy` applied `20260601002000_user_active_flag`.
+  - Targeted `npx eslint ...` passed for new/changed feature files.
+  - `npx tsc --noEmit --incremental false` passed.
+  - `npx vitest run tests/integration/staff-service.test.ts --maxWorkers=1` passed.
+  - `npm run test:e2e -- tests/e2e/16-admin-staff.spec.ts` passed.
+  - `npm run lint` passed after fixing the pre-existing `src/components/palette-switcher.tsx` `react-hooks/set-state-in-effect` error with `useSyncExternalStore`; remaining output is warnings only.
+  - `npm run build` passed.
+- Note: `npm run test:integration -- tests/integration/staff-service.test.ts` also ran the whole integration suite because of the script argument order; the staff tests passed, but existing `tests/integration/booking-persistence.test.ts` failed in `does not let a foreign hold id bypass an active hold conflict` with an empty `holdId`.
+
+---
 # Session Todo (2026-05-06 - no-webhook Telegram verification config)
 
 ## Plan
