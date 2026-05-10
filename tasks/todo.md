@@ -1,3 +1,59 @@
+# Session Todo (2026-05-06 - no-webhook Telegram verification config)
+
+## Plan
+
+- [x] Add customer account email-change action with uniqueness validation, pending email storage, and fresh confirmation code.
+- [x] Show email/phone verification status and contact-change controls on `/account`.
+- [x] Ensure changed phone is pending until Telegram contact confirmation replaces the canonical phone.
+- [x] Ensure verification auto-redirect works after an email change even when the JWT still contains the old email.
+- [x] Verify targeted account/auth pages with lint/build/diff checks.
+- [x] Extract shared auth panel components and replace duplicated auth-panel chrome.
+- [x] Remove redundant auth CTAs: duplicate register links, auth-page `На главную`, and login links while verification is still pending.
+- [x] Verify targeted auth pages with lint/build/diff checks.
+- [x] Replace Telegram webhook-based phone verification with a no-webhook polling path that uses the existing bot token and pending phone sessions.
+- [x] Remove the `/api/telegram/webhook` route and webhook-secret env/docs references.
+- [x] Update README/devops/env example to list only the required SMTP and Telegram variables.
+- [x] Document local email testing with a local SMTP inbox client.
+- [x] Run targeted lint/build verification and record results.
+- [x] Remove redundant Telegram link refresh button from `/register/verify` and clarify phone mismatch guidance.
+- [x] Add pre-login email/phone correction on `/register/verify` with fresh verification issuance.
+
+## Review
+
+- Compared against `D:\Websites\ng\backend\src\services\telegram-verify-bot.ts` and matched its long-polling pattern: singleton bot, `getUpdates` with offset, `/start` instructions, contact-share handling, and phone matching against pending verification.
+- Added `instrumentation.ts` to start the polling bot in the Node.js server runtime. Set `ENABLE_TELEGRAM_VERIFY_BOT="false"` to disable it locally.
+- Deleted `/api/telegram/webhook`; no `TELEGRAM_WEBHOOK_SECRET`, public tunnel, or webhook setup is needed now.
+- Updated `.env.example`, `README.md`, and `docs/devops-postgres.md` with the new variables and local email testing instructions.
+- Verification:
+  - `npx eslint instrumentation.ts src\lib\notifications\telegram.ts src\lib\notifications\telegram-verify-bot.ts src\lib\auth\verification.ts app\register\verify\page.tsx` passed.
+  - `git diff --check` passed with CRLF warnings only.
+  - `npm run build` passed.
+- Follow-up correction:
+  - Removed the redundant `Обновить Telegram-ссылку` action from `/register/verify`; the page already creates an active phone session automatically when needed.
+  - Updated Telegram bot mismatch copy so it explains that the shared Telegram contact phone must match the registration phone.
+  - Verification: `npx eslint app\register\verify\page.tsx src\lib\notifications\telegram-verify-bot.ts` passed; `npm run build` passed.
+- Login/verification UX follow-up:
+  - Successful password login now creates a session even if the customer still needs email/phone confirmation.
+  - Unverified customer account routes redirect to `/register/verify`; once both checks pass, the active session is redirected to the requested profile/account page automatically.
+  - `/login?error=verification_required` keeps a fallback verification-instructions card and no login form.
+  - The login form component now only renders credential errors.
+  - `/register/verify` now lets pending customers correct email and phone behind an explicit locked `Изменить email или телефон` disclosure, resets changed verification fields, issues fresh email/Telegram verification, and redirects to the updated email.
+  - Added visible confirmed-state messages for email and phone and spacing for `account-history__message`.
+  - Verification: `npx eslint auth.ts app\login\page.tsx app\register\verify\page.tsx app\verify\email\page.tsx src\lib\auth\guards.ts` passed; `npm run build` passed.
+- Auth panel dedupe follow-up:
+  - Added shared `AuthPanel`, `AuthPanelBrand`, and `AuthPanelLinks` components for auth-page chrome.
+  - Replaced duplicated panel markup on login, register, forgot-password, activate-account, unauthorized, register verification, and email verification pages.
+  - Removed auth-flow `На главную` links and the second login-page registration CTA; verification pages no longer show a login link while confirmation is still pending.
+  - Verification: targeted `npx eslint` passed; `npm run build` passed; `git diff --check` passed with CRLF warnings only.
+- Account contact-change verification follow-up:
+  - `/account` now shows email/phone verification state and separate email-change form.
+  - Email changes are stored in `pendingEmail`, send a 6-digit email code, and only replace `User.email` after code confirmation.
+  - Phone changes are stored in `pendingPhone`, create a Telegram verification session for that target phone, and only replace `User.phone` after Telegram contact confirmation.
+  - Customer guards treat pending email/phone as unverified, so users cannot bypass confirmation by navigating back to `/account`.
+  - Added migration `20260506120000_contact_change_verification` for pending contact fields and email-code verification storage; applied it locally with `npx prisma migrate deploy`.
+  - Verification: `npx prisma generate` passed after stopping exact Prisma DLL locking PID 21004; targeted `npx eslint` passed; `npm run build` passed.
+
+---
 # Session Todo (2026-05-05 - optional email for admin new client)
 
 ## Plan

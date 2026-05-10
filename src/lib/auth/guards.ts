@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
+import { prisma } from "@/src/lib/prisma";
 import {
   canAccessAdminPortal,
   canAccessTrainerPortal,
@@ -8,6 +9,7 @@ import {
   normalizeRole,
   type AppRole,
 } from "@/src/lib/auth/roles";
+import { isCustomerFullyVerified } from "@/src/lib/auth/verification";
 
 type SessionWithRole = Session & {
   user: NonNullable<Session["user"]> & {
@@ -109,7 +111,38 @@ export async function requireAuthenticatedUser(nextPath = "/account") {
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 
-  return withRole(session, normalizeRole(session.user.role));
+  const role = normalizeRole(session.user.role);
+  if (role === "customer") {
+    const userId = typeof session.user.id === "string" ? session.user.id : "";
+    const user = userId
+      ? await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            email: true,
+            role: true,
+            emailVerifiedAt: true,
+            phoneVerifiedAt: true,
+            pendingEmail: true,
+            pendingPhone: true,
+          },
+        })
+      : null;
+
+    if (
+      user &&
+      !isCustomerFullyVerified({
+        role: user.role,
+        emailVerifiedAt: user.emailVerifiedAt,
+        phoneVerifiedAt: user.phoneVerifiedAt,
+        pendingEmail: user.pendingEmail,
+        pendingPhone: user.pendingPhone,
+      })
+    ) {
+      redirect(`/register/verify?email=${encodeURIComponent(user.email)}&next=${encodeURIComponent(nextPath)}`);
+    }
+  }
+
+  return withRole(session, role);
 }
 
 export async function assertAdmin() {

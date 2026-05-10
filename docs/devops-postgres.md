@@ -144,23 +144,43 @@ Required for Telegram phone confirmations:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_USERNAME`
-- optional security hardening: `TELEGRAM_WEBHOOK_SECRET`
+- optional local switch: `ENABLE_TELEGRAM_VERIFY_BOT` (`true` by default; set `false` to disable polling)
 
-### Telegram webhook setup
+### Telegram bot setup
 
-Phone confirmation updates arrive via:
+Phone confirmation uses Telegram long polling from the Next.js server process. The bot starts from `instrumentation.ts`, so no public webhook endpoint or local tunnel is required.
 
-- `POST /api/telegram/webhook`
-
-Set webhook after exposing your local app over a tunnel:
+If the bot was previously configured with a webhook, clear it before local polling:
 
 ```powershell
-curl.exe -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" `
-  -H "Content-Type: application/json" `
-  -d "{\"url\":\"https://<public-host>/api/telegram/webhook\",\"secret_token\":\"<TELEGRAM_WEBHOOK_SECRET>\"}"
+curl.exe -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/deleteWebhook"
 ```
 
-If webhook is not configured, `/register/verify` will show the Telegram step but phone confirmation will never complete.
+Local flow:
+
+1. Start `npm run dev` with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME` set.
+2. Register a customer.
+3. Open the Telegram link from `/register/verify`.
+4. Share your own Telegram contact with the bot.
+5. Refresh `/register/verify`; the phone step should show as confirmed.
+
+### Local email testing
+
+Use a local SMTP inbox such as Mailpit, MailHog, or smtp4dev:
+
+```env
+SMTP_HOST="127.0.0.1"
+SMTP_PORT="1025"
+SMTP_SECURE="false"
+SMTP_USER="local"
+SMTP_PASS="local"
+SMTP_FROM="Padel & Squash KZ <no-reply@localhost>"
+```
+
+Common inbox URLs:
+
+- Mailpit / MailHog: `http://127.0.0.1:8025`
+- smtp4dev: commonly `http://127.0.0.1:5000`
 
 ## Daily Development Commands
 

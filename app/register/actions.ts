@@ -8,7 +8,7 @@ import {
   getSafeRegisterNext,
   type RegisterFormState,
 } from "@/src/lib/auth/register-form-state";
-import { issueEmailVerification, issuePhoneVerificationSession } from "@/src/lib/auth/verification";
+import { issueEmailVerificationCode, issuePhoneVerificationSession } from "@/src/lib/auth/verification";
 import { prisma } from "@/src/lib/prisma";
 
 const registerSchema = z
@@ -129,13 +129,13 @@ export async function submitRegisterAction(
       });
 
   const [emailResult, phoneResult] = await Promise.all([
-    issueEmailVerification({
+    issueEmailVerificationCode({
       userId: customerUser.id,
       email: customerUser.email,
       name: customerUser.name,
       nextPath: safeNext,
     }),
-    issuePhoneVerificationSession({ userId: customerUser.id }),
+    issuePhoneVerificationSession({ userId: customerUser.id, targetPhone: parsed.data.phone }),
   ]);
 
   const params = new URLSearchParams({

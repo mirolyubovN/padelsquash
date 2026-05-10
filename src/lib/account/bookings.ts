@@ -38,7 +38,11 @@ export interface AccountDashboardData {
     id: string;
     name: string;
     email: string;
+    emailVerifiedAt: Date | null;
+    pendingEmail: string | null;
     phone: string;
+    phoneVerifiedAt: Date | null;
+    pendingPhone: string | null;
     role: "customer" | "trainer" | "admin" | "super_admin";
     walletBalanceKzt: number;
   };
@@ -127,7 +131,18 @@ function getCancellationState(args: {
 export async function getAccountDashboardData(userId: string): Promise<AccountDashboardData> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, phone: true, role: true, walletBalance: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      emailVerifiedAt: true,
+      pendingEmail: true,
+      phone: true,
+      phoneVerifiedAt: true,
+      pendingPhone: true,
+      role: true,
+      walletBalance: true,
+    },
   });
 
   if (!user) {

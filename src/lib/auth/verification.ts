@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomInt } from "crypto";
 import { APP_TIMEZONE } from "@/src/lib/time/venue-timezone";
 import { sendEmailMessage } from "@/src/lib/notifications/email";
 import { getTelegramBotUsername } from "@/src/lib/notifications/telegram";
@@ -6,12 +6,15 @@ import { prisma } from "@/src/lib/prisma";
 
 const EMAIL_VERIFICATION_TTL_HOURS = parseTtlHours(process.env.EMAIL_VERIFICATION_TTL_HOURS, 24);
 const PHONE_VERIFICATION_TTL_HOURS = parseTtlHours(process.env.PHONE_VERIFICATION_TTL_HOURS, 24);
+const EMAIL_CODE_ATTEMPT_LIMIT = 5;
 const TELEGRAM_START_PREFIX = "verify_";
 
 export interface VerificationStatusSource {
   role: string;
   emailVerifiedAt: Date | null;
   phoneVerifiedAt: Date | null;
+  pendingEmail?: string | null;
+  pendingPhone?: string | null;
 }
 
 export type EmailVerificationConsumeResult =
@@ -20,13 +23,26 @@ export type EmailVerificationConsumeResult =
     }
   | {
       status: "expired";
+      userId: string;
       email: string;
       fullyVerified: boolean;
     }
   | {
       status: "already_used";
+      userId: string;
       email: string;
       fullyVerified: boolean;
+    }
+  | {
+      status: "verified";
+      userId: string;
+      email: string;
+      fullyVerified: boolean;
+    };
+
+export type EmailCodeConsumeResult =
+  | {
+      status: "invalid" | "expired" | "too_many_attempts" | "email_taken";
     }
   | {
       status: "verified";
@@ -89,6 +105,14 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function hashEmailCode(args: { userId: string; targetEmail: string; code: string }): string {
+  return hashToken(`${args.userId}:${normalizeEmail(args.targetEmail)}:${args.code.trim()}`);
+}
+
+function generateEmailCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
 function formatExpiry(expiresAt: Date): string {
   return expiresAt.toLocaleString("ru-KZ", {
     timeZone: APP_TIMEZONE,
@@ -137,7 +161,177 @@ export function isCustomerFullyVerified(source: VerificationStatusSource): boole
   if (source.role !== "customer") {
     return true;
   }
-  return Boolean(source.emailVerifiedAt && source.phoneVerifiedAt);
+  return Boolean(source.emailVerifiedAt && source.phoneVerifiedAt && !source.pendingEmail && !source.pendingPhone);
+}
+
+export async function issueEmailVerificationCode(args: {
+  userId: string;
+  email: string;
+  name: string;
+  nextPath: string;
+  purpose?: "registration" | "email_change";
+}): Promise<{
+  sent: boolean;
+  expiresAt: Date;
+}> {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + EMAIL_VERIFICATION_TTL_HOURS * 60 * 60 * 1000);
+  const targetEmail = normalizeEmail(args.email);
+  const code = generateEmailCode();
+  const codeHash = hashEmailCode({ userId: args.userId, targetEmail, code });
+  const purpose = args.purpose ?? "registration";
+
+  await prisma.$transaction(async (tx) => {
+    await tx.emailVerificationCode.updateMany({
+      where: {
+        userId: args.userId,
+        purpose,
+        consumedAt: null,
+      },
+      data: {
+        expiresAt: now,
+      },
+    });
+
+    await tx.emailVerificationCode.create({
+      data: {
+        userId: args.userId,
+        purpose,
+        targetEmail,
+        codeHash,
+        expiresAt,
+      },
+    });
+  });
+
+  const verifyUrl = `${getAppBaseUrl()}/register/verify?email=${encodeURIComponent(targetEmail)}${
+    args.nextPath.startsWith("/") ? `&next=${encodeURIComponent(args.nextPath)}` : ""
+  }`;
+
+  const sent = await sendEmailMessage({
+    to: targetEmail,
+    subject: "Код подтверждения email для Padel & Squash KZ",
+    text: [
+      `Здравствуйте, ${args.name}.`,
+      "",
+      "Введите этот код на странице подтверждения email:",
+      code,
+      "",
+      `Страница подтверждения: ${verifyUrl}`,
+      `Код действует до ${formatExpiry(expiresAt)}.`,
+    ].join("\n"),
+  });
+
+  return {
+    sent,
+    expiresAt,
+  };
+}
+
+export async function consumeEmailVerificationCode(args: {
+  userId: string;
+  targetEmail: string;
+  code: string;
+  purpose?: "registration" | "email_change";
+}): Promise<EmailCodeConsumeResult> {
+  const now = new Date();
+  const targetEmail = normalizeEmail(args.targetEmail);
+  const purpose = args.purpose ?? "registration";
+  const code = args.code.trim();
+  if (!/^\d{6}$/.test(code)) {
+    return { status: "invalid" };
+  }
+
+  const codeRow = await prisma.emailVerificationCode.findFirst({
+    where: {
+      userId: args.userId,
+      targetEmail,
+      purpose,
+      consumedAt: null,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          pendingEmail: true,
+          pendingPhone: true,
+          role: true,
+          emailVerifiedAt: true,
+          phoneVerifiedAt: true,
+        },
+      },
+    },
+  });
+
+  if (!codeRow) {
+    return { status: "invalid" };
+  }
+  if (!isFutureDate(codeRow.expiresAt)) {
+    return { status: "expired" };
+  }
+  if (codeRow.attemptCount >= EMAIL_CODE_ATTEMPT_LIMIT) {
+    return { status: "too_many_attempts" };
+  }
+
+  const codeHash = hashEmailCode({ userId: args.userId, targetEmail, code });
+  if (codeHash !== codeRow.codeHash) {
+    await prisma.emailVerificationCode.update({
+      where: { id: codeRow.id },
+      data: { attemptCount: { increment: 1 } },
+    });
+    return { status: "invalid" };
+  }
+
+  const appliesPendingEmail = Boolean(codeRow.user.pendingEmail && normalizeEmail(codeRow.user.pendingEmail) === targetEmail);
+  if (appliesPendingEmail) {
+    const existingOwner = await prisma.user.findUnique({
+      where: { email: targetEmail },
+      select: { id: true },
+    });
+    if (existingOwner && existingOwner.id !== args.userId) {
+      return { status: "email_taken" };
+    }
+  }
+
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    await tx.emailVerificationCode.update({
+      where: { id: codeRow.id },
+      data: {
+        consumedAt: now,
+      },
+    });
+
+    return tx.user.update({
+      where: { id: args.userId },
+      data: appliesPendingEmail
+        ? {
+            email: targetEmail,
+            pendingEmail: null,
+            emailVerifiedAt: now,
+          }
+        : {
+            emailVerifiedAt: now,
+          },
+      select: {
+        email: true,
+        role: true,
+        emailVerifiedAt: true,
+        phoneVerifiedAt: true,
+        pendingEmail: true,
+        pendingPhone: true,
+      },
+    });
+  });
+
+  return {
+    status: "verified",
+    email: updatedUser.email,
+    fullyVerified: isCustomerFullyVerified(updatedUser),
+  };
 }
 
 export async function issueEmailVerification(args: {
@@ -215,6 +409,8 @@ export async function consumeEmailVerificationToken(token: string): Promise<Emai
           role: true,
           emailVerifiedAt: true,
           phoneVerifiedAt: true,
+          pendingEmail: true,
+          pendingPhone: true,
         },
       },
     },
@@ -228,6 +424,7 @@ export async function consumeEmailVerificationToken(token: string): Promise<Emai
   if (tokenRow.consumedAt) {
     return {
       status: "already_used",
+      userId: tokenRow.userId,
       email: tokenRow.user.email,
       fullyVerified: existingVerificationStatus,
     };
@@ -236,6 +433,7 @@ export async function consumeEmailVerificationToken(token: string): Promise<Emai
   if (!isFutureDate(tokenRow.expiresAt)) {
     return {
       status: "expired",
+      userId: tokenRow.userId,
       email: tokenRow.user.email,
       fullyVerified: existingVerificationStatus,
     };
@@ -259,12 +457,15 @@ export async function consumeEmailVerificationToken(token: string): Promise<Emai
         role: true,
         emailVerifiedAt: true,
         phoneVerifiedAt: true,
+        pendingEmail: true,
+        pendingPhone: true,
       },
     });
   });
 
   return {
     status: "verified",
+    userId: tokenRow.userId,
     email: updatedUser.email,
     fullyVerified: isCustomerFullyVerified(updatedUser),
   };
@@ -272,6 +473,8 @@ export async function consumeEmailVerificationToken(token: string): Promise<Emai
 
 export async function issuePhoneVerificationSession(args: {
   userId: string;
+  targetPhone?: string;
+  purpose?: "registration" | "phone_change";
 }): Promise<{
   startToken: string;
   expiresAt: Date;
@@ -280,11 +483,17 @@ export async function issuePhoneVerificationSession(args: {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + PHONE_VERIFICATION_TTL_HOURS * 60 * 60 * 1000);
   const startToken = randomBytes(24).toString("base64url");
+  const user = await prisma.user.findUnique({
+    where: { id: args.userId },
+    select: { phone: true, pendingPhone: true },
+  });
+  const targetPhone = (args.targetPhone ?? user?.pendingPhone ?? user?.phone ?? "").trim();
 
   await prisma.$transaction(async (tx) => {
     await tx.phoneVerificationSession.updateMany({
       where: {
         userId: args.userId,
+        ...(targetPhone ? { targetPhone } : {}),
         consumedAt: null,
       },
       data: {
@@ -296,6 +505,8 @@ export async function issuePhoneVerificationSession(args: {
       data: {
         userId: args.userId,
         startToken,
+        purpose: args.purpose ?? "registration",
+        targetPhone,
         expiresAt,
       },
     });
@@ -308,7 +519,7 @@ export async function issuePhoneVerificationSession(args: {
   };
 }
 
-export async function getActivePhoneVerificationSession(userId: string): Promise<{
+export async function getActivePhoneVerificationSession(userId: string, targetPhone?: string): Promise<{
   startToken: string;
   expiresAt: Date;
   telegramUrl: string | null;
@@ -317,6 +528,7 @@ export async function getActivePhoneVerificationSession(userId: string): Promise
   const session = await prisma.phoneVerificationSession.findFirst({
     where: {
       userId,
+      ...(targetPhone ? { targetPhone } : {}),
       consumedAt: null,
       expiresAt: {
         gt: now,
@@ -367,6 +579,8 @@ export async function attachTelegramToVerificationSession(args: {
         select: {
           email: true,
           phone: true,
+          pendingEmail: true,
+          pendingPhone: true,
           role: true,
           emailVerifiedAt: true,
           phoneVerifiedAt: true,
@@ -411,7 +625,7 @@ export async function attachTelegramToVerificationSession(args: {
   return {
     status: "awaiting_contact",
     email: session.user.email,
-    phone: session.user.phone,
+    phone: session.targetPhone,
   };
 }
 
@@ -441,6 +655,8 @@ export async function confirmPhoneByTelegramContact(args: {
           email: true,
           role: true,
           phone: true,
+          pendingEmail: true,
+          pendingPhone: true,
           emailVerifiedAt: true,
           phoneVerifiedAt: true,
         },
@@ -453,7 +669,7 @@ export async function confirmPhoneByTelegramContact(args: {
   }
 
   const userStatusBefore = isCustomerFullyVerified(session.user);
-  if (session.user.phoneVerifiedAt || userStatusBefore) {
+  if ((session.user.phoneVerifiedAt && !session.user.pendingPhone) || userStatusBefore) {
     await prisma.phoneVerificationSession.update({
       where: { id: session.id },
       data: { consumedAt: now },
@@ -465,12 +681,12 @@ export async function confirmPhoneByTelegramContact(args: {
     };
   }
 
-  const expectedPhone = normalizePhoneForComparison(session.user.phone);
+  const expectedPhone = normalizePhoneForComparison(session.targetPhone);
   const providedPhone = normalizePhoneForComparison(args.contactPhone);
   if (!expectedPhone || expectedPhone !== providedPhone) {
     return {
       status: "phone_mismatch",
-      expectedPhone: session.user.phone,
+      expectedPhone: session.targetPhone,
     };
   }
 
@@ -485,6 +701,8 @@ export async function confirmPhoneByTelegramContact(args: {
     return tx.user.update({
       where: { id: session.userId },
       data: {
+        phone: session.targetPhone,
+        pendingPhone: null,
         phoneVerifiedAt: now,
         telegramChatId: args.telegramChatId,
         telegramUsername: args.telegramUsername ?? null,
@@ -494,6 +712,8 @@ export async function confirmPhoneByTelegramContact(args: {
         role: true,
         emailVerifiedAt: true,
         phoneVerifiedAt: true,
+        pendingEmail: true,
+        pendingPhone: true,
       },
     });
   });

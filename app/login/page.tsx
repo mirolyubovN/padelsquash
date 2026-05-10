@@ -3,6 +3,7 @@ import { AuthError } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
+import { AuthPanel, AuthPanelLinks } from "@/src/components/auth/auth-panel";
 import { LoginForm } from "@/src/components/auth/login-form";
 import { isCustomerFullyVerified } from "@/src/lib/auth/verification";
 import { PageHero } from "@/src/components/page-hero";
@@ -32,6 +33,7 @@ export default async function LoginPage({
         ? "credentials"
         : undefined;
   const verificationEmail = typeof params.email === "string" ? params.email.trim().toLowerCase() : undefined;
+  const verificationHref = `/register/verify?email=${encodeURIComponent(verificationEmail ?? "")}&next=${encodeURIComponent(next)}`;
 
   async function loginAction(formData: FormData) {
     "use server";
@@ -48,9 +50,12 @@ export default async function LoginPage({
         role: true,
         emailVerifiedAt: true,
         phoneVerifiedAt: true,
+        pendingEmail: true,
+        pendingPhone: true,
       },
     });
 
+    let redirectTo = safeNext;
     if (user) {
       let passwordValid = false;
       try {
@@ -65,9 +70,11 @@ export default async function LoginPage({
           role: user.role,
           emailVerifiedAt: user.emailVerifiedAt,
           phoneVerifiedAt: user.phoneVerifiedAt,
+          pendingEmail: user.pendingEmail,
+          pendingPhone: user.pendingPhone,
         })
       ) {
-        redirect(`/login?error=verification_required&email=${encodeURIComponent(email)}&next=${encodeURIComponent(safeNext)}`);
+        redirectTo = `/register/verify?email=${encodeURIComponent(email)}&next=${encodeURIComponent(safeNext)}`;
       }
     }
 
@@ -75,7 +82,7 @@ export default async function LoginPage({
       await signIn("credentials", {
         email,
         password,
-        redirectTo: safeNext,
+        redirectTo,
       });
     } catch (error) {
       if (error instanceof AuthError) {
@@ -93,38 +100,38 @@ export default async function LoginPage({
         description="Войдите с email и паролем, чтобы управлять бронированиями и видеть историю занятий."
       />
 
-      <section className="auth-panel" aria-labelledby="login-form-title">
-        <div className="auth-panel__box">
-          <div className="auth-panel__brand" aria-hidden="true">
-            <span className="auth-panel__brand-mark">PS</span>
-            <div>
-              <p className="auth-panel__brand-title">Padel & Squash KZ</p>
-              <p className="auth-panel__brand-subtitle">Личный кабинет и бронирования</p>
-            </div>
-          </div>
+      <AuthPanel
+        title={errorCode === "verification_required" ? "Нужно завершить подтверждение" : "Вход по email"}
+        titleId="login-form-title"
+      >
+        {errorCode === "verification_required" ? (
+          <>
+            <p className="auth-panel__notice" role="status">
+              Пароль принят, но вход будет доступен только после подтверждения email и телефона.
+            </p>
+            <p className="auth-panel__hint">
+              Откройте страницу подтверждения, проверьте письмо с ссылкой и отправьте свой контакт в Telegram-боте.
+              После двух подтверждений профиль откроется автоматически.
+            </p>
+            <AuthPanelLinks>
+              <Link href={verificationHref} className="auth-form__submit">
+                Перейти к подтверждению
+              </Link>
+            </AuthPanelLinks>
+          </>
+        ) : (
+          <>
+            <p className="auth-panel__hint">
+              Нет аккаунта?{" "}
+              <Link href={`/register?next=${encodeURIComponent(next)}`} className="auth-panel__link">
+                Зарегистрироваться
+              </Link>
+            </p>
 
-          <h2 id="login-form-title" className="auth-panel__title">
-            Вход по email
-          </h2>
-          <p className="auth-panel__hint">
-            Нет аккаунта?{" "}
-            <Link href={`/register?next=${encodeURIComponent(next)}`} className="auth-panel__link">
-              Зарегистрироваться
-            </Link>
-          </p>
-
-          <LoginForm next={next} errorCode={errorCode} verificationEmail={verificationEmail} action={loginAction} />
-
-          <div className="auth-panel__links">
-            <Link href="/" className="auth-panel__link">
-              На главную
-            </Link>
-            <Link href={`/register?next=${encodeURIComponent(next)}`} className="auth-panel__link">
-              Регистрация клиента
-            </Link>
-          </div>
-        </div>
-      </section>
+            <LoginForm next={next} errorCode={errorCode} action={loginAction} />
+          </>
+        )}
+      </AuthPanel>
     </div>
   );
 }

@@ -61,6 +61,20 @@
   color: var(--foreground);
 }
 
+.auth-panel__details {
+  @apply mt-4 rounded-xl border p-3;
+  border-color: var(--line);
+  background-color: var(--background);
+}
+
+.auth-panel__details > summary {
+  @apply w-fit cursor-pointer list-none;
+}
+
+.auth-panel__details > summary::-webkit-details-marker {
+  display: none;
+}
+
 .auth-panel__links {
   @apply mt-4 flex flex-wrap gap-2;
 }

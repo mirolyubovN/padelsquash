@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { submitRegisterAction } from "@/app/register/actions";
+import { AuthPanelLinks } from "@/src/components/auth/auth-panel";
 import { createInitialRegisterFormState } from "@/src/lib/auth/register-form-state";
 
 interface RegisterFormProps {
@@ -169,14 +170,11 @@ export function RegisterForm({ next }: RegisterFormProps) {
         <p className="auth-form__hint">После регистрации нужно подтвердить email и телефон через Telegram-бота.</p>
       </form>
 
-      <div className="auth-panel__links">
+      <AuthPanelLinks>
         <Link href={`/login?next=${encodeURIComponent(state.values.next)}`} className="auth-panel__link">
           Уже есть аккаунт? Войти
         </Link>
-        <Link href="/" className="auth-panel__link">
-          На главную
-        </Link>
-      </div>
+      </AuthPanelLinks>
     </>
   );
 }

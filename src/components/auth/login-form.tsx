@@ -6,8 +6,7 @@ import { useFormStatus } from "react-dom";
 
 interface LoginFormProps {
   next: string;
-  errorCode?: "credentials" | "verification_required";
-  verificationEmail?: string;
+  errorCode?: "credentials";
   action: (formData: FormData) => void | Promise<void>;
 }
 
@@ -25,27 +24,14 @@ function LoginSubmitButton() {
   );
 }
 
-export function LoginForm({ next, errorCode, verificationEmail, action }: LoginFormProps) {
+export function LoginForm({ next, errorCode, action }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <>
       {errorCode ? (
         <p className="auth-panel__error" role="alert">
-          {errorCode === "verification_required" ? (
-            <>
-              Подтвердите email и телефон перед входом.{" "}
-              <Link
-                href={`/register/verify?email=${encodeURIComponent(verificationEmail ?? "")}&next=${encodeURIComponent(next)}`}
-                className="auth-panel__link"
-              >
-                Перейти к подтверждению
-              </Link>
-              .
-            </>
-          ) : (
-            "Неверный email или пароль."
-          )}
+          Неверный email или пароль.
         </p>
       ) : null}
 

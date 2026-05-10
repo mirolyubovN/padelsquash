@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHero } from "@/src/components/page-hero";
 import { AccountTabs } from "@/src/components/account/account-tabs";
-import { topUpWalletAction, updateAccountProfileAction } from "@/app/account/actions";
+import { topUpWalletAction, updateAccountEmailAction, updateAccountProfileAction } from "@/app/account/actions";
 import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
 import { getAccountDashboardData } from "@/src/lib/account/bookings";
 import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy";
@@ -51,12 +51,18 @@ export default async function AccountPage({
   const successMessage =
     params.success === "profile_saved"
       ? "Профиль обновлен."
+      : params.success === "email_unchanged"
+        ? "Email не изменился."
       : params.success === "wallet_topped_up"
         ? "Баланс пополнен."
         : null;
   const errorMessage =
     params.error === "profile_invalid"
       ? "Проверьте имя и телефон."
+      : params.error === "email_invalid"
+        ? "Введите корректный email."
+        : params.error === "email_taken"
+          ? "Этот email уже используется другим аккаунтом."
       : params.error === "wallet_invalid"
         ? "Укажите корректную сумму пополнения."
         : null;
@@ -167,11 +173,19 @@ export default async function AccountPage({
             </div>
             <div className="account-profile__item">
               <dt className="account-profile__label">Email</dt>
-              <dd className="account-profile__value">{data.user.email}</dd>
+              <dd className="account-profile__value">
+                {data.user.email}
+                {data.user.pendingEmail ? ` · новый ожидает подтверждения: ${data.user.pendingEmail}` : ""}
+                {data.user.emailVerifiedAt && !data.user.pendingEmail ? " · подтвержден" : " · не подтвержден"}
+              </dd>
             </div>
             <div className="account-profile__item">
               <dt className="account-profile__label">Телефон</dt>
-              <dd className="account-profile__value">{data.user.phone}</dd>
+              <dd className="account-profile__value">
+                {data.user.phone}
+                {data.user.pendingPhone ? ` · новый ожидает подтверждения: ${data.user.pendingPhone}` : ""}
+                {data.user.phoneVerifiedAt && !data.user.pendingPhone ? " · подтвержден" : " · не подтвержден"}
+              </dd>
             </div>
             <div className="account-profile__item">
               <dt className="account-profile__label">Тип аккаунта</dt>
@@ -181,6 +195,9 @@ export default async function AccountPage({
 
           <form action={updateAccountProfileAction} className="account-profile-form">
             <p className="account-profile-form__title">Редактировать профиль</p>
+            <p className="auth-panel__hint">
+              Если изменить телефон, новый номер нужно подтвердить через Telegram перед возвратом в профиль.
+            </p>
             <div className="account-profile-form__grid">
               <div className="auth-form__group">
                 <label htmlFor="account-name" className="auth-form__label">
@@ -211,6 +228,33 @@ export default async function AccountPage({
             <div className="account-profile-form__actions">
               <button type="submit" className="auth-form__submit">
                 Сохранить профиль
+              </button>
+            </div>
+          </form>
+
+          <form action={updateAccountEmailAction} className="account-profile-form">
+            <p className="account-profile-form__title">Изменить email</p>
+            <p className="auth-panel__hint">
+              На новый email придет 6-значный код. До подтверждения вход и профиль будут ждать завершения проверки.
+            </p>
+            <div className="account-profile-form__grid">
+              <div className="auth-form__group">
+                <label htmlFor="account-email" className="auth-form__label">
+                  Новый email
+                </label>
+                <input
+                  id="account-email"
+                  name="email"
+                  type="email"
+                  defaultValue={data.user.pendingEmail ?? data.user.email}
+                  required
+                  className="auth-form__field"
+                />
+              </div>
+            </div>
+            <div className="account-profile-form__actions">
+              <button type="submit" className="auth-form__submit">
+                Отправить код подтверждения
               </button>
             </div>
           </form>

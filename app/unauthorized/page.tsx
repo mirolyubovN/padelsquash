@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthPanel, AuthPanelLinks } from "@/src/components/auth/auth-panel";
 import { PageHero } from "@/src/components/page-hero";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
@@ -17,18 +18,13 @@ export default function UnauthorizedPage() {
         title="Недостаточно прав"
         description="У вашей учетной записи нет доступа к этому разделу. Обратитесь к администратору."
       />
-      <section className="auth-panel">
-        <div className="auth-panel__box">
-          <div className="auth-panel__links">
-            <Link href="/" className="auth-panel__link">
-              На главную
-            </Link>
-            <Link href="/login" className="auth-panel__link">
-              Войти под другой учетной записью
-            </Link>
-          </div>
-        </div>
-      </section>
+      <AuthPanel title="Доступ ограничен" titleId="unauthorized-title" showBrand={false}>
+        <AuthPanelLinks>
+          <Link href="/login" className="auth-panel__link">
+            Войти под другой учетной записью
+          </Link>
+        </AuthPanelLinks>
+      </AuthPanel>
     </div>
   );
 }

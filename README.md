@@ -98,7 +98,7 @@ See `.env.example` for the full list.
 | `SMTP_FROM` | - | Sender address for transactional emails |
 | `TELEGRAM_BOT_TOKEN` | - | Telegram bot token for phone confirmation + notifications |
 | `TELEGRAM_BOT_USERNAME` | - | Telegram bot username (without `@`) for deep-links |
-| `TELEGRAM_WEBHOOK_SECRET` | - | Secret token validated on `/api/telegram/webhook` |
+| `ENABLE_TELEGRAM_VERIFY_BOT` | `true` | Start the no-webhook Telegram polling bot for phone confirmation |
 | `ALLOW_DEMO_FALLBACK` | `false` | Fall back to demo data if DB is unavailable |
 | `SEED_SUPER_ADMIN_EMAIL` | `admin@example.com` | Seeded super-admin email |
 | `SEED_SUPER_ADMIN_PASSWORD` | `Admin123!` | Seeded super-admin password |
@@ -123,16 +123,35 @@ For full registration verification flow locally, configure both email and Telegr
 
 2. Telegram bot:
 - Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME`.
-- Optional but recommended: set `TELEGRAM_WEBHOOK_SECRET`.
-- Expose your local app URL publicly (for example via tunnel) and set webhook:
+- The app uses Telegram long polling at server startup; no public webhook endpoint or tunnel is required.
+- If this bot already has a webhook from an older setup, clear it before local testing:
 
 ```bash
-curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
-  -H "Content-Type: application/json" \
-  -d "{\"url\":\"https://<public-host>/api/telegram/webhook\",\"secret_token\":\"<TELEGRAM_WEBHOOK_SECRET>\"}"
+curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/deleteWebhook"
 ```
 
-Without webhook, phone confirmation via Telegram will not complete.
+Phone confirmation flow: the customer opens the Telegram bot from `/register/verify`, shares their own Telegram contact, and the polling bot matches that phone to the active pending verification session.
+
+### Local Email Testing
+
+Use a local SMTP inbox such as Mailpit, MailHog, or smtp4dev. Point the app at the local SMTP port and open the inbox UI:
+
+```env
+SMTP_HOST="127.0.0.1"
+SMTP_PORT="1025"
+SMTP_SECURE="false"
+SMTP_USER="local"
+SMTP_PASS="local"
+SMTP_FROM="Padel & Squash KZ <no-reply@localhost>"
+```
+
+Common local inbox URLs:
+
+- Mailpit: `http://127.0.0.1:8025`
+- MailHog: `http://127.0.0.1:8025`
+- smtp4dev: commonly `http://127.0.0.1:5000`
+
+Restart `npm run dev` after changing `.env`.
 
 ---
 
@@ -230,7 +249,7 @@ Customer self-service bookings (`/book`) are paid from internal wallet balance.
   - phone confirmation via Telegram bot contact sharing
 - Registration flow now redirects to `/register/verify`.
 - Email verification endpoint: `/verify/email`.
-- Telegram webhook endpoint: `/api/telegram/webhook`.
+- Telegram phone confirmation is handled by the no-webhook polling bot started from `instrumentation.ts`.
 - Login for customer role is blocked until both confirmations are completed.
 
 ### Admin-Created Customers
@@ -325,7 +344,7 @@ Admins can create customer accounts from `/admin/wallet` using first name, last 
 
 | Route | Description |
 | --- | --- |
-| `/api/telegram/webhook` | Telegram bot webhook (phone confirmation flow) |
+| Telegram polling bot | Started server-side from `instrumentation.ts` for phone confirmation |
 
 ---
 

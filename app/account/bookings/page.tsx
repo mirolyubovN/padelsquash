@@ -127,7 +127,7 @@ export default async function AccountBookingsPage({
 
         {bookings.length === 0 ? (
           <div className="account-history__empty">
-            Бронирований пока нет. После создания брони с вашим email и входа в аккаунт записи появятся здесь.
+            Бронирований пока нет.
           </div>
         ) : (
           <>

@@ -1,4 +1,5 @@
 import { PageHero } from "@/src/components/page-hero";
+import { AuthPanel } from "@/src/components/auth/auth-panel";
 import { RegisterForm } from "@/src/components/auth/register-form";
 import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
@@ -29,26 +30,13 @@ export default async function RegisterPage({
         description={`Аккаунт нужен для просмотра истории бронирований и управления отменами. ${cancellationPolicySummary}`}
       />
 
-      <section className="auth-panel" aria-labelledby="register-form-title">
-        <div className="auth-panel__box">
-          <div className="auth-panel__brand" aria-hidden="true">
-            <span className="auth-panel__brand-mark">PS</span>
-            <div>
-              <p className="auth-panel__brand-title">Padel & Squash KZ</p>
-              <p className="auth-panel__brand-subtitle">Создание клиентского аккаунта</p>
-            </div>
-          </div>
+      <AuthPanel title="Регистрация клиента" titleId="register-form-title" brandSubtitle="Создание клиентского аккаунта">
+        <p className="auth-panel__hint">
+          Если вы уже создавали бронь с этим email, можно зарегистрироваться и получить доступ к истории.
+        </p>
 
-          <h2 id="register-form-title" className="auth-panel__title">
-            Регистрация клиента
-          </h2>
-          <p className="auth-panel__hint">
-            Если вы уже создавали бронь с этим email, можно зарегистрироваться и получить доступ к истории.
-          </p>
-
-          <RegisterForm next={next} />
-        </div>
-      </section>
+        <RegisterForm next={next} />
+      </AuthPanel>
     </div>
   );
 }

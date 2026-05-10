@@ -57,6 +57,10 @@
 - Availability UIs should distinguish "no operating time" from "fully occupied"; do not filter out fully booked/event-blocked time rows, render them as disabled cells so users understand why a time cannot be selected.
 - For uploaded public assets, do not use native `type="url"` inputs when the app stores relative `/uploads/...` paths; use text input plus preview/selection UX, and make uploaded media selectable wherever the same field references media assets.
 - When media belongs to a domain entity with multiple photos, add an explicit ordered relation instead of inferring ownership from global media categories; categories describe usage pools, not entity attachment.
+- Registration verification UX should keep pending users in an authenticated session after a valid password; route them through verification guards and auto-forward to the requested account page after both confirmations instead of forcing a second login.
+- On verification pages, keep verified contact values read-only by default; expose correction forms only behind an explicit edit action and show clear per-channel confirmed/pending status messages.
+- Auth pages should centralize repeated panel chrome and keep CTAs state-specific. Do not duplicate registration/login links or add generic home links inside focused auth and verification flows.
+- Account contact changes are not normal profile edits. Store new email/phone as pending values, block customer account access until confirmation completes, confirm email with a short code, and confirm phone through the Telegram contact flow before replacing the canonical contact.
 
 ## Lesson 2026-05-05 - recurring event UX
 

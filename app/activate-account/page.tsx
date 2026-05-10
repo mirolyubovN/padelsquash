@@ -3,6 +3,7 @@ import { AuthError } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
+import { AuthPanel, AuthPanelLinks } from "@/src/components/auth/auth-panel";
 import { PageHero } from "@/src/components/page-hero";
 import { verifyAccountSetupToken, userNeedsPasswordSetup } from "@/src/lib/auth/account-setup";
 import { getSafeRegisterNext } from "@/src/lib/auth/register-form-state";
@@ -144,20 +145,7 @@ export default async function ActivateAccountPage({
         description="После установки пароля вы сможете входить в личный кабинет и управлять своими бронированиями."
       />
 
-      <section className="auth-panel" aria-labelledby="activate-account-title">
-        <div className="auth-panel__box">
-          <div className="auth-panel__brand" aria-hidden="true">
-            <span className="auth-panel__brand-mark">PS</span>
-            <div>
-              <p className="auth-panel__brand-title">Padel & Squash KZ</p>
-              <p className="auth-panel__brand-subtitle">Доступ к личному кабинету</p>
-            </div>
-          </div>
-
-          <h2 id="activate-account-title" className="auth-panel__title">
-            Активация аккаунта
-          </h2>
-
+      <AuthPanel title="Активация аккаунта" titleId="activate-account-title" brandSubtitle="Доступ к личному кабинету">
           {errorMessage ? (
             <p className="auth-panel__error" role="alert">
               {errorMessage}
@@ -169,14 +157,11 @@ export default async function ActivateAccountPage({
               <p className="auth-panel__hint">
                 Ссылка недействительна, истекла или уже была использована. Запросите новую ссылку у администратора клуба.
               </p>
-              <div className="auth-panel__links">
+              <AuthPanelLinks>
                 <Link href="/login" className="auth-panel__link">
                   Ко входу
                 </Link>
-                <Link href="/" className="auth-panel__link">
-                  На главную
-                </Link>
-              </div>
+              </AuthPanelLinks>
             </>
           ) : (
             <>
@@ -236,8 +221,7 @@ export default async function ActivateAccountPage({
               </form>
             </>
           )}
-        </div>
-      </section>
+      </AuthPanel>
     </div>
   );
 }

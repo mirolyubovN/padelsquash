@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { AuthPanel, AuthPanelLinks } from "@/src/components/auth/auth-panel";
 import { PageHero } from "@/src/components/page-hero";
 import { getSafeRegisterNext } from "@/src/lib/auth/register-form-state";
 import { consumeEmailVerificationToken } from "@/src/lib/auth/verification";
@@ -29,6 +32,7 @@ export default async function VerifyEmailPage({
   const verification = token ? await consumeEmailVerificationToken(token) : { status: "invalid" as const };
 
   const verifiedEmail = verification.status === "invalid" ? email : verification.email;
+  const verifiedUserId = verification.status === "invalid" ? null : verification.userId;
   const canContinueVerification = Boolean(verifiedEmail);
 
   const successMessage =
@@ -49,6 +53,11 @@ export default async function VerifyEmailPage({
     verification.status === "verified" || verification.status === "already_used" || verification.status === "expired"
       ? verification.fullyVerified
       : false;
+  const session = await auth();
+
+  if (fullyVerified && (session?.user?.id === verifiedUserId || session?.user?.email === verifiedEmail)) {
+    redirect(next);
+  }
 
   return (
     <div className="login-page">
@@ -58,43 +67,34 @@ export default async function VerifyEmailPage({
         description="Email подтвержден. Если телефон еще не подтвержден, завершите подтверждение через Telegram."
       />
 
-      <section className="auth-panel" aria-labelledby="verify-email-title">
-        <div className="auth-panel__box">
-          <h2 id="verify-email-title" className="auth-panel__title">
-            Результат подтверждения
-          </h2>
+      <AuthPanel title="Результат подтверждения" titleId="verify-email-title" showBrand={false}>
+        {successMessage ? (
+          <p className="account-history__message account-history__message--success" role="status">
+            {successMessage}
+          </p>
+        ) : null}
+        {errorMessage ? (
+          <p className="auth-panel__error" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
 
-          {successMessage ? (
-            <p className="account-history__message account-history__message--success" role="status">
-              {successMessage}
-            </p>
-          ) : null}
-          {errorMessage ? (
-            <p className="auth-panel__error" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
-
-          <div className="auth-panel__links">
-            {canContinueVerification ? (
-              <Link
-                href={`/register/verify?email=${encodeURIComponent(verifiedEmail)}&next=${encodeURIComponent(next)}`}
-                className="auth-panel__link"
-              >
-                {fullyVerified ? "Проверить статус аккаунта" : "Продолжить подтверждение"}
-              </Link>
-            ) : null}
-            {fullyVerified ? (
-              <Link href={`/login?next=${encodeURIComponent(next)}`} className="auth-panel__link">
-                Войти в аккаунт
-              </Link>
-            ) : null}
-            <Link href="/" className="auth-panel__link">
-              На главную
+        <AuthPanelLinks>
+          {canContinueVerification ? (
+            <Link
+              href={`/register/verify?email=${encodeURIComponent(verifiedEmail)}&next=${encodeURIComponent(next)}`}
+              className="auth-panel__link"
+            >
+              {fullyVerified ? "Проверить статус аккаунта" : "Продолжить подтверждение"}
             </Link>
-          </div>
-        </div>
-      </section>
+          ) : null}
+          {fullyVerified ? (
+            <Link href={`/login?next=${encodeURIComponent(next)}`} className="auth-panel__link">
+              Войти в аккаунт
+            </Link>
+          ) : null}
+        </AuthPanelLinks>
+      </AuthPanel>
     </div>
   );
 }

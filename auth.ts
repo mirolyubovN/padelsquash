@@ -4,7 +4,6 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { prisma } from "@/src/lib/prisma";
 import { normalizeRole } from "@/src/lib/auth/roles";
-import { isCustomerFullyVerified } from "@/src/lib/auth/verification";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -59,16 +58,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         if (!passwordValid) {
-          return null;
-        }
-
-        if (
-          !isCustomerFullyVerified({
-            role: user.role,
-            emailVerifiedAt: user.emailVerifiedAt,
-            phoneVerifiedAt: user.phoneVerifiedAt,
-          })
-        ) {
           return null;
         }
 
