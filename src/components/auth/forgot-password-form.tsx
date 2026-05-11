@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { t } from "@/src/lib/i18n";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -10,10 +11,9 @@ export function ForgotPasswordForm() {
     return (
       <div className="auth-panel__notice" role="status">
         <p>
-          Если аккаунт с email <strong>{submittedEmail}</strong> существует, обратитесь к администратору клуба для
-          сброса пароля.
+          {t("auth.forgotPassword.submittedMessage", { email: submittedEmail })}
         </p>
-        <p className="auth-panel__hint">Телефон: +7 (727) 355-77-00. Также можно написать в WhatsApp клуба.</p>
+        <p className="auth-panel__hint">{t("auth.forgotPassword.contactHint")}</p>
       </div>
     );
   }
@@ -44,7 +44,7 @@ export function ForgotPasswordForm() {
       </div>
 
       <button type="submit" className="auth-form__submit">
-        Запросить сброс
+        {t("auth.forgotPassword.submit")}
       </button>
     </form>
   );

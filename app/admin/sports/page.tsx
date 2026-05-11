@@ -12,6 +12,7 @@ import {
   updateSportFromForm,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Админ: виды спорта | Padel & Squash KZ",
@@ -45,11 +46,11 @@ export default async function AdminSportsPage({
 
   const errorMessage =
     params.error === "delete_blocked"
-      ? "Вид спорта нельзя удалить: он уже используется в кортах, услугах, тренерах или ценах."
+      ? t("admin.sports.deleteBlocked")
       : params.error === "delete_failed"
-        ? "Не удалось удалить вид спорта."
+        ? t("admin.sports.deleteFailed")
         : null;
-  const successMessage = params.success === "deleted" ? "Вид спорта удален." : null;
+  const successMessage = params.success === "deleted" ? t("admin.sports.deleted") : null;
 
   async function createAction(formData: FormData) {
     "use server";
@@ -104,8 +105,8 @@ export default async function AdminSportsPage({
 
   return (
     <AdminPageShell
-      title="Виды спорта"
-      description="Один экран для настройки нового спорта: создайте спорт, rental service и базовые цены корта без перехода по отдельным вкладкам."
+      title={t("admin.sports.title")}
+      description={t("admin.sports.description")}
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">
@@ -120,15 +121,15 @@ export default async function AdminSportsPage({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Новый вид спорта</h2>
+          <h2 className="admin-section__title">{t("admin.sports.addTitle")}</h2>
           <p className="admin-section__description">
-            При создании сразу задаются базовая услуга аренды и цены корта. После этого останется только добавить реальные корты этого спорта.
+            {t("admin.sports.addDescription")}
           </p>
         </div>
         <form action={createAction} className="admin-form admin-form--panel">
           <div className="admin-form__panel-grid">
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="sport-name">Название</label>
+              <label className="admin-form__label" htmlFor="sport-name">{t("admin.common.fields.name")}</label>
               <input id="sport-name" name="name" className="admin-form__field" placeholder="Table Tennis" required />
             </div>
             <div className="admin-form__group">
@@ -136,38 +137,38 @@ export default async function AdminSportsPage({
               <input id="sport-slug" name="slug" className="admin-form__field" placeholder="table-tennis" pattern="[a-z0-9-]+" required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="sport-icon">Иконка</label>
+              <label className="admin-form__label" htmlFor="sport-icon">{t("admin.sports.fields.icon")}</label>
               <input id="sport-icon" name="icon" className="admin-form__field" placeholder="TT" />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="sport-sort-order">Порядок</label>
+              <label className="admin-form__label" htmlFor="sport-sort-order">{t("admin.sports.fields.sortOrder")}</label>
               <input id="sport-sort-order" name="sortOrder" type="number" step="1" className="admin-form__field" defaultValue={100} required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="sport-rental-service-name">Услуга аренды</label>
-              <input id="sport-rental-service-name" name="rentalServiceName" className="admin-form__field" placeholder="Аренда корта (Table Tennis)" />
+              <label className="admin-form__label" htmlFor="sport-rental-service-name">{t("admin.sports.fields.rentalService")}</label>
+              <input id="sport-rental-service-name" name="rentalServiceName" className="admin-form__field" placeholder={t("admin.sports.placeholders.rentalServiceName")} />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="sport-rental-service-code">Код услуги</label>
+              <label className="admin-form__label" htmlFor="sport-rental-service-code">{t("admin.sports.fields.serviceCode")}</label>
               <input id="sport-rental-service-code" name="rentalServiceCode" className="admin-form__field" placeholder="table-tennis-rental" pattern="[a-z0-9-]+" />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="sport-price-morning">Цена будни/день, KZT</label>
+              <label className="admin-form__label" htmlFor="sport-price-morning">{t("admin.sports.fields.weekdayDayPrice")}</label>
               <input id="sport-price-morning" name="courtPriceMorningKzt" type="number" min="0" step="1" className="admin-form__field" defaultValue={0} required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="sport-price-evening">Цена вечер/выходные, KZT</label>
+              <label className="admin-form__label" htmlFor="sport-price-evening">{t("admin.sports.fields.eveningWeekendPrice")}</label>
               <input id="sport-price-evening" name="courtPriceEveningWeekendKzt" type="number" min="0" step="1" className="admin-form__field" defaultValue={0} required />
             </div>
             <div className="admin-form__group">
               <label className="admin-form__checkbox">
                 <input name="active" type="checkbox" defaultChecked />
-                <span>Активен</span>
+                <span>{t("admin.common.active")}</span>
               </label>
             </div>
           </div>
           <div className="admin-form__actions">
-            <button type="submit" className="admin-form__submit">Добавить вид спорта</button>
+            <button type="submit" className="admin-form__submit">{t("admin.sports.addSubmit")}</button>
           </div>
         </form>
       </section>
@@ -176,48 +177,48 @@ export default async function AdminSportsPage({
         <table className="admin-table__table">
           <thead>
             <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Спорт и rental service</th>
-              <th className="admin-table__cell admin-table__cell--head">Цены корта</th>
-              <th className="admin-table__cell admin-table__cell--head">Корты</th>
-              <th className="admin-table__cell admin-table__cell--head">Статус</th>
-              <th className="admin-table__cell admin-table__cell--head">Действия</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.sports.table.sportAndRentalService")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.sports.table.courtPrices")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.sports.table.courts")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.status")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {sports.length === 0 ? (
               <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={5}>Видов спорта пока нет.</td>
+                <td className="admin-table__cell" colSpan={5}>{t("admin.sports.empty")}</td>
               </tr>
             ) : (
               sports.map((sport) => (
                 <tr key={sport.id} className="admin-table__row">
                   <td className="admin-table__cell">
                     <div className="admin-bookings__cell-title">{sport.name}</div>
-                    <div className="admin-bookings__cell-sub">{sport.slug} · иконка: {sport.icon ?? "—"}</div>
+                    <div className="admin-bookings__cell-sub">{t("admin.sports.iconMeta", { slug: sport.slug, icon: sport.icon ?? "—" })}</div>
                   </td>
                   <td className="admin-table__cell">
-                    <div>Будни/день: {sport.courtBasePriceMorningKzt.toLocaleString("ru-KZ")} ₸</div>
-                    <div className="admin-bookings__cell-sub">Вечер/выходные: {sport.courtBasePriceEveningWeekendKzt.toLocaleString("ru-KZ")} ₸</div>
+                    <div>{t("admin.sports.weekdayDayPriceValue", { price: sport.courtBasePriceMorningKzt.toLocaleString("ru-KZ") })}</div>
+                    <div className="admin-bookings__cell-sub">{t("admin.sports.eveningWeekendPriceValue", { price: sport.courtBasePriceEveningWeekendKzt.toLocaleString("ru-KZ") })}</div>
                   </td>
                   <td className="admin-table__cell">
                     <div>{sport.courtsCount}</div>
-                    <a href="/admin/courts" className="admin-inline-links__item">Открыть корты</a>
+                    <a href="/admin/courts" className="admin-inline-links__item">{t("admin.sports.openCourts")}</a>
                   </td>
                   <td className="admin-table__cell">
                     <span className={`admin-status-badge ${sport.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
                       <span className="admin-status-badge__dot" aria-hidden="true" />
-                      {sport.active ? "Активен" : "Неактивен"}
+                      {sport.active ? t("admin.common.active") : t("admin.common.inactive")}
                     </span>
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
-                      <AdminEditModal triggerLabel="Редактировать" title={`Спорт: ${sport.name}`}>
+                      <AdminEditModal triggerLabel={t("admin.common.edit")} title={t("admin.sports.editTitle", { name: sport.name })}>
                         <form action={updateAction} className="admin-form">
                           <input type="hidden" name="sportId" value={sport.id} />
                           <input type="hidden" name="rentalServiceId" value={sport.defaultRentalServiceId ?? ""} />
                           <div className="admin-form__panel-grid">
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`sport-name-modal-${sport.id}`}>Название</label>
+                              <label className="admin-form__label" htmlFor={`sport-name-modal-${sport.id}`}>{t("admin.common.fields.name")}</label>
                               <input id={`sport-name-modal-${sport.id}`} name="name" className="admin-form__field" defaultValue={sport.name} required />
                             </div>
                             <div className="admin-form__group">
@@ -225,32 +226,32 @@ export default async function AdminSportsPage({
                               <input id={`sport-slug-modal-${sport.id}`} name="slug" className="admin-form__field" defaultValue={sport.slug} pattern="[a-z0-9-]+" required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`sport-icon-modal-${sport.id}`}>Иконка</label>
+                              <label className="admin-form__label" htmlFor={`sport-icon-modal-${sport.id}`}>{t("admin.sports.fields.icon")}</label>
                               <input id={`sport-icon-modal-${sport.id}`} name="icon" className="admin-form__field" defaultValue={sport.icon ?? ""} />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`sport-sort-modal-${sport.id}`}>Порядок</label>
+                              <label className="admin-form__label" htmlFor={`sport-sort-modal-${sport.id}`}>{t("admin.sports.fields.sortOrder")}</label>
                               <input id={`sport-sort-modal-${sport.id}`} name="sortOrder" type="number" step="1" className="admin-form__field" defaultValue={sport.sortOrder} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`sport-svc-name-modal-${sport.id}`}>Услуга аренды</label>
-                              <input id={`sport-svc-name-modal-${sport.id}`} name="rentalServiceName" className="admin-form__field" defaultValue={sport.defaultRentalServiceName ?? `Аренда корта (${sport.name})`} required />
+                              <label className="admin-form__label" htmlFor={`sport-svc-name-modal-${sport.id}`}>{t("admin.sports.fields.rentalService")}</label>
+                              <input id={`sport-svc-name-modal-${sport.id}`} name="rentalServiceName" className="admin-form__field" defaultValue={sport.defaultRentalServiceName ?? t("admin.sports.defaultRentalServiceName", { name: sport.name })} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`sport-svc-code-modal-${sport.id}`}>Код услуги</label>
+                              <label className="admin-form__label" htmlFor={`sport-svc-code-modal-${sport.id}`}>{t("admin.sports.fields.serviceCode")}</label>
                               <input id={`sport-svc-code-modal-${sport.id}`} name="rentalServiceCode" className="admin-form__field" defaultValue={sport.defaultRentalServiceCode ?? `${sport.slug}-rental`} pattern="[a-z0-9-]+" required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`sport-price-m-modal-${sport.id}`}>Будни/день, KZT</label>
+                              <label className="admin-form__label" htmlFor={`sport-price-m-modal-${sport.id}`}>{t("admin.sports.fields.weekdayDayShort")}</label>
                               <input id={`sport-price-m-modal-${sport.id}`} name="courtPriceMorningKzt" type="number" min="0" step="1" className="admin-form__field" defaultValue={sport.courtBasePriceMorningKzt} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`sport-price-e-modal-${sport.id}`}>Вечер/выходные, KZT</label>
+                              <label className="admin-form__label" htmlFor={`sport-price-e-modal-${sport.id}`}>{t("admin.sports.fields.eveningWeekendShort")}</label>
                               <input id={`sport-price-e-modal-${sport.id}`} name="courtPriceEveningWeekendKzt" type="number" min="0" step="1" className="admin-form__field" defaultValue={sport.courtBasePriceEveningWeekendKzt} required />
                             </div>
                           </div>
                           <div className="admin-form__actions">
-                            <button type="submit" className="admin-form__submit">Сохранить конфигурацию</button>
+                            <button type="submit" className="admin-form__submit">{t("admin.sports.saveConfiguration")}</button>
                           </div>
                         </form>
                       </AdminEditModal>
@@ -258,16 +259,16 @@ export default async function AdminSportsPage({
                         <input type="hidden" name="sportId" value={sport.id} />
                         <input type="hidden" name="nextActive" value={String(!sport.active)} />
                         <button type="submit" className="admin-bookings__action-button">
-                          {sport.active ? "Выключить" : "Включить"}
+                          {sport.active ? t("admin.common.disable") : t("admin.common.enable")}
                         </button>
                       </form>
                       <AdminConfirmActionForm
                         action={deleteAction}
                         hiddenFields={{ sportId: sport.id }}
-                        triggerLabel="Удалить"
-                        confirmLabel="Удалить вид спорта"
-                        title="Удалить вид спорта?"
-                        description="Удаление доступно только если этот спорт еще не используется в кортах, услугах, тренерах и ценах."
+                        triggerLabel={t("admin.common.delete")}
+                        confirmLabel={t("admin.sports.deleteConfirm")}
+                        title={t("admin.sports.deleteTitle")}
+                        description={t("admin.sports.deleteDescription")}
                       />
                     </div>
                   </td>

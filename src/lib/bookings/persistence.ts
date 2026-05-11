@@ -14,6 +14,12 @@ import type { ComponentPriceRecord, ServiceRecord } from "@/src/lib/domain/types
 import { evaluatePricing } from "@/src/lib/pricing/engine";
 import { notifyBookingCreated } from "@/src/lib/notifications/bookings";
 import { prisma } from "@/src/lib/prisma";
+import {
+  applyPromoToPricing,
+  PromoIneligibleError,
+  PROMO_ERROR_MESSAGES,
+  type PromoApplyResult,
+} from "@/src/lib/promo/apply";
 import { formatTimeInVenueTimezone, toVenueIsoDate, venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 import { debitUserWallet } from "@/src/lib/wallet/service";
 
@@ -29,6 +35,7 @@ interface CreateBookingPersistentInput {
   holdId?: string;
   paymentMode?: BookingPaymentMode;
   allowCurrentHourLateBooking?: boolean;
+  promoCode?: string;
   customer: {
     name: string;
     email: string;
@@ -52,6 +59,7 @@ interface CreateBookingHoldsPersistentInput {
   durationMin: number;
   instructorId?: string;
   customerUserId?: string;
+  promoCode?: string;
   customer: {
     name: string;
     email: string;
@@ -67,6 +75,7 @@ interface CreateBookingSeriesPersistentInput {
   durationMin: number;
   instructorId?: string;
   customerUserId?: string;
+  promoCode?: string;
   customer: {
     name: string;
     email: string;
@@ -251,6 +260,14 @@ async function resolveValidatedActiveHold(args: {
   });
 
   return activeHold;
+}
+
+function extractHoldPromoCode(pricingBreakdownJson: unknown): string | undefined {
+  if (pricingBreakdownJson && typeof pricingBreakdownJson === "object" && !Array.isArray(pricingBreakdownJson)) {
+    const json = pricingBreakdownJson as Record<string, unknown>;
+    if (typeof json.promoCode === "string") return json.promoCode;
+  }
+  return undefined;
 }
 
 export async function createBookingInDb(
@@ -504,19 +521,51 @@ export async function createBookingInDb(
         instructorPriceOverrideAmount,
         currency: "KZT",
       });
-      const pricingBreakdownJson = JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue;
+
+      const effectivePromoCode =
+        input.promoCode ?? extractHoldPromoCode(activeHold?.pricingBreakdownJson);
+
+      let promoApplyResult: PromoApplyResult | undefined;
+      let promoRecord: Awaited<ReturnType<typeof tx.promoCode.findUnique>> | undefined;
+
+      if (effectivePromoCode) {
+        const promo = await tx.promoCode.findUnique({ where: { code: effectivePromoCode } });
+        if (!promo) throw new PromoIneligibleError("not_found", PROMO_ERROR_MESSAGES.not_found);
+        promoRecord = promo;
+
+        const [customerRedemptionCount, totalRedemptionCount, existingBookingsCount] = await Promise.all([
+          tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id, customerId: customerUser.id } }),
+          tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id } }),
+          tx.booking.count({ where: { customerId: customerUser.id, status: { not: "cancelled" } } }),
+        ]);
+
+        promoApplyResult = applyPromoToPricing(pricing, promo, {
+          customerId: customerUser.id,
+          serviceCode: service.code,
+          sportId: service.sportId,
+          existingCustomerRedemptions: customerRedemptionCount,
+          existingTotalRedemptions: totalRedemptionCount,
+          isFirstBooking: existingBookingsCount === 0,
+          bookingDate: input.date,
+        });
+      }
+
+      const effectiveTotal = promoApplyResult?.totalAfterDiscount ?? pricing.total;
+      const pricingBreakdownJson = promoApplyResult
+        ? (JSON.parse(JSON.stringify([...pricing.breakdown, promoApplyResult.promoLine])) as Prisma.InputJsonValue)
+        : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue);
 
       const currentBalanceKzt = Number(customerUser.walletBalance);
       const effectiveSettlementMode: BookingSettlementMode =
         requestedPaymentMode === "cash"
           ? "cash_paid"
           : requestedPaymentMode === "auto"
-            ? currentBalanceKzt >= pricing.total
+            ? currentBalanceKzt >= effectiveTotal
               ? "wallet_paid"
               : "manual_unpaid"
             : "wallet_paid";
 
-      if (requestedPaymentMode === "wallet" && currentBalanceKzt < pricing.total) {
+      if (requestedPaymentMode === "wallet" && currentBalanceKzt < effectiveTotal) {
         const hold =
           activeHold ??
           (await createBookingHold(
@@ -526,8 +575,10 @@ export async function createBookingInDb(
               locationId: input.locationId,
               startAt,
               endAt,
-              amountRequiredKzt: pricing.total,
-              pricingBreakdownJson,
+              amountRequiredKzt: effectiveTotal,
+              pricingBreakdownJson: promoApplyResult
+                ? ({ items: [...pricing.breakdown, promoApplyResult.promoLine], promoCode: effectivePromoCode } as unknown as Prisma.InputJsonValue)
+                : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue),
               courtId: input.courtId,
               instructorId: input.instructorId,
             },
@@ -538,8 +589,8 @@ export async function createBookingInDb(
           insufficientWallet: {
             holdId: hold.id,
             currentBalanceKzt,
-            amountRequiredKzt: pricing.total,
-            shortfallKzt: pricing.total - currentBalanceKzt,
+            amountRequiredKzt: effectiveTotal,
+            shortfallKzt: effectiveTotal - currentBalanceKzt,
             expiresAt: hold.expiresAt,
           },
         } satisfies InsufficientWalletResult;
@@ -554,8 +605,10 @@ export async function createBookingInDb(
           endAt,
           status: effectiveSettlementMode === "manual_unpaid" ? "pending_payment" : "confirmed",
           currency: pricing.currency,
-          priceTotal: pricing.total,
+          priceTotal: effectiveTotal,
           pricingBreakdownJson,
+          promoCodeId: promoRecord?.id,
+          discountKzt: promoApplyResult?.discountKzt,
           resources: {
             create: [
               ...(input.courtId
@@ -570,7 +623,7 @@ export async function createBookingInDb(
             create: {
               provider: effectiveSettlementMode === "wallet_paid" ? "wallet" : "manual",
               status: effectiveSettlementMode === "manual_unpaid" ? "unpaid" : "paid",
-              amount: pricing.total,
+              amount: effectiveTotal,
               currency: pricing.currency,
               providerPaymentId: null,
             },
@@ -583,11 +636,22 @@ export async function createBookingInDb(
         },
       });
 
+      if (promoApplyResult && promoRecord) {
+        await tx.promoCodeRedemption.create({
+          data: {
+            promoCodeId: promoRecord.id,
+            customerId: customerUser.id,
+            bookingId: booking.id,
+            amountKzt: promoApplyResult.discountKzt,
+          },
+        });
+      }
+
       if (effectiveSettlementMode === "wallet_paid") {
         await debitUserWallet({
           tx,
           userId: customerUser.id,
-          amountKzt: pricing.total,
+          amountKzt: effectiveTotal,
           type: "booking_charge",
           bookingId: booking.id,
           holdId: activeHold?.id,
@@ -819,6 +883,35 @@ export async function createBookingSeriesInDb(
           ? Number(instructorForPricing.instructorSports[0]?.pricePerHour ?? 0)
           : undefined;
 
+      let seriesPromo: Awaited<ReturnType<typeof tx.promoCode.findUnique>> | undefined;
+      let seriesExistingCustomerRedemptions = 0;
+      let seriesExistingTotalRedemptions = 0;
+      let seriesIsFirstBooking = false;
+
+      if (input.promoCode) {
+        const promo = await tx.promoCode.findUnique({ where: { code: input.promoCode } });
+        if (!promo) throw new PromoIneligibleError("not_found", PROMO_ERROR_MESSAGES.not_found);
+        seriesPromo = promo;
+
+        const [customerCount, totalCount, existingBookingsCount] = await Promise.all([
+          tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id, customerId: customerUser.id } }),
+          tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id } }),
+          tx.booking.count({ where: { customerId: customerUser.id, status: { not: "cancelled" } } }),
+        ]);
+
+        seriesExistingCustomerRedemptions = customerCount;
+        seriesExistingTotalRedemptions = totalCount;
+        seriesIsFirstBooking = existingBookingsCount === 0;
+
+        const perLimit = promo.perCustomerLimit ?? 1;
+        if (perLimit > 0 && customerCount + input.slots.length > perLimit) {
+          throw new PromoIneligibleError("per_customer_limit", PROMO_ERROR_MESSAGES.per_customer_limit);
+        }
+        if (promo.totalRedemptionLimit !== null && totalCount + input.slots.length > promo.totalRedemptionLimit) {
+          throw new PromoIneligibleError("total_limit", PROMO_ERROR_MESSAGES.total_limit);
+        }
+      }
+
       const preparedSlots = [];
       const now = new Date();
 
@@ -876,17 +969,37 @@ export async function createBookingSeriesInDb(
           currency: "KZT",
         });
 
+        let slotPromoResult: PromoApplyResult | undefined;
+        if (seriesPromo) {
+          slotPromoResult = applyPromoToPricing(pricing, seriesPromo, {
+            customerId: customerUser.id,
+            serviceCode: service.code,
+            sportId: service.sportId,
+            existingCustomerRedemptions: seriesExistingCustomerRedemptions,
+            existingTotalRedemptions: seriesExistingTotalRedemptions,
+            isFirstBooking: seriesIsFirstBooking,
+            bookingDate: input.date,
+          });
+        }
+
+        const slotEffectiveTotal = slotPromoResult?.totalAfterDiscount ?? pricing.total;
+        const slotBreakdownJson = slotPromoResult
+          ? (JSON.parse(JSON.stringify([...pricing.breakdown, slotPromoResult.promoLine])) as Prisma.InputJsonValue)
+          : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue);
+
         preparedSlots.push({
           slot,
           startAt,
           endAt,
           activeHold,
           pricing,
-          pricingBreakdownJson: JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue,
+          effectiveTotal: slotEffectiveTotal,
+          pricingBreakdownJson: slotBreakdownJson,
+          promoResult: slotPromoResult,
         });
       }
 
-      const totalAmount = preparedSlots.reduce((sum, slot) => sum + slot.pricing.total, 0);
+      const totalAmount = preparedSlots.reduce((sum, slot) => sum + slot.effectiveTotal, 0);
       const currentBalanceKzt = Number(customerUser.walletBalance);
       if (currentBalanceKzt < totalAmount) {
         throw new Error("Недостаточно средств на балансе для всей серии");
@@ -903,8 +1016,10 @@ export async function createBookingSeriesInDb(
             endAt: prepared.endAt,
             status: "confirmed",
             currency: prepared.pricing.currency,
-            priceTotal: prepared.pricing.total,
+            priceTotal: prepared.effectiveTotal,
             pricingBreakdownJson: prepared.pricingBreakdownJson,
+            promoCodeId: seriesPromo?.id,
+            discountKzt: prepared.promoResult?.discountKzt,
             resources: {
               create: [
                 { resourceType: "court" as const, resourceId: prepared.slot.courtId },
@@ -917,7 +1032,7 @@ export async function createBookingSeriesInDb(
               create: {
                 provider: "wallet",
                 status: "paid",
-                amount: prepared.pricing.total,
+                amount: prepared.effectiveTotal,
                 currency: prepared.pricing.currency,
                 providerPaymentId: null,
               },
@@ -930,10 +1045,21 @@ export async function createBookingSeriesInDb(
           },
         });
 
+        if (prepared.promoResult && seriesPromo) {
+          await tx.promoCodeRedemption.create({
+            data: {
+              promoCodeId: seriesPromo.id,
+              customerId: customerUser.id,
+              bookingId: booking.id,
+              amountKzt: prepared.promoResult.discountKzt,
+            },
+          });
+        }
+
         await debitUserWallet({
           tx,
           userId: customerUser.id,
-          amountKzt: prepared.pricing.total,
+          amountKzt: prepared.effectiveTotal,
           type: "booking_charge",
           bookingId: booking.id,
           holdId: prepared.activeHold?.id,
@@ -1196,6 +1322,27 @@ export async function createBookingHoldsInDb(
           ? Number(instructorForPricing.instructorSports[0]?.pricePerHour ?? 0)
           : undefined;
 
+      let holdsPromo: Awaited<ReturnType<typeof tx.promoCode.findUnique>> | undefined;
+      let holdsCustomerRedemptionCount = 0;
+      let holdsTotalRedemptionCount = 0;
+      let holdsIsFirstBooking = false;
+
+      if (input.promoCode) {
+        const promo = await tx.promoCode.findUnique({ where: { code: input.promoCode } });
+        if (!promo) throw new PromoIneligibleError("not_found", PROMO_ERROR_MESSAGES.not_found);
+        holdsPromo = promo;
+
+        const [customerCount, totalCount, existingBookingsCount] = await Promise.all([
+          tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id, customerId: customerUser.id } }),
+          tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id } }),
+          tx.booking.count({ where: { customerId: customerUser.id, status: { not: "cancelled" } } }),
+        ]);
+
+        holdsCustomerRedemptionCount = customerCount;
+        holdsTotalRedemptionCount = totalCount;
+        holdsIsFirstBooking = existingBookingsCount === 0;
+      }
+
       const holds = [];
       for (const slot of input.slots) {
         const startAt = venueDateTimeToUtc(input.date, slot.startTime);
@@ -1247,7 +1394,24 @@ export async function createBookingHoldsInDb(
           instructorPriceOverrideAmount,
           currency: "KZT",
         });
-        const pricingBreakdownJson = JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue;
+
+        let slotPromoResult: PromoApplyResult | undefined;
+        if (holdsPromo) {
+          slotPromoResult = applyPromoToPricing(pricing, holdsPromo, {
+            customerId: customerUser.id,
+            serviceCode: service.code,
+            sportId: service.sportId,
+            existingCustomerRedemptions: holdsCustomerRedemptionCount,
+            existingTotalRedemptions: holdsTotalRedemptionCount,
+            isFirstBooking: holdsIsFirstBooking,
+            bookingDate: input.date,
+          });
+        }
+
+        const slotEffectiveTotal = slotPromoResult?.totalAfterDiscount ?? pricing.total;
+        const holdBreakdownJson: Prisma.InputJsonValue = slotPromoResult
+          ? ({ items: [...pricing.breakdown, slotPromoResult.promoLine], promoCode: holdsPromo!.code } as unknown as Prisma.InputJsonValue)
+          : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue);
 
         const hold =
           activeHold ??
@@ -1258,8 +1422,8 @@ export async function createBookingHoldsInDb(
               locationId: input.locationId,
               startAt,
               endAt,
-              amountRequiredKzt: pricing.total,
-              pricingBreakdownJson,
+              amountRequiredKzt: slotEffectiveTotal,
+              pricingBreakdownJson: holdBreakdownJson,
               courtId: slot.courtId,
               instructorId: input.instructorId,
             },

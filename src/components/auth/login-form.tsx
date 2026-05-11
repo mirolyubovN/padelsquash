@@ -2,26 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useFormStatus } from "react-dom";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
+import { t } from "@/src/lib/i18n";
 
 interface LoginFormProps {
   next: string;
   errorCode?: "credentials";
   action: (formData: FormData) => void | Promise<void>;
-}
-
-function LoginSubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <button
-      type="submit"
-      className={`auth-form__submit${pending ? " auth-form__submit--loading" : ""}`}
-      disabled={pending}
-    >
-      {pending ? "Входим..." : "Войти"}
-    </button>
-  );
 }
 
 export function LoginForm({ next, errorCode, action }: LoginFormProps) {
@@ -31,7 +18,7 @@ export function LoginForm({ next, errorCode, action }: LoginFormProps) {
     <>
       {errorCode ? (
         <p className="auth-panel__error" role="alert">
-          Неверный email или пароль.
+          {t("auth.login.error.credentials")}
         </p>
       ) : null}
 
@@ -54,7 +41,7 @@ export function LoginForm({ next, errorCode, action }: LoginFormProps) {
 
         <div className="auth-form__group">
           <label htmlFor="login-password" className="auth-form__label">
-            Пароль
+            {t("auth.common.password")}
           </label>
           <div className="auth-form__field-row">
             <input
@@ -71,18 +58,22 @@ export function LoginForm({ next, errorCode, action }: LoginFormProps) {
               onClick={() => setShowPassword((value) => !value)}
               aria-pressed={showPassword}
             >
-              {showPassword ? "Скрыть" : "Показать"}
+              {showPassword ? t("auth.common.hidePassword") : t("auth.common.showPassword")}
             </button>
           </div>
         </div>
 
         <div className="auth-form__actions-row">
           <Link href={`/forgot-password?next=${encodeURIComponent(next)}`} className="auth-panel__link">
-            Забыли пароль?
+            {t("auth.login.forgotPasswordLink")}
           </Link>
         </div>
 
-        <LoginSubmitButton />
+        <FormSubmitButton
+          className="auth-form__submit"
+          label={t("auth.login.submit")}
+          loadingLabel={t("auth.login.submitting")}
+        />
       </form>
     </>
   );

@@ -3,6 +3,7 @@ import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import { prisma } from "@/src/lib/prisma";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Журнал действий | Padel & Squash KZ",
@@ -16,36 +17,36 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 50;
 
 const ACTION_LABELS: Record<string, string> = {
-  "booking.cancel": "Отмена бронирования",
-  "booking.status_change": "Изменение статуса брони",
-  "booking.payment_change": "Изменение статуса оплаты",
-  "event.register": "Запись на событие",
-  "event.cancel_registration": "Отмена записи на событие",
-  "event.cancel": "Отмена события",
-  "event.status_change": "Изменение статуса события",
-  "court.create": "Создание корта",
-  "court.update": "Редактирование корта",
-  "court.delete": "Удаление корта",
-  "court.toggle_active": "Вкл/Выкл корта",
-  "instructor.create": "Создание тренера",
-  "instructor.update": "Редактирование тренера",
-  "instructor.delete": "Удаление тренера",
-  "instructor.toggle_active": "Вкл/Выкл тренера",
-  "sport.create": "Создание вида спорта",
-  "sport.update": "Редактирование вида спорта",
-  "sport.delete": "Удаление вида спорта",
-  "wallet.admin_credit": "Пополнение баланса (адм.)",
-  "wallet.admin_debit": "Списание баланса (адм.)",
+  "booking.cancel": t("admin.audit.actions.bookingCancel"),
+  "booking.status_change": t("admin.audit.actions.bookingStatusChange"),
+  "booking.payment_change": t("admin.audit.actions.bookingPaymentChange"),
+  "event.register": t("admin.audit.actions.eventRegister"),
+  "event.cancel_registration": t("admin.audit.actions.eventCancelRegistration"),
+  "event.cancel": t("admin.audit.actions.eventCancel"),
+  "event.status_change": t("admin.audit.actions.eventStatusChange"),
+  "court.create": t("admin.audit.actions.courtCreate"),
+  "court.update": t("admin.audit.actions.courtUpdate"),
+  "court.delete": t("admin.audit.actions.courtDelete"),
+  "court.toggle_active": t("admin.audit.actions.courtToggleActive"),
+  "instructor.create": t("admin.audit.actions.instructorCreate"),
+  "instructor.update": t("admin.audit.actions.instructorUpdate"),
+  "instructor.delete": t("admin.audit.actions.instructorDelete"),
+  "instructor.toggle_active": t("admin.audit.actions.instructorToggleActive"),
+  "sport.create": t("admin.audit.actions.sportCreate"),
+  "sport.update": t("admin.audit.actions.sportUpdate"),
+  "sport.delete": t("admin.audit.actions.sportDelete"),
+  "wallet.admin_credit": t("admin.audit.actions.walletAdminCredit"),
+  "wallet.admin_debit": t("admin.audit.actions.walletAdminDebit"),
 };
 
 const ENTITY_LABELS: Record<string, string> = {
-  booking: "Бронирование",
-  event: "Событие",
-  event_registration: "Запись на событие",
-  court: "Корт",
-  instructor: "Тренер",
-  sport: "Вид спорта",
-  wallet: "Кошелёк",
+  booking: t("admin.audit.entities.booking"),
+  event: t("admin.audit.entities.event"),
+  event_registration: t("admin.audit.entities.eventRegistration"),
+  court: t("admin.audit.entities.court"),
+  instructor: t("admin.audit.entities.instructor"),
+  sport: t("admin.audit.entities.sport"),
+  wallet: t("admin.audit.entities.wallet"),
 };
 
 export default async function AdminAuditPage({
@@ -107,63 +108,63 @@ export default async function AdminAuditPage({
 
   return (
     <AdminPageShell
-      title="Журнал действий"
-      description="Все административные действия с фильтрами по типу, действию и дате."
+      title={t("admin.audit.title")}
+      description={t("admin.audit.description")}
     >
       <form method="get" className="admin-filters">
         <div className="admin-filters__grid">
           <div className="admin-form__group">
-            <label htmlFor="audit-entity" className="admin-form__label">Тип объекта</label>
+            <label htmlFor="audit-entity" className="admin-form__label">{t("admin.audit.filters.entityType")}</label>
             <select id="audit-entity" name="entityType" className="admin-form__field" defaultValue={entityType ?? ""}>
-              <option value="">Все</option>
+              <option value="">{t("admin.common.all")}</option>
               {Object.entries(ENTITY_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
           </div>
           <div className="admin-form__group">
-            <label htmlFor="audit-action" className="admin-form__label">Действие</label>
+            <label htmlFor="audit-action" className="admin-form__label">{t("admin.audit.filters.action")}</label>
             <select id="audit-action" name="action" className="admin-form__field" defaultValue={action ?? ""}>
-              <option value="">Все</option>
+              <option value="">{t("admin.common.all")}</option>
               {Object.entries(ACTION_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
           </div>
           <div className="admin-form__group">
-            <label htmlFor="audit-date-from" className="admin-form__label">С даты</label>
+            <label htmlFor="audit-date-from" className="admin-form__label">{t("admin.audit.filters.dateFrom")}</label>
             <input id="audit-date-from" name="dateFrom" type="date" className="admin-form__field" defaultValue={dateFrom ?? ""} />
           </div>
           <div className="admin-form__group">
-            <label htmlFor="audit-date-to" className="admin-form__label">По дату</label>
+            <label htmlFor="audit-date-to" className="admin-form__label">{t("admin.audit.filters.dateTo")}</label>
             <input id="audit-date-to" name="dateTo" type="date" className="admin-form__field" defaultValue={dateTo ?? ""} />
           </div>
         </div>
         <div className="admin-filters__actions">
-          <button type="submit" className="admin-form__submit">Применить</button>
-          <Link href="/admin/audit" className="admin-bookings__action-button">Сбросить</Link>
+          <button type="submit" className="admin-form__submit">{t("admin.common.apply")}</button>
+          <Link href="/admin/audit" className="admin-bookings__action-button">{t("admin.common.reset")}</Link>
         </div>
       </form>
 
       <div className="admin-list-toolbar">
-        <p className="admin-list-toolbar__meta">Найдено: {total}. Страница {page} из {totalPages}.</p>
+        <p className="admin-list-toolbar__meta">{t("admin.audit.resultsMeta", { total, page, totalPages })}</p>
       </div>
 
       <div className="admin-table">
         <table className="admin-table__table">
           <thead>
             <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Когда</th>
-              <th className="admin-table__cell admin-table__cell--head">Действие</th>
-              <th className="admin-table__cell admin-table__cell--head">Объект</th>
-              <th className="admin-table__cell admin-table__cell--head">ID объекта</th>
-              <th className="admin-table__cell admin-table__cell--head">Детали</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.audit.table.when")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.audit.table.action")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.audit.table.entity")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.audit.table.entityId")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.audit.table.details")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={5}>Записей пока нет.</td>
+                <td className="admin-table__cell" colSpan={5}>{t("admin.audit.empty")}</td>
               </tr>
             ) : (
               rows.map((row) => {
@@ -219,15 +220,15 @@ export default async function AdminAuditPage({
           className={`admin-pagination__link${page <= 1 ? " admin-pagination__link--disabled" : ""}`}
           aria-disabled={page <= 1}
         >
-          Назад
+          {t("admin.pagination.back")}
         </Link>
-        <span className="admin-pagination__meta">Страница {page} / {totalPages}</span>
+        <span className="admin-pagination__meta">{t("admin.pagination.pageOf", { page, totalPages })}</span>
         <Link
           href={buildUrl({ page: Math.min(totalPages, page + 1) })}
           className={`admin-pagination__link${page >= totalPages ? " admin-pagination__link--disabled" : ""}`}
           aria-disabled={page >= totalPages}
         >
-          Вперёд
+          {t("admin.pagination.forward")}
         </Link>
       </div>
     </AdminPageShell>

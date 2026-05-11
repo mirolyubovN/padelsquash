@@ -7,6 +7,7 @@ import { cancelCustomerAccountEventRegistration, cancelCustomerBooking, getAccou
 import { requireAuthenticatedUser } from "@/src/lib/auth/guards";
 import { canAccessAdminPortal } from "@/src/lib/auth/roles";
 import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -37,13 +38,13 @@ export default async function AccountBookingsPage({
 
   const errorMessage =
     params.error === "cancel_not_allowed"
-      ? `Отмена недоступна: ${cancellationPolicySummary}`
+      ? t("account.bookings.error.cancelNotAllowed", { cancellationPolicySummary })
       : params.error === "cancel_failed"
-        ? "Не удалось отменить бронирование."
+        ? t("account.bookings.error.cancelFailed")
         : null;
 
   const successMessage =
-    params.success === "cancelled" ? "Запись отменена. Если была оплата с баланса, возврат выполнен." : null;
+    params.success === "cancelled" ? t("account.bookings.success.cancelled") : null;
 
   async function cancelAction(formData: FormData) {
     "use server";
@@ -106,9 +107,9 @@ export default async function AccountBookingsPage({
   return (
     <div className="account-page">
       <PageHero
-        eyebrow="Личный кабинет"
-        title="История бронирований"
-        description={`История ваших бронирований и статусов. ${cancellationPolicySummary} Отмена доступна только для активных статусов.`}
+        eyebrow={t("account.common.eyebrow")}
+        title={t("account.bookings.hero.title")}
+        description={t("account.bookings.hero.description", { cancellationPolicySummary })}
       />
 
       <AccountTabs active="bookings" />
@@ -127,13 +128,13 @@ export default async function AccountBookingsPage({
 
         {bookings.length === 0 ? (
           <div className="account-history__empty">
-            Бронирований пока нет.
+            {t("account.bookings.empty")}
           </div>
         ) : (
           <>
             {[
-              { key: "upcoming", title: "Предстоящие", rows: upcomingBookings },
-              { key: "past", title: "Прошедшие и архив", rows: pastBookings },
+              { key: "upcoming", title: t("account.bookings.section.upcoming"), rows: upcomingBookings },
+              { key: "past", title: t("account.bookings.section.past"), rows: pastBookings },
             ].map((section) =>
               section.rows.length > 0 ? (
                 <div key={section.key} className="account-history__section">
@@ -149,7 +150,7 @@ export default async function AccountBookingsPage({
                           <div>
                             <p className="account-history__card-title">{row.serviceName} - {row.courtName}</p>
                             {row.itemType === "event" ? (
-                              <p className="admin-bookings__cell-sub">Событие</p>
+                              <p className="admin-bookings__cell-sub">{t("account.bookings.eventLabel")}</p>
                             ) : null}
                           </div>
                           <p className="account-history__card-price">{row.amountKzt}</p>
@@ -157,11 +158,11 @@ export default async function AccountBookingsPage({
 
                         <div className="account-history__card-grid">
                           <div className="account-history__card-item">
-                            <span className="account-history__card-label">Дата и время</span>
+                            <span className="account-history__card-label">{t("account.bookings.dateTimeLabel")}</span>
                             <span className="account-history__card-value">{row.date} - {row.timeRange}</span>
                           </div>
                           <div className="account-history__card-item">
-                            <span className="account-history__card-label">Статус</span>
+                            <span className="account-history__card-label">{t("account.bookings.statusLabel")}</span>
                             <div className='account-history__badge-container'>
                               <span
                                 className={`account-history__badge account-history__badge--status-${row.status.replaceAll("_", "-")}`}
@@ -188,9 +189,11 @@ export default async function AccountBookingsPage({
                             />
                           ) : (
                             <div className="account-history__cancel-meta">
-                              <div>{row.cancelBlockedReason ?? "Отмена недоступна"}</div>
+                              <div>{row.cancelBlockedReason ?? t("account.bookings.cancelUnavailable")}</div>
                               {row.cancellationDeadlineText ? (
-                                <div className="admin-bookings__cell-sub">До: {row.cancellationDeadlineText}</div>
+                                <div className="admin-bookings__cell-sub">
+                                  {t("account.bookings.cancelDeadline", { deadline: row.cancellationDeadlineText })}
+                                </div>
                               ) : null}
                             </div>
                           )}

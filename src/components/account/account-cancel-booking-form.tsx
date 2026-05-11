@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useModal } from "@/src/hooks/use-modal";
+import { Dialog } from "@/src/components/ui/dialog";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
+import { t } from "@/src/lib/i18n";
 
 interface AccountCancelBookingFormProps {
   bookingId: string;
@@ -11,20 +13,6 @@ interface AccountCancelBookingFormProps {
   action: (formData: FormData) => void | Promise<void>;
 }
 
-function ConfirmCancelSubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <button
-      type="submit"
-      className={`admin-bookings__action-button admin-bookings__action-button--primary${pending ? " admin-bookings__action-button--loading" : ""}`}
-      disabled={pending}
-    >
-      {pending ? "Отменяем..." : "Подтвердить отмену"}
-    </button>
-  );
-}
-
 export function AccountCancelBookingForm({
   bookingId,
   itemType = "booking",
@@ -32,53 +20,44 @@ export function AccountCancelBookingForm({
   cancellationDeadlineText,
   action,
 }: AccountCancelBookingFormProps) {
-  const [open, setOpen] = useState(false);
+  const { open, show, hide } = useModal();
 
   return (
     <>
       <button
         type="button"
         className="admin-bookings__action-button admin-bookings__action-button--primary"
-        onClick={() => setOpen(true)}
+        onClick={show}
       >
-        Отменить
+        {t("account.cancel.open")}
       </button>
 
-      {open ? (
-        <div className="account-dialog__backdrop" role="presentation" onClick={() => setOpen(false)}>
-          <div
-            className="account-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`cancel-booking-title-${bookingId}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 id={`cancel-booking-title-${bookingId}`} className="account-dialog__title">
-              Подтвердите отмену
-            </h3>
-            <p className="account-dialog__text">
-              Вы уверены, что хотите отменить {itemType === "event" ? "запись на событие" : "это бронирование"}?
-            </p>
-            {cancellationDeadlineText ? (
-              <p className="account-dialog__text">Бесплатная отмена доступна до: {cancellationDeadlineText}</p>
-            ) : null}
+      <Dialog open={open} onClose={hide} title={t("account.cancel.title")}>
+        <p className="account-dialog__text">
+          {t("account.cancel.confirmation", {
+            item: itemType === "event" ? t("account.cancel.item.event") : t("account.cancel.item.booking"),
+          })}
+        </p>
+        {cancellationDeadlineText ? (
+          <p className="account-dialog__text">
+            {t("account.cancel.deadline", { deadline: cancellationDeadlineText })}
+          </p>
+        ) : null}
 
-            <form action={action} className="account-dialog__actions">
-              <input type="hidden" name="bookingId" value={bookingId} />
-              <input type="hidden" name="itemType" value={itemType} />
-              {eventId ? <input type="hidden" name="eventId" value={eventId} /> : null}
-              <ConfirmCancelSubmitButton />
-              <button
-                type="button"
-                className="admin-bookings__action-button"
-                onClick={() => setOpen(false)}
-              >
-                Назад
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : null}
+        <form action={action} className="account-dialog__actions">
+          <input type="hidden" name="bookingId" value={bookingId} />
+          <input type="hidden" name="itemType" value={itemType} />
+          {eventId ? <input type="hidden" name="eventId" value={eventId} /> : null}
+          <FormSubmitButton
+            className="admin-bookings__action-button admin-bookings__action-button--primary"
+            label={t("account.cancel.confirm")}
+            loadingLabel={t("account.cancel.submitting")}
+          />
+          <button type="button" className="admin-bookings__action-button" onClick={hide}>
+            {t("common.back")}
+          </button>
+        </form>
+      </Dialog>
     </>
   );
 }

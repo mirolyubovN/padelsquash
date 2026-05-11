@@ -10,6 +10,7 @@ import { assertAdmin } from "@/src/lib/auth/guards";
 import { buildAccountSetupPath, createAccountSetupToken } from "@/src/lib/auth/account-setup";
 import { siteConfig } from "@/src/lib/content/site-data";
 import { formatMoneyKzt } from "@/src/lib/format/money";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 import { getAdminWalletPageData } from "@/src/lib/wallet/queries";
 import { adjustUserWalletByEmail } from "@/src/lib/wallet/service";
@@ -55,28 +56,28 @@ export default async function AdminClientsPage({
 
   const successMessage =
     params.success === "adjusted"
-      ? "Баланс клиента обновлен."
+      ? t("admin.clients.success.balanceAdjusted")
       : params.success === "customer_created"
-        ? "Клиент создан."
+        ? t("admin.clients.success.customerCreated")
         : params.success === "customer_exists"
-          ? "Клиент уже существует."
+          ? t("admin.clients.success.customerExists")
           : params.success === "customer_updated"
-            ? "Данные клиента сохранены."
+            ? t("admin.clients.success.customerUpdated")
             : params.success === "password_reset"
-              ? "Пароль клиента сброшен."
+              ? t("admin.clients.success.passwordReset")
               : null;
 
   const errorMessage =
     params.error === "adjust_failed"
-      ? "Не удалось обновить баланс."
+      ? t("admin.clients.error.adjustFailed")
       : params.error === "customer_failed"
-        ? "Не удалось создать клиента."
+        ? t("admin.clients.error.customerFailed")
         : params.error === "customer_update_failed"
-          ? "Не удалось обновить данные клиента."
+          ? t("admin.clients.error.customerUpdateFailed")
           : params.error === "customer_email_taken"
-            ? "Этот email уже используется другим аккаунтом."
+            ? t("admin.clients.error.emailTaken")
             : params.error === "password_reset_failed"
-              ? "Не удалось сбросить пароль."
+              ? t("admin.clients.error.passwordResetFailed")
               : null;
 
   async function adjustBalanceAction(formData: FormData) {
@@ -213,8 +214,8 @@ export default async function AdminClientsPage({
 
   return (
     <AdminPageShell
-      title="Клиенты"
-      description="Список клиентов, управление балансом и доступом."
+      title={t("admin.clients.title")}
+      description={t("admin.clients.description")}
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">{errorMessage}</p>
@@ -227,19 +228,19 @@ export default async function AdminClientsPage({
         <form method="get" className="admin-filters">
           <div className="admin-filters__grid">
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="clients-query">Поиск</label>
+              <label className="admin-form__label" htmlFor="clients-query">{t("admin.common.search")}</label>
               <input
                 id="clients-query"
                 name="q"
                 className="admin-form__field"
                 defaultValue={customerQuery}
-                placeholder="Имя, телефон или email"
+                placeholder={t("admin.common.searchNamePhoneEmailPlaceholder")}
               />
             </div>
           </div>
           <div className="admin-filters__actions">
-            <button type="submit" className="admin-form__submit">Найти</button>
-            <Link href="/admin/clients" className="admin-bookings__action-button">Сбросить</Link>
+            <button type="submit" className="admin-form__submit">{t("admin.common.find")}</button>
+            <Link href="/admin/clients" className="admin-bookings__action-button">{t("admin.common.reset")}</Link>
           </div>
         </form>
 
@@ -247,18 +248,18 @@ export default async function AdminClientsPage({
           <table className="admin-table__table">
             <thead>
               <tr className="admin-table__row">
-                <th className="admin-table__cell admin-table__cell--head">Клиент</th>
-                <th className="admin-table__cell admin-table__cell--head">Баланс</th>
-                <th className="admin-table__cell admin-table__cell--head">Брони</th>
-                <th className="admin-table__cell admin-table__cell--head">Доступ</th>
-                <th className="admin-table__cell admin-table__cell--head">Создан</th>
-                <th className="admin-table__cell admin-table__cell--head">Действия</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.client")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.balance")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.clients.table.bookings")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.clients.table.access")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.created")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.actions")}</th>
               </tr>
             </thead>
             <tbody>
               {data.customers.length === 0 ? (
                 <tr className="admin-table__row">
-                  <td className="admin-table__cell" colSpan={6}>Клиенты не найдены.</td>
+                  <td className="admin-table__cell" colSpan={6}>{t("admin.clients.empty")}</td>
                 </tr>
               ) : (
                 data.customers.map((customer) => {
@@ -282,52 +283,52 @@ export default async function AdminClientsPage({
                         <div><Link href={`/admin/clients/${customer.id}`}>{customer.name}</Link></div>
                         <div className="admin-bookings__cell-sub">
                           <Link href={`/admin/clients/${customer.id}`}>
-                            {isPlaceholderCustomerEmail(customer.email) ? "Email не указан" : customer.email}
+                            {isPlaceholderCustomerEmail(customer.email) ? t("admin.clients.emailMissing") : customer.email}
                           </Link>
                         </div>
                         <div className="admin-bookings__cell-sub">{customer.phone}</div>
                       </td>
                       <td className="admin-table__cell">{formatMoneyKzt(customer.balanceKzt)}</td>
                       <td className="admin-table__cell">{customer.bookingsCount}</td>
-                      <td className="admin-table__cell">{needsSetup ? "Нет пароля" : "Активирован"}</td>
+                      <td className="admin-table__cell">{needsSetup ? t("admin.clients.access.noPassword") : t("admin.common.activated")}</td>
                       <td className="admin-table__cell">{formatDate(customer.createdAtIso)}</td>
                       <td className="admin-table__cell">
                         <div className="admin-bookings__actions">
-                          <AdminEditModal triggerLabel="Пополнить баланс" title={`Баланс: ${customer.name}`}>
+                          <AdminEditModal triggerLabel={t("admin.clients.actions.adjustBalance")} title={t("admin.clients.modal.balanceTitle", { name: customer.name })}>
                             <form action={adjustBalanceAction} className="admin-form admin-form--panel">
                               <div className="admin-form__panel-grid">
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Email клиента</label>
+                                  <label className="admin-form__label">{t("admin.common.customerEmail")}</label>
                                   <input name="customerEmail" type="email" className="admin-form__field" defaultValue={customer.email} required />
                                 </div>
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Сумма, KZT</label>
+                                  <label className="admin-form__label">{t("admin.common.amountKzt")}</label>
                                   <input name="amountKzt" type="number" min="1" step="1" className="admin-form__field" required />
                                 </div>
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Действие</label>
+                                  <label className="admin-form__label">{t("admin.common.action")}</label>
                                   <select name="direction" className="admin-form__field" defaultValue="credit">
-                                    <option value="credit">Начислить</option>
-                                    <option value="debit">Списать</option>
+                                    <option value="credit">{t("admin.common.credit")}</option>
+                                    <option value="debit">{t("admin.common.debit")}</option>
                                   </select>
                                 </div>
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Комментарий</label>
-                                  <input name="note" className="admin-form__field" placeholder="Например: оплата в клубе" />
+                                  <label className="admin-form__label">{t("admin.common.comment")}</label>
+                                  <input name="note" className="admin-form__field" placeholder={t("admin.common.notePlaceholder")} />
                                 </div>
                               </div>
                               <div className="admin-form__actions">
-                                <button type="submit" className="admin-form__submit">Провести операцию</button>
+                                <button type="submit" className="admin-form__submit">{t("admin.common.runOperation")}</button>
                               </div>
                             </form>
                           </AdminEditModal>
                           <Link href={`/admin/bookings/create?customerEmail=${encodeURIComponent(customer.email)}`} className="admin-bookings__action-button">
-                            Создать бронь
+                            {t("admin.common.createBooking")}
                           </Link>
                           <Link href={`/admin/clients/${customer.id}`} className="admin-bookings__action-button">
-                            Профиль
+                            {t("admin.clients.actions.profile")}
                           </Link>
-                          <AdminEditModal triggerLabel="Управлять" title={`Клиент: ${customer.name}`}>
+                          <AdminEditModal triggerLabel={t("admin.common.manage")} title={t("admin.clients.modal.clientTitle", { name: customer.name })}>
                             <form action={updateCustomerContactsAction} className="admin-form admin-form--panel">
                               <input type="hidden" name="customerId" value={customer.id} />
                               <input type="hidden" name="currentEmail" value={customer.email} />
@@ -337,36 +338,36 @@ export default async function AdminClientsPage({
                                   <input name="email" type="email" className="admin-form__field" defaultValue={customer.email} required />
                                 </div>
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Телефон</label>
+                                  <label className="admin-form__label">{t("admin.common.phone")}</label>
                                   <input name="phone" className="admin-form__field" defaultValue={customer.phone} required />
                                 </div>
                               </div>
                               <div className="admin-form__actions">
-                                <button type="submit" className="admin-form__submit">Сохранить данные</button>
+                                <button type="submit" className="admin-form__submit">{t("admin.common.saveData")}</button>
                               </div>
                             </form>
                             <form action={resetCustomerPasswordAction} className="admin-form admin-form--panel">
                               <input type="hidden" name="customerId" value={customer.id} />
                               <input type="hidden" name="currentEmail" value={customer.email} />
-                              <p className="admin-bookings__cell-sub">Сброс пароля отключает текущий пароль клиента.</p>
+                              <p className="admin-bookings__cell-sub">{t("admin.clients.passwordResetHint")}</p>
                               <div className="admin-form__actions">
                                 <button type="submit" className="admin-bookings__action-button admin-bookings__action-button--danger">
-                                  Сбросить пароль
+                                  {t("admin.common.resetPassword")}
                                 </button>
                               </div>
                             </form>
                           </AdminEditModal>
                           {needsSetup && setupUrl ? (
-                            <AdminEditModal triggerLabel="Ссылка доступа" title={`Доступ: ${customer.name}`}>
+                            <AdminEditModal triggerLabel={t("admin.clients.actions.accessLink")} title={t("admin.clients.modal.accessTitle", { name: customer.name })}>
                               <div className="admin-form admin-form--panel">
                                 <div className="admin-form__panel-grid">
                                   <div className="admin-form__group">
-                                    <label className="admin-form__label">Ссылка активации</label>
+                                    <label className="admin-form__label">{t("admin.common.activationLink")}</label>
                                     <input className="admin-form__field" value={setupUrl} readOnly />
                                   </div>
                                 </div>
                                 <div className="admin-form__actions">
-                                  <a href={setupUrl} target="_blank" rel="noreferrer" className="admin-form__submit">Открыть ссылку</a>
+                                  <a href={setupUrl} target="_blank" rel="noreferrer" className="admin-form__submit">{t("admin.common.openLink")}</a>
                                 </div>
                               </div>
                             </AdminEditModal>
@@ -384,33 +385,33 @@ export default async function AdminClientsPage({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Новый клиент</h2>
+          <h2 className="admin-section__title">{t("admin.clients.newCustomer.title")}</h2>
           <p className="admin-section__description">
-            Быстрая регистрация клиента из админки для наличной оплаты и ручных бронирований.
+            {t("admin.clients.newCustomer.description")}
           </p>
         </div>
         <form action={createCustomerAction} className="admin-form admin-form--panel">
           <div className="admin-form__panel-grid">
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="client-first-name">Имя</label>
+              <label className="admin-form__label" htmlFor="client-first-name">{t("admin.common.firstName")}</label>
               <input id="client-first-name" name="firstName" className="admin-form__field" required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="client-last-name">Фамилия</label>
+              <label className="admin-form__label" htmlFor="client-last-name">{t("admin.common.lastName")}</label>
               <input id="client-last-name" name="lastName" className="admin-form__field" required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="client-phone">Телефон</label>
+              <label className="admin-form__label" htmlFor="client-phone">{t("admin.common.phone")}</label>
               <input id="client-phone" name="phone" className="admin-form__field" required />
             </div>
             <div className="admin-form__group">
               <label className="admin-form__label" htmlFor="client-email">Email</label>
               <input id="client-email" name="email" type="email" className="admin-form__field" />
-              <p className="admin-bookings__cell-sub">Необязательно. Можно добавить позже в карточке клиента.</p>
+              <p className="admin-bookings__cell-sub">{t("admin.clients.newCustomer.emailHint")}</p>
             </div>
           </div>
           <div className="admin-form__actions">
-            <button type="submit" className="admin-form__submit">Создать клиента</button>
+            <button type="submit" className="admin-form__submit">{t("admin.clients.newCustomer.submit")}</button>
           </div>
         </form>
       </section>

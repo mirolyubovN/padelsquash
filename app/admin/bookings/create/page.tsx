@@ -116,64 +116,42 @@ async function getCourtPricesByLocation(locations: Array<{ id: string; slug: str
 }
 
 async function ensureAdminBookingCustomer(args: {
-  email: string;
+  id?: string;
   name: string;
   phone: string;
 }) {
-  const normalizedEmail = args.email.trim().toLowerCase();
-  if (!normalizedEmail) {
-    throw new Error("Укажите email клиента");
+  if (args.id) {
+    const existing = await prisma.user.findUnique({
+      where: { id: args.id },
+      select: { id: true, role: true, name: true, phone: true, email: true },
+    });
+    if (!existing) throw new Error("Клиент не найден");
+    if (existing.role !== "customer") throw new Error("Для ручного бронирования можно использовать только клиентский аккаунт");
+    return existing;
   }
 
-  const existing = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-    select: {
-      id: true,
-      role: true,
-      name: true,
-      phone: true,
-      email: true,
-    },
+  const normalizedPhone = args.phone.replace(/\D/g, "");
+  const placeholderEmail = `${normalizedPhone}@noemail.padelsquash.kz`;
+
+  const existing = await prisma.user.findFirst({
+    where: { phone: args.phone },
+    select: { id: true, role: true, name: true, phone: true, email: true },
   });
 
-  if (existing && existing.role !== "customer") {
-    throw new Error("Для ручного бронирования можно использовать только клиентский аккаунт");
-  }
-
   if (existing) {
-    if (existing.name !== args.name || existing.phone !== args.phone) {
-      return prisma.user.update({
-        where: { id: existing.id },
-        data: {
-          name: args.name,
-          phone: args.phone,
-        },
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          email: true,
-        },
-      });
-    }
-
+    if (existing.role !== "customer") throw new Error("Для ручного бронирования можно использовать только клиентский аккаунт");
     return existing;
   }
 
   return prisma.user.create({
     data: {
       name: args.name,
-      email: normalizedEmail,
+      email: placeholderEmail,
       phone: args.phone,
       passwordHash: "admin-wallet-topup-placeholder",
       role: "customer",
     },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      email: true,
-    },
+    select: { id: true, name: true, phone: true, email: true },
   });
 }
 
@@ -326,13 +304,14 @@ export default async function AdminCreateBookingPage({
     const instructorId = String(formData.get("instructorId") ?? "").trim() || undefined;
     const customerName = String(formData.get("customerName") ?? "").trim();
     const customerPhone = String(formData.get("customerPhone") ?? "").trim();
-    const customerEmail = String(formData.get("customerEmail") ?? "").trim().toLowerCase();
+    const customerId = String(formData.get("customerId") ?? "").trim();
     const paymentModeRaw = String(formData.get("paymentMode") ?? "auto").trim();
     const paymentMode: BookingPaymentMode =
       paymentModeRaw === "wallet" || paymentModeRaw === "cash" || paymentModeRaw === "auto" ? paymentModeRaw : "auto";
+    const promoCode = String(formData.get("promoCode") ?? "").trim().toUpperCase() || undefined;
     const selectedSlotCourts = parseSelectedSlotCourts(formData);
 
-    if (!serviceCode || !date || !customerName || !customerPhone || !customerEmail) {
+    if (!serviceCode || !date || !customerName || !customerPhone) {
       return { error: "Заполните все обязательные поля" };
     }
 
@@ -377,9 +356,9 @@ export default async function AdminCreateBookingPage({
 
     try {
       const customerUser = await ensureAdminBookingCustomer({
+        id: customerId || undefined,
         name: customerName,
         phone: customerPhone,
-        email: customerEmail,
       });
 
       const createdSessions: NonNullable<CreateBookingActionResult["createdSessions"]> = [];
@@ -397,6 +376,7 @@ export default async function AdminCreateBookingPage({
             instructorId,
             holdId: selection.holdId,
             paymentMode,
+            promoCode,
             allowCurrentHourLateBooking: true,
             customerUserId: customerUser.id,
             customer: {
@@ -506,7 +486,6 @@ export default async function AdminCreateBookingPage({
         initialCourtId={selectedCourt?.id}
         initialCustomerName={selectedCustomer?.role === "customer" ? selectedCustomer.name : undefined}
         initialCustomerPhone={selectedCustomer?.role === "customer" ? selectedCustomer.phone : undefined}
-        initialCustomerEmail={selectedCustomer?.role === "customer" ? selectedCustomer.email : requestedCustomerEmail}
         initialCustomerBalanceKzt={selectedCustomer?.role === "customer" ? Number(selectedCustomer.walletBalance) : null}
         createAction={createBookingAction}
       />

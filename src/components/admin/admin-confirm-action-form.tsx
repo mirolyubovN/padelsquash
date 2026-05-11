@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useModal } from "@/src/hooks/use-modal";
+import { Dialog } from "@/src/components/ui/dialog";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
+import { t } from "@/src/lib/i18n";
 
 interface AdminConfirmActionFormProps {
   action: (formData: FormData) => void | Promise<void>;
@@ -13,62 +15,39 @@ interface AdminConfirmActionFormProps {
   triggerClassName?: string;
 }
 
-function ConfirmSubmitButton({ label }: { label: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      className={`admin-bookings__action-button admin-bookings__action-button--danger${pending ? " admin-bookings__action-button--loading" : ""}`}
-      disabled={pending}
-    >
-      {pending ? "Выполняем..." : label}
-    </button>
-  );
-}
-
 export function AdminConfirmActionForm({
   action,
   hiddenFields,
   triggerLabel,
-  confirmLabel = "Подтвердить",
+  confirmLabel = t("admin.confirmAction.defaultConfirm"),
   title,
   description,
   triggerClassName = "admin-bookings__action-button",
 }: AdminConfirmActionFormProps) {
-  const [open, setOpen] = useState(false);
+  const { open, show, hide } = useModal();
 
   return (
     <>
-      <button type="button" className={triggerClassName} onClick={() => setOpen(true)}>
+      <button type="button" className={triggerClassName} onClick={show}>
         {triggerLabel}
       </button>
 
-      {open ? (
-        <div className="account-dialog__backdrop" role="presentation" onClick={() => setOpen(false)}>
-          <div
-            className="account-dialog"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 className="account-dialog__title">{title}</h3>
-            <p className="account-dialog__text">{description}</p>
-            <form action={action} className="account-dialog__actions">
-              {Object.entries(hiddenFields).map(([name, value]) => (
-                <input key={name} type="hidden" name={name} value={value} />
-              ))}
-              <ConfirmSubmitButton label={confirmLabel} />
-              <button
-                type="button"
-                className="admin-bookings__action-button"
-                onClick={() => setOpen(false)}
-              >
-                Отмена
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      <Dialog open={open} onClose={hide} title={title}>
+        <p className="account-dialog__text">{description}</p>
+        <form action={action} className="account-dialog__actions">
+          {Object.entries(hiddenFields).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
+          <FormSubmitButton
+            className="admin-bookings__action-button admin-bookings__action-button--danger"
+            label={confirmLabel}
+            loadingLabel={t("admin.confirmAction.loading")}
+          />
+          <button type="button" className="admin-bookings__action-button" onClick={hide}>
+            {t("admin.common.cancel")}
+          </button>
+        </form>
+      </Dialog>
     </>
   );
 }

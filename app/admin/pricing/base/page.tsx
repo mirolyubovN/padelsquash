@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertSuperAdmin } from "@/src/lib/auth/guards";
+import { t } from "@/src/lib/i18n";
 import {
   COURT_BASE_PRICING_PERIOD_LABELS,
   getCourtBasePriceMatrix,
@@ -32,15 +33,15 @@ export default async function AdminBasePricingPage() {
 
   return (
     <AdminPageShell
-      title="Матрица цен"
-      description="Базовые цены кортов по спорту. Тренировки не настраиваются здесь: стоимость тренера задается отдельно в карточке каждого тренера."
+      title={t("admin.pricingBase.title")}
+      description={t("admin.pricingBase.description")}
     >
       <form action={saveAction} className="admin-form">
         <div className="admin-table">
           <table className="admin-table__table">
             <thead>
               <tr className="admin-table__row">
-                <th className="admin-table__cell admin-table__cell--head">Позиция</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.pricingBase.table.position")}</th>
                 <th className="admin-table__cell admin-table__cell--head">
                   {COURT_BASE_PRICING_PERIOD_LABELS.morning}
                 </th>
@@ -82,7 +83,7 @@ export default async function AdminBasePricingPage() {
         </div>
         <div className="admin-form__actions">
           <button type="submit" className="admin-form__submit">
-            Сохранить матрицу цен
+            {t("admin.pricingBase.save")}
           </button>
         </div>
       </form>

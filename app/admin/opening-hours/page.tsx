@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertSuperAdmin } from "@/src/lib/auth/guards";
+import { t } from "@/src/lib/i18n";
 import { getOpeningHours, saveOpeningHoursFromForm, WEEKDAY_LABELS } from "@/src/lib/settings/service";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
@@ -26,18 +27,18 @@ export default async function AdminOpeningHoursPage() {
 
   return (
     <AdminPageShell
-      title="Часы работы площадки"
-      description="Недельный шаблон часов работы клуба для расчета доступности слотов."
+      title={t("admin.openingHours.title")}
+      description={t("admin.openingHours.description")}
     >
       <form action={saveAction} className="admin-form">
         <div className="admin-table">
           <table className="admin-table__table">
             <thead className="admin-table__head">
               <tr className="admin-table__row">
-                <th className="admin-table__cell admin-table__cell--head">День</th>
-                <th className="admin-table__cell admin-table__cell--head">Открытие</th>
-                <th className="admin-table__cell admin-table__cell--head">Закрытие</th>
-                <th className="admin-table__cell admin-table__cell--head">Активно</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.openingHours.table.day")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.openingHours.table.openTime")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.openingHours.table.closeTime")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.openingHours.table.active")}</th>
               </tr>
             </thead>
             <tbody className="admin-table__body">
@@ -69,7 +70,7 @@ export default async function AdminOpeningHoursPage() {
                         type="checkbox"
                         defaultChecked={row.active}
                       />
-                      <span>Да</span>
+                      <span>{t("admin.common.yes")}</span>
                     </label>
                   </td>
                 </tr>
@@ -79,7 +80,7 @@ export default async function AdminOpeningHoursPage() {
         </div>
         <div className="admin-form__actions">
           <button type="submit" className="admin-form__submit">
-            Сохранить часы работы
+            {t("admin.openingHours.save")}
           </button>
         </div>
       </form>

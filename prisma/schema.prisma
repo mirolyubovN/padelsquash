@@ -75,6 +75,17 @@ enum WalletTransactionType {
   event_refund
 }
 
+enum PromoDiscountType {
+  percent
+  fixed_kzt
+}
+
+enum PromoCodeStatus {
+  active
+  paused
+  archived
+}
+
 enum BookingHoldStatus {
   active
   converted
@@ -383,6 +394,8 @@ model Booking {
   cancelledBy          String? // "customer" | "admin" | "system" | "trainer"
   cancelledAt          DateTime?
   cancellationReason   String?
+  promoCodeId          String?
+  discountKzt          Decimal?      @db.Decimal(10, 2)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -393,6 +406,7 @@ model Booking {
   payment            Payment?
   walletTransactions WalletTransaction[]
   bookingHold        BookingHold?
+  promoCode          PromoCode?          @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
 
   @@index([startAt, endAt, status])
   @@index([customerId, createdAt])
@@ -671,4 +685,46 @@ model AuditLog {
   @@index([entityType, entityId, createdAt])
   @@index([actorUserId, createdAt])
   @@index([action, createdAt])
+}
+
+model PromoCode {
+  id                   String            @id @default(cuid())
+  code                 String            @unique
+  description          String?
+  discountType         PromoDiscountType
+  discountValue        Decimal           @db.Decimal(10, 2)
+  maxDiscountKzt       Decimal?          @db.Decimal(10, 2)
+  minOrderKzt          Decimal?          @db.Decimal(10, 2)
+  validFrom            DateTime?
+  validUntil           DateTime?
+  totalRedemptionLimit Int?
+  perCustomerLimit     Int?              @default(1)
+  appliesToServiceCodes String[]         @default([])
+  appliesToSportIds    String[]          @default([])
+  firstBookingOnly     Boolean           @default(false)
+  status               PromoCodeStatus   @default(active)
+  createdByUserId      String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  redemptions PromoCodeRedemption[]
+  bookings    Booking[]
+
+  @@index([status])
+  @@index([validFrom, validUntil])
+}
+
+model PromoCodeRedemption {
+  id          String   @id @default(cuid())
+  promoCodeId String
+  customerId  String
+  bookingId   String?
+  amountKzt   Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Restrict)
+
+  @@unique([promoCodeId, bookingId])
+  @@index([promoCodeId, createdAt])
+  @@index([customerId, createdAt])
 }

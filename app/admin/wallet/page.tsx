@@ -4,6 +4,7 @@ import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { assertAdmin, assertSuperAdmin } from "@/src/lib/auth/guards";
 import { canManagePricing } from "@/src/lib/auth/roles";
 import { formatMoneyKzt } from "@/src/lib/format/money";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 import { getAdminWalletPageData } from "@/src/lib/wallet/queries";
 import { adjustUserWalletByEmail, saveWalletBonusSettings } from "@/src/lib/wallet/service";
@@ -18,14 +19,14 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 function getWalletTypeLabel(type: string): string {
-  if (type === "topup") return "Пополнение";
-  if (type === "bonus") return "Бонус";
-  if (type === "admin_credit") return "Начисление";
-  if (type === "admin_debit") return "Списание";
-  if (type === "booking_charge") return "Оплата брони";
-  if (type === "booking_refund") return "Возврат брони";
-  if (type === "event_charge") return "Оплата события";
-  if (type === "event_refund") return "Возврат события";
+  if (type === "topup") return t("admin.wallet.transaction.topup");
+  if (type === "bonus") return t("admin.wallet.transaction.bonus");
+  if (type === "admin_credit") return t("admin.wallet.transaction.adminCredit");
+  if (type === "admin_debit") return t("admin.wallet.transaction.adminDebit");
+  if (type === "booking_charge") return t("admin.wallet.transaction.bookingCharge");
+  if (type === "booking_refund") return t("admin.wallet.transaction.bookingRefund");
+  if (type === "event_charge") return t("admin.wallet.transaction.eventCharge");
+  if (type === "event_refund") return t("admin.wallet.transaction.eventRefund");
   return type;
 }
 
@@ -41,9 +42,9 @@ export default async function AdminWalletPage({
   const prefilledEmail = params.customerEmail?.trim().toLowerCase() ?? "";
 
   const successMessage =
-    params.success === "adjusted" ? "Баланс обновлен." : params.success === "bonus_saved" ? "Настройки бонуса сохранены." : null;
+    params.success === "adjusted" ? t("admin.wallet.success.adjusted") : params.success === "bonus_saved" ? t("admin.wallet.success.bonusSaved") : null;
   const errorMessage =
-    params.error === "adjust_failed" ? "Не удалось обновить баланс." : params.error === "bonus_failed" ? "Не удалось сохранить бонус." : null;
+    params.error === "adjust_failed" ? t("admin.wallet.error.adjustFailed") : params.error === "bonus_failed" ? t("admin.wallet.error.bonusFailed") : null;
 
   async function adjustBalanceAction(formData: FormData) {
     "use server";
@@ -86,8 +87,8 @@ export default async function AdminWalletPage({
 
   return (
     <AdminPageShell
-      title="Кошелёк"
-      description="Ручное пополнение и списание баланса, история транзакций и бонусная программа."
+      title={t("admin.wallet.title")}
+      description={t("admin.wallet.description")}
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">{errorMessage}</p>
@@ -98,15 +99,15 @@ export default async function AdminWalletPage({
 
       <section className="admin-section" id="wallet-adjustment">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Пополнение и списание</h2>
+          <h2 className="admin-section__title">{t("admin.wallet.adjust.title")}</h2>
           <p className="admin-section__description">
-            Используйте для наличной или клубной оплаты. Все операции попадают в журнал.
+            {t("admin.wallet.adjust.description")}
           </p>
         </div>
         <form action={adjustBalanceAction} className="admin-form admin-form--panel">
           <div className="admin-form__panel-grid">
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="wallet-customer-email">Email клиента</label>
+              <label className="admin-form__label" htmlFor="wallet-customer-email">{t("admin.common.customerEmail")}</label>
               <input
                 id="wallet-customer-email"
                 name="customerEmail"
@@ -117,23 +118,23 @@ export default async function AdminWalletPage({
               />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="wallet-amount-kzt">Сумма, KZT</label>
+              <label className="admin-form__label" htmlFor="wallet-amount-kzt">{t("admin.common.amountKzt")}</label>
               <input id="wallet-amount-kzt" name="amountKzt" type="number" min="1" step="1" className="admin-form__field" required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="wallet-direction">Действие</label>
+              <label className="admin-form__label" htmlFor="wallet-direction">{t("admin.common.action")}</label>
               <select id="wallet-direction" name="direction" className="admin-form__field" defaultValue="credit">
-                <option value="credit">Начислить</option>
-                <option value="debit">Списать</option>
+                <option value="credit">{t("admin.common.credit")}</option>
+                <option value="debit">{t("admin.common.debit")}</option>
               </select>
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="wallet-note">Комментарий</label>
-              <input id="wallet-note" name="note" className="admin-form__field" placeholder="Например: оплата в клубе" />
+              <label className="admin-form__label" htmlFor="wallet-note">{t("admin.common.comment")}</label>
+              <input id="wallet-note" name="note" className="admin-form__field" placeholder={t("admin.common.notePlaceholder")} />
             </div>
           </div>
           <div className="admin-form__actions">
-            <button type="submit" className="admin-form__submit">Провести операцию</button>
+            <button type="submit" className="admin-form__submit">{t("admin.common.runOperation")}</button>
           </div>
         </form>
       </section>
@@ -141,30 +142,30 @@ export default async function AdminWalletPage({
       {canManageBonusProgram ? (
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Бонус на пополнение</h2>
+            <h2 className="admin-section__title">{t("admin.wallet.bonus.title")}</h2>
             <p className="admin-section__description">
-              Порог и процент бонуса при пополнении баланса.
+              {t("admin.wallet.bonus.description")}
             </p>
           </div>
           <form action={saveBonusAction} className="admin-form admin-form--panel">
             <div className="admin-form__panel-grid">
               <div className="admin-form__group">
-                <label className="admin-form__label" htmlFor="wallet-threshold">Порог бонуса, KZT</label>
+                <label className="admin-form__label" htmlFor="wallet-threshold">{t("admin.wallet.bonus.thresholdLabel")}</label>
                 <input id="wallet-threshold" name="thresholdKzt" type="number" min="1" step="1" defaultValue={data.bonusSettings.thresholdKzt} className="admin-form__field" required />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label" htmlFor="wallet-bonus-percent">Бонус, %</label>
+                <label className="admin-form__label" htmlFor="wallet-bonus-percent">{t("admin.wallet.bonus.percentLabel")}</label>
                 <input id="wallet-bonus-percent" name="bonusPercent" type="number" min="0" max="100" step="1" defaultValue={data.bonusSettings.bonusPercent} className="admin-form__field" required />
               </div>
               <div className="admin-form__group">
                 <label className="admin-form__checkbox">
                   <input name="active" type="checkbox" defaultChecked={data.bonusSettings.active} />
-                  <span>Программа активна</span>
+                  <span>{t("admin.wallet.bonus.activeLabel")}</span>
                 </label>
               </div>
             </div>
             <div className="admin-form__actions">
-              <button type="submit" className="admin-form__submit">Сохранить настройки</button>
+              <button type="submit" className="admin-form__submit">{t("admin.wallet.bonus.saveSettings")}</button>
             </div>
           </form>
         </section>
@@ -172,35 +173,35 @@ export default async function AdminWalletPage({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Последние операции</h2>
-          <p className="admin-section__description">Журнал всех движений по балансу клиентов.</p>
+          <h2 className="admin-section__title">{t("admin.wallet.transactions.title")}</h2>
+          <p className="admin-section__description">{t("admin.wallet.transactions.description")}</p>
         </div>
         <div className="admin-table">
           <table className="admin-table__table">
             <thead>
               <tr className="admin-table__row">
-                <th className="admin-table__cell admin-table__cell--head">Клиент</th>
-                <th className="admin-table__cell admin-table__cell--head">Операция</th>
-                <th className="admin-table__cell admin-table__cell--head">Сумма</th>
-                <th className="admin-table__cell admin-table__cell--head">Баланс после</th>
-                <th className="admin-table__cell admin-table__cell--head">Комментарий</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.client")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.wallet.table.operation")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.amount")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.wallet.table.balanceAfter")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.comment")}</th>
               </tr>
             </thead>
             <tbody>
               {data.transactions.length === 0 ? (
                 <tr className="admin-table__row">
-                  <td className="admin-table__cell" colSpan={5}>Операций пока нет.</td>
+                  <td className="admin-table__cell" colSpan={5}>{t("admin.wallet.empty")}</td>
                 </tr>
               ) : (
                 data.transactions.map((row) => (
                   <tr key={row.id} className="admin-table__row">
                     <td className="admin-table__cell">
-                      <div>{row.userName ?? "Клиент"}</div>
+                      <div>{row.userName ?? t("admin.common.client")}</div>
                       <div className="admin-bookings__cell-sub">{row.userEmail ?? "—"}</div>
                     </td>
                     <td className="admin-table__cell">
                       <div>{getWalletTypeLabel(row.type)}</div>
-                      {row.actorName ? <div className="admin-bookings__cell-sub">Инициатор: {row.actorName}</div> : null}
+                      {row.actorName ? <div className="admin-bookings__cell-sub">{t("admin.wallet.table.actor", { name: row.actorName })}</div> : null}
                     </td>
                     <td className="admin-table__cell">
                       {row.amountKzt > 0 ? "+" : ""}
@@ -209,7 +210,7 @@ export default async function AdminWalletPage({
                     <td className="admin-table__cell">{formatMoneyKzt(row.balanceAfterKzt)}</td>
                     <td className="admin-table__cell">
                       {row.note ?? "—"}
-                      {row.bookingId ? <div className="admin-bookings__cell-sub">Бронь: {row.bookingId}</div> : null}
+                      {row.bookingId ? <div className="admin-bookings__cell-sub">{t("admin.wallet.table.booking", { id: row.bookingId })}</div> : null}
                     </td>
                   </tr>
                 ))

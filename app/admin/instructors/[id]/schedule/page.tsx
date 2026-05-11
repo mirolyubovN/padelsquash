@@ -13,6 +13,7 @@ import {
   saveInstructorWeekSchedule,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Админ: график тренера | Padel & Squash KZ",
@@ -24,11 +25,11 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 const BOOKING_STATUS_LABELS = {
-  pending_payment: "Ожидает оплаты",
-  confirmed: "Подтверждено",
-  cancelled: "Отменено",
-  completed: "Завершено",
-  no_show: "Неявка",
+  pending_payment: t("admin.bookingStatuses.pendingPayment"),
+  confirmed: t("admin.bookingStatuses.confirmed"),
+  cancelled: t("admin.bookingStatuses.cancelled"),
+  completed: t("admin.bookingStatuses.completed"),
+  no_show: t("admin.bookingStatuses.noShow"),
 } as const;
 
 function getTodayWeekStart(): string {
@@ -116,16 +117,16 @@ export default async function AdminInstructorSchedulePage({
 
   return (
     <AdminPageShell
-      title={`График тренера: ${data.instructor.name}`}
+      title={t("admin.instructorSchedule.title", { name: data.instructor.name })}
       description={
         canSeeRevenue
-          ? "Недельные интервалы доступности, разовые исключения и последние сессии тренера."
-          : "Недельные интервалы доступности и разовые исключения тренера."
+          ? t("admin.instructorSchedule.descriptionWithRevenue")
+          : t("admin.instructorSchedule.description")
       }
       breadcrumbs={[
-        { label: "Тренеры", href: "/admin/instructors" },
+        { label: t("admin.instructors.title"), href: "/admin/instructors" },
         { label: data.instructor.name },
-        { label: "Расписание" },
+        { label: t("admin.instructorSchedule.breadcrumb") },
       ]}
     >
       <div className="admin-table">
@@ -133,15 +134,15 @@ export default async function AdminInstructorSchedulePage({
           <tbody>
             <tr className="admin-table__row">
               <td className="admin-table__cell">
-                <strong>Виды спорта и ставки:</strong>{" "}
+                <strong>{t("admin.instructorSchedule.sportsAndRatesLabel")}</strong>{" "}
                 {data.instructor.sports.length > 0
                   ? data.instructor.sports
-                      .map((sport) => `${sport.name}: ${Number(sport.pricePerHour).toLocaleString("ru-KZ")} ₸ / час`)
+                      .map((sport) => t("admin.instructorSchedule.sportRate", { sport: sport.name, price: Number(sport.pricePerHour).toLocaleString("ru-KZ") }))
                       .join(", ")
                   : "—"}
               </td>
               <td className="admin-table__cell">
-                <strong>Описание:</strong> {data.instructor.bio ?? "—"}
+                <strong>{t("admin.instructorSchedule.bioLabel")}</strong> {data.instructor.bio ?? "—"}
               </td>
             </tr>
           </tbody>
@@ -150,9 +151,9 @@ export default async function AdminInstructorSchedulePage({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Расписание доступности</h2>
+          <h2 className="admin-section__title">{t("admin.instructorSchedule.availabilityTitle")}</h2>
           <p className="admin-section__description">
-            Базовый шаблон применяется по умолчанию для всех недель. Отдельные недели можно настроить индивидуально.
+            {t("admin.instructorSchedule.availabilityDescription")}
           </p>
         </div>
         <WeeklyScheduleGrid
@@ -170,9 +171,9 @@ export default async function AdminInstructorSchedulePage({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Блокировки</h2>
+          <h2 className="admin-section__title">{t("admin.instructorSchedule.blocksTitle")}</h2>
           <p className="admin-section__description">
-            Добавьте дату, когда тренер недоступен. Это закроет его слоты в расписании.
+            {t("admin.instructorSchedule.blocksDescription")}
           </p>
         </div>
         <form action={addExceptionAction} className="admin-form">
@@ -182,7 +183,7 @@ export default async function AdminInstructorSchedulePage({
                 <tr className="admin-table__row">
                   <td className="admin-table__cell">
                     <label className="admin-form__label" htmlFor="instructor-exception-date">
-                      Дата
+                      {t("admin.common.fields.date")}
                     </label>
                     <input
                       id="instructor-exception-date"
@@ -194,7 +195,7 @@ export default async function AdminInstructorSchedulePage({
                   </td>
                   <td className="admin-table__cell">
                     <label className="admin-form__label" htmlFor="instructor-exception-start">
-                      Начало
+                      {t("admin.common.fields.start")}
                     </label>
                     <input
                       id="instructor-exception-start"
@@ -206,7 +207,7 @@ export default async function AdminInstructorSchedulePage({
                   </td>
                   <td className="admin-table__cell">
                     <label className="admin-form__label" htmlFor="instructor-exception-end">
-                      Конец
+                      {t("admin.common.fields.end")}
                     </label>
                     <input
                       id="instructor-exception-end"
@@ -218,19 +219,19 @@ export default async function AdminInstructorSchedulePage({
                   </td>
                   <td className="admin-table__cell">
                     <label className="admin-form__label" htmlFor="instructor-exception-note">
-                      Комментарий
+                      {t("admin.common.fields.comment")}
                     </label>
                     <input
                       id="instructor-exception-note"
                       name="note"
                       className="admin-form__field"
-                      placeholder="Опционально"
+                      placeholder={t("admin.common.placeholders.optional")}
                     />
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-form__actions">
                       <button type="submit" className="admin-form__submit">
-                        Добавить
+                        {t("admin.common.add")}
                       </button>
                     </div>
                   </td>
@@ -245,17 +246,17 @@ export default async function AdminInstructorSchedulePage({
         <table className="admin-table__table">
           <thead>
             <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Дата</th>
-              <th className="admin-table__cell admin-table__cell--head">Время</th>
-              <th className="admin-table__cell admin-table__cell--head">Комментарий</th>
-              <th className="admin-table__cell admin-table__cell--head">Действия</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.date")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.time")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.comment")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {data.exceptions.length === 0 ? (
               <tr className="admin-table__row">
                 <td className="admin-table__cell" colSpan={4}>
-                  Блокировок для тренера пока нет.
+                  {t("admin.instructorSchedule.noBlocks")}
                 </td>
               </tr>
             ) : (
@@ -270,7 +271,7 @@ export default async function AdminInstructorSchedulePage({
                     <form action={deleteExceptionAction} className="admin-bookings__actions">
                       <input type="hidden" name="exceptionId" value={row.id} />
                       <button type="submit" className="admin-bookings__action-button">
-                        Удалить
+                        {t("admin.common.delete")}
                       </button>
                     </form>
                   </td>
@@ -285,20 +286,20 @@ export default async function AdminInstructorSchedulePage({
         <table className="admin-table__table">
           <thead>
             <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Дата</th>
-              <th className="admin-table__cell admin-table__cell--head">Время</th>
-              <th className="admin-table__cell admin-table__cell--head">Услуга</th>
-              <th className="admin-table__cell admin-table__cell--head">Клиент</th>
-              <th className="admin-table__cell admin-table__cell--head">Корт</th>
-              <th className="admin-table__cell admin-table__cell--head">Статус</th>
-              {canSeeRevenue ? <th className="admin-table__cell admin-table__cell--head">Сумма</th> : null}
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.date")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.time")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.service")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.customer")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.court")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.status")}</th>
+              {canSeeRevenue ? <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.amount")}</th> : null}
             </tr>
           </thead>
           <tbody>
             {data.sessions.length === 0 ? (
               <tr className="admin-table__row">
                 <td className="admin-table__cell" colSpan={canSeeRevenue ? 7 : 6}>
-                  Сессий по этому тренеру пока нет.
+                  {t("admin.instructorSchedule.noSessions")}
                 </td>
               </tr>
             ) : (

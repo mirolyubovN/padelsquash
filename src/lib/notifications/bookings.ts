@@ -17,6 +17,8 @@ interface BookingNotificationContext {
   startAt: Date;
   endAt: Date;
   priceTotalKzt: number;
+  promoCode?: string;
+  discountKzt: number;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -55,7 +57,10 @@ function buildSharedLines(context: BookingNotificationContext): string[] {
     ...resourceLines,
     `Клиент: ${context.customerName} · ${context.customerPhone} · ${context.customerEmail}`,
     `Сумма: ${formatMoneyKzt(context.priceTotalKzt)}`,
-  ];
+    context.promoCode && context.discountKzt > 0
+      ? `Промокод: ${context.promoCode} (−${formatMoneyKzt(context.discountKzt)})`
+      : null,
+  ].filter((line): line is string => line !== null);
 }
 
 function buildAdminMessage(args: {
@@ -137,6 +142,10 @@ async function loadBookingNotificationContext(bookingId: string): Promise<Bookin
       startAt: true,
       endAt: true,
       priceTotal: true,
+      discountKzt: true,
+      promoCode: {
+        select: { code: true },
+      },
       customer: {
         select: {
           name: true,
@@ -216,6 +225,8 @@ async function loadBookingNotificationContext(bookingId: string): Promise<Bookin
     startAt: booking.startAt,
     endAt: booking.endAt,
     priceTotalKzt: Number(booking.priceTotal),
+    promoCode: booking.promoCode?.code ?? undefined,
+    discountKzt: Number(booking.discountKzt ?? 0),
     customerName: booking.customer.name,
     customerEmail: booking.customer.email,
     customerPhone: booking.customer.phone,

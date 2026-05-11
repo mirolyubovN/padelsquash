@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatMoneyKzt as formatMoneyKztValue } from "@/src/lib/format/money";
 import { resolvePricingTier } from "@/src/lib/pricing/engine";
+import { getTodayDate } from "@/src/lib/format/date";
+import { PriceBreakdown } from "@/src/components/booking/price-breakdown";
+import { TimeSlotTimetable } from "@/src/components/booking/time-slot-timetable";
+import { t } from "@/src/lib/i18n";
 
 type PricingTier = "morning" | "day" | "evening_weekend";
 type CourtPriceMatrix = Record<string, Record<PricingTier, number>>;
@@ -102,7 +106,6 @@ interface CreateBookingFormProps {
   initialCourtId?: string;
   initialCustomerName?: string;
   initialCustomerPhone?: string;
-  initialCustomerEmail?: string;
   initialCustomerBalanceKzt?: number | null;
   createAction: (formData: FormData) => Promise<CreateBookingActionResult>;
 }
@@ -115,14 +118,6 @@ interface SuccessSummary {
   groupRemainingKzt?: number;
   warning?: string;
   createdSessions: CreatedBookingSummaryItem[];
-}
-
-function getTodayDate() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
 }
 
 function formatMoneyKzt(amount?: number | null) {
@@ -153,7 +148,6 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
     initialCourtId,
     initialCustomerName,
     initialCustomerPhone,
-    initialCustomerEmail,
     initialCustomerBalanceKzt,
     createAction,
   } = props;
@@ -175,15 +169,13 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
 
   const [customerName, setCustomerName] = useState(initialCustomerName ?? "");
   const [customerPhone, setCustomerPhone] = useState(initialCustomerPhone ?? "");
-  const [customerEmail, setCustomerEmail] = useState(initialCustomerEmail ?? "");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [customerBalanceKzt, setCustomerBalanceKzt] = useState<number | null>(initialCustomerBalanceKzt ?? null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [customerSearchResults, setCustomerSearchResults] = useState<CustomerSearchItem[]>([]);
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
   const [customerSearchError, setCustomerSearchError] = useState<string | null>(null);
-  const [customerLookupLoading, setCustomerLookupLoading] = useState(false);
-  const [customerLookupError, setCustomerLookupError] = useState<string | null>(null);
   const suppressNextCustomerSearchRef = useRef(false);
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("auto");
@@ -194,6 +186,10 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
   const [amountRequiredKzt, setAmountRequiredKzt] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [successSummary, setSuccessSummary] = useState<SuccessSummary | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoResult, setPromoResult] = useState<{ code: string; discountKzt: number; totalAfterDiscount: number } | null>(null);
 
   const didInitializeSportRef = useRef(false);
   const didApplyInitialSelectionRef = useRef(false);
@@ -294,7 +290,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setSlotsError("Не удалось загрузить слоты");
+          setSlotsError(t("admin.createBooking.loadSlotsFailed"));
           setSlots([]);
         }
       })
@@ -384,37 +380,6 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
   }, [slots, initialStartTime]);
 
   useEffect(() => {
-    const email = customerEmail.trim().toLowerCase();
-    if (!email || !email.includes("@")) {
-      setCustomerLookupLoading(false);
-      setCustomerLookupError(null);
-      return;
-    }
-    let cancelled = false;
-    setCustomerLookupLoading(true);
-    fetch(`/api/admin/customers/by-email?email=${encodeURIComponent(email)}`, { cache: "no-store" })
-      .then((res) => res.json())
-      .then((payload: { found?: boolean; customer?: { name: string; phone: string; balanceKzt: number }; error?: string }) => {
-        if (cancelled) return;
-        if (!payload || payload.error) {
-          setCustomerLookupError("Не удалось проверить баланс клиента.");
-          return;
-        }
-        setCustomerLookupError(null);
-        if (!payload.found || !payload.customer) {
-          setCustomerBalanceKzt(0);
-          return;
-        }
-        setCustomerBalanceKzt(payload.customer.balanceKzt);
-        setCustomerName((prev) => (prev.trim() ? prev : payload.customer!.name));
-        setCustomerPhone((prev) => (prev.trim() ? prev : payload.customer!.phone));
-      })
-      .catch(() => { if (!cancelled) setCustomerLookupError("Не удалось проверить баланс клиента."); })
-      .finally(() => { if (!cancelled) setCustomerLookupLoading(false); });
-    return () => { cancelled = true; };
-  }, [customerEmail]);
-
-  useEffect(() => {
     if (suppressNextCustomerSearchRef.current) {
       suppressNextCustomerSearchRef.current = false;
       setCustomerSearchResults([]);
@@ -438,14 +403,14 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
       .then((payload: { customers?: CustomerSearchItem[]; error?: string }) => {
         if (cancelled) return;
         if (!payload || payload.error) {
-          setCustomerSearchError("Не удалось выполнить поиск клиента.");
+          setCustomerSearchError(t("admin.createBooking.customerSearchFailed"));
           setCustomerSearchResults([]);
           return;
         }
         setCustomerSearchError(null);
         setCustomerSearchResults(payload.customers ?? []);
       })
-      .catch(() => { if (!cancelled) setCustomerSearchError("Не удалось выполнить поиск клиента."); })
+      .catch(() => { if (!cancelled) setCustomerSearchError(t("admin.createBooking.customerSearchFailed")); })
       .finally(() => { if (!cancelled) setCustomerSearchLoading(false); });
     return () => { cancelled = true; };
   }, [customerSearchQuery]);
@@ -488,6 +453,36 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
     setCustomerSearchError(null);
   }
 
+  async function applyAdminPromo() {
+    if (!resolvedService || !promoInput.trim() || selectedCells.length === 0) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    setPromoResult(null);
+    try {
+      const res = await fetch("/api/promo-codes/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: promoInput.trim().toUpperCase(),
+          serviceCode: resolvedService.code,
+          location: locationSlug,
+          date,
+          slots: selectedCells.map((cell) => ({ startTime: cell.startTime })),
+          instructorId: needsInstructor ? instructorId : undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { ok: boolean; discountKzt?: number; totalAfterDiscount?: number; message?: string } | null;
+      if (!data || !data.ok) {
+        setPromoError(data?.message ?? t("admin.createBooking.invalidPromo"));
+      } else {
+        setPromoResult({ code: promoInput.trim().toUpperCase(), discountKzt: data.discountKzt ?? 0, totalAfterDiscount: data.totalAfterDiscount ?? 0 });
+      }
+    } catch {
+      setPromoError(t("admin.createBooking.promoCheckError"));
+    }
+    setPromoLoading(false);
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!resolvedService || selectedCells.length === 0) return;
@@ -498,12 +493,12 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
       const fallbackCourtId = slots[0]?.availableCourtIds[0];
       if (fallbackCourtId) {
         cellsForSubmit = [{ startTime: slots[0].startTime, courtId: fallbackCourtId }];
-        setSubmitWarning("Выбранный в календаре слот недоступен. Использован ближайший свободный слот.");
+        setSubmitWarning(t("admin.createBooking.prefilledSlotUnavailable"));
       }
     }
 
     if (cellsForSubmit.length === 0) {
-      setSubmitError("Выберите доступный слот и корт.");
+      setSubmitError(t("admin.createBooking.selectSlotAndCourt"));
       return;
     }
 
@@ -513,8 +508,8 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
     formData.set("date", date);
     formData.set("customerName", customerName);
     formData.set("customerPhone", customerPhone);
-    formData.set("customerEmail", customerEmail.trim().toLowerCase());
     formData.set("paymentMode", paymentMode);
+    if (promoResult?.code) formData.set("promoCode", promoResult.code);
     if (selectedCustomerId) formData.set("customerId", selectedCustomerId);
     if (needsInstructor) formData.set("instructorId", instructorId);
     for (const cell of cellsForSubmit) {
@@ -560,7 +555,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
       }
       if (result.error) setSubmitError(result.error);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Ошибка создания бронирования");
+      setSubmitError(error instanceof Error ? error.message : t("admin.createBooking.createError"));
       clearHoldState();
     } finally {
       setSubmitting(false);
@@ -571,36 +566,30 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
     return (
       <div className="booking-flow" role="status">
         <p className="booking-flow__success-title">
-          Создано позиций: {successSummary.successCount} из {successSummary.totalCount}
+          {t("admin.createBooking.createdCount", { success: successSummary.successCount, total: successSummary.totalCount })}
         </p>
         {successSummary.groupTotalKzt !== undefined ? (
-          <div className="booking-flow__breakdown">
-            <div className="booking-flow__breakdown-row">
-              <span>Итого по бронированию</span>
-              <span>{formatMoneyKzt(successSummary.groupTotalKzt)}</span>
-            </div>
-            <div className="booking-flow__breakdown-row">
-              <span>Оплачено сейчас</span>
-              <span>{formatMoneyKzt(successSummary.groupPaidKzt ?? 0)}</span>
-            </div>
-            <div className="booking-flow__breakdown-row booking-flow__breakdown-row--total">
-              <span>Осталось к оплате</span>
-              <span>{formatMoneyKzt(successSummary.groupRemainingKzt ?? 0)}</span>
-            </div>
-          </div>
+          <PriceBreakdown
+            lines={[
+              { key: "total", label: t("admin.createBooking.totalLine"), total: successSummary.groupTotalKzt },
+              { key: "paid", label: t("admin.createBooking.paidNowLine"), total: successSummary.groupPaidKzt ?? 0 },
+            ]}
+            total={successSummary.groupRemainingKzt ?? 0}
+            totalLabel={t("admin.createBooking.remainingTotal")}
+          />
         ) : null}
         <ul className="admin-create-booking__created-list">
           {successSummary.createdSessions.slice(0, 10).map((item) => (
             <li key={item.bookingId} className="admin-create-booking__created-item">
               {item.startTime} · {courtNames.get(item.courtId) ?? item.courtId} · {formatMoneyKzt(item.amountKzt)} ·{" "}
-              {item.paymentStatus === "paid" ? "оплачено" : "не оплачено"}
+              {item.paymentStatus === "paid" ? t("admin.createBooking.sessionPaid") : t("admin.createBooking.sessionUnpaid")}
             </li>
           ))}
         </ul>
         <div className="admin-create-booking__success-actions">
-          <a href="/admin/bookings" className="admin-form__submit">К списку бронирований</a>
+          <a href="/admin/bookings" className="admin-form__submit">{t("admin.createBooking.toBookingsList")}</a>
           <button type="button" className="admin-bookings__action-button" onClick={() => { setSuccessSummary(null); resetSelection(); }}>
-            Создать ещё
+            {t("admin.createBooking.createAnother")}
           </button>
         </div>
       </div>
@@ -609,10 +598,10 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="booking-flow admin-create-booking__form">
-      <h1 className="booking-flow__title">Создать бронирование</h1>
+      <h1 className="booking-flow__title">{t("admin.createBooking.title")}</h1>
 
       <div className="booking-flow__section">
-        <p className="booking-flow__section-label">Шаг 1 — Что бронируем</p>
+        <p className="booking-flow__section-label">{t("admin.createBooking.stepService")}</p>
         {locations.length > 1 ? (
           <div className="booking-flow__tabs">
             {locations.map((location) => (
@@ -643,10 +632,10 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
           <div className="booking-flow__trainer-grid">
             {instructorsForSport.map((trainer) => (
               <button key={trainer.id} type="button" className={`booking-flow__trainer-card${instructorId === trainer.id ? " booking-flow__trainer-card--selected" : ""}`} onClick={() => { setInstructorId(trainer.id); resetSelection(); }}>
-                <span className="booking-flow__trainer-avatar">{trainer.name.split(" ").map((part) => part[0]).slice(0, 2).join("")}</span>
-                <span className="booking-flow__trainer-info">
-                  <span className="booking-flow__trainer-name">{trainer.name}</span>
-                  <span className="booking-flow__trainer-price">{formatMoneyKzt(trainer.sportPrices[sportSlug])} / час</span>
+                  <span className="booking-flow__trainer-avatar">{trainer.name.split(" ").map((part) => part[0]).slice(0, 2).join("")}</span>
+                  <span className="booking-flow__trainer-info">
+                    <span className="booking-flow__trainer-name">{trainer.name}</span>
+                  <span className="booking-flow__trainer-price">{formatMoneyKzt(trainer.sportPrices[sportSlug])} {t("admin.createBooking.perHour")}</span>
                 </span>
               </button>
             ))}
@@ -655,15 +644,15 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
       </div>
 
       <div className="booking-flow__section">
-        <p className="booking-flow__section-label">Шаг 2 — Дата, время и корт</p>
+        <p className="booking-flow__section-label">{t("admin.createBooking.stepDateTime")}</p>
         <input id="cb-date" type="date" className="booking-flow__date-input" min={getTodayDate()} value={date} onChange={(e) => { setDate(e.target.value); resetSelection(); }} required />
-        {selectedCells.length > 0 ? <p className="booking-flow__slots-hint">Выбрано позиций: {selectedCells.length}</p> : null}
+        {selectedCells.length > 0 ? <p className="booking-flow__slots-hint">{t("admin.createBooking.selectedPositions", { count: selectedCells.length })}</p> : null}
         {slotsLoading ? (
           <div className="booking-flow__slots-skeleton">{[1, 2, 3, 4, 5, 6].map((n) => <div key={n} className="booking-flow__slot-skeleton" />)}</div>
         ) : slotsError ? (
           <p className="admin-create-booking__slots-error">{slotsError}</p>
         ) : slots.length === 0 ? (
-          <p className="booking-flow__section-hint">{needsInstructor && !instructorId ? "Сначала выберите тренера" : "Нет доступных слотов на эту дату"}</p>
+          <p className="booking-flow__section-hint">{needsInstructor && !instructorId ? t("admin.createBooking.selectTrainerFirst") : t("admin.createBooking.noSlotsForDate")}</p>
         ) : (
           <>
             {pinnedSelectedCells.length > 0 ? (
@@ -672,57 +661,44 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
                   <div key={slotKey(cell.startTime, cell.courtId)} className="admin-create-booking__slot-row">
                     <span className="admin-create-booking__slot-time">{cell.startTime}</span>
                     <button type="button" className="admin-create-booking__slot admin-create-booking__slot--active">
-                      {cell.courtId === PREFILL_PLACEHOLDER_COURT_ID ? "Выберите корт" : courtNames.get(cell.courtId) ?? cell.courtId}
+                      {cell.courtId === PREFILL_PLACEHOLDER_COURT_ID ? t("admin.createBooking.selectCourt") : courtNames.get(cell.courtId) ?? cell.courtId}
                     </button>
                   </div>
                 ))}
               </div>
             ) : null}
 
-            <div className="booking-flow__timetable-wrapper">
-              <table className="booking-flow__timetable">
-                <thead>
-                  <tr>
-                    <th className="booking-flow__timetable-time-header">Время</th>
-                    {timetableColumns.map((column) => <th key={column.id} className="booking-flow__timetable-col-header"><span className="booking-flow__timetable-col-name">{column.label}</span></th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {slots.map((slot) => {
-                    const tier = resolvePricingTier(date, slot.startTime);
-                    const courtPrice = activeCourtPrices[sportSlug]?.[tier] ?? 0;
-                    const amount = courtPrice + (needsInstructor ? selectedTrainerPrice : 0);
-                    return (
-                      <tr key={slot.startTime} className="booking-flow__timetable-row">
-                        <td className="booking-flow__timetable-time-cell">
-                          <span className="booking-flow__timetable-time-label admin-create-booking__slot-time">{slot.startTime}–{slot.endTime}</span>
-                          <span className="booking-flow__timetable-time-price">{formatMoneyKzt(amount)}</span>
-                        </td>
-                        {timetableColumns.map((column) => {
-                          const available = slot.availableCourtIds.includes(column.id);
-                          const active = selectedKeys.has(slotKey(slot.startTime, column.id));
-                          return (
-                            <td key={column.id} className="booking-flow__timetable-cell-wrapper">
-                              <button type="button" disabled={!available} className={`booking-flow__timetable-cell admin-create-booking__slot${active ? " booking-flow__timetable-cell--selected admin-create-booking__slot--active" : available ? " booking-flow__timetable-cell--available" : " booking-flow__timetable-cell--unavailable"}`} onClick={() => { if (available) toggleCell(slot.startTime, column.id); }}>
-                                {active ? "✓" : available ? formatMoneyKzt(amount) : "Занято"}
-                              </button>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <TimeSlotTimetable
+              slots={slots}
+              columns={timetableColumns}
+              isSelected={(startTime, colId) => selectedKeys.has(slotKey(startTime, colId))}
+              onCellClick={(startTime, colId) => toggleCell(startTime, colId)}
+              cellClassName="admin-create-booking__slot"
+              getTimeCellExtra={(slot) => {
+                const tier = resolvePricingTier(date, slot.startTime);
+                const courtPrice = activeCourtPrices[sportSlug]?.[tier] ?? 0;
+                const amount = courtPrice + (needsInstructor ? selectedTrainerPrice : 0);
+                return (
+                  <span className="booking-flow__timetable-time-price">
+                    {formatMoneyKzt(amount)}
+                  </span>
+                );
+              }}
+              getCellContent={(slot, _col, isSelected, isAvailable) => {
+                const tier = resolvePricingTier(date, slot.startTime);
+                const courtPrice = activeCourtPrices[sportSlug]?.[tier] ?? 0;
+                const amount = courtPrice + (needsInstructor ? selectedTrainerPrice : 0);
+                return isSelected ? "✓" : isAvailable ? formatMoneyKzt(amount) : t("admin.createBooking.busy");
+              }}
+            />
           </>
         )}
       </div>
 
       <div className="booking-flow__section">
-        <p className="booking-flow__section-label">Шаг 3 — Клиент и подтверждение</p>
+        <p className="booking-flow__section-label">{t("admin.createBooking.stepCustomer")}</p>
         <div className="admin-create-booking__customer-search">
-          <label className="admin-form__label" htmlFor="cb-customer-query">Найти клиента (имя, телефон или email)</label>
+          <label className="admin-form__label" htmlFor="cb-customer-query">{t("admin.createBooking.customerSearchLabel")}</label>
           <input
             id="cb-customer-query"
             className="admin-form__field"
@@ -730,9 +706,9 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
             onChange={(e) => {
               setCustomerSearchQuery(e.target.value);
             }}
-            placeholder="Имя, телефон или email"
+            placeholder={t("admin.createBooking.customerSearchPlaceholder")}
           />
-          {customerSearchLoading ? <p className="booking-flow__slots-hint">Ищем клиента...</p> : null}
+          {customerSearchLoading ? <p className="booking-flow__slots-hint">{t("admin.createBooking.searchingCustomer")}</p> : null}
           {customerSearchError ? <p className="admin-create-booking__slots-error">{customerSearchError}</p> : null}
           {customerSearchResults.length > 0 ? (
             <div className="admin-create-booking__customer-results">
@@ -755,7 +731,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
 
         <div className="admin-form__panel-grid">
           <div className="admin-form__group">
-            <label className="admin-form__label" htmlFor="cb-name">Имя</label>
+            <label className="admin-form__label" htmlFor="cb-name">{t("admin.createBooking.nameLabel")}</label>
             <input
               id="cb-name"
               name="customerName"
@@ -771,7 +747,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
             />
           </div>
           <div className="admin-form__group">
-            <label className="admin-form__label" htmlFor="cb-phone">Телефон</label>
+            <label className="admin-form__label" htmlFor="cb-phone">{t("admin.createBooking.phoneLabel")}</label>
             <input
               id="cb-phone"
               name="customerPhone"
@@ -786,63 +762,80 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
               required
             />
           </div>
-          <div className="admin-form__group">
-            <label className="admin-form__label" htmlFor="cb-email">Email</label>
-            <input
-              id="cb-email"
-              name="customerEmail"
-              type="email"
-              className={`admin-form__field${selectedCustomerLocked ? " admin-form__field--locked" : ""}`}
-              value={customerEmail}
-              readOnly={selectedCustomerLocked}
-              onChange={(e) => {
-                if (!selectedCustomerLocked) {
-                  setCustomerEmail(e.target.value);
-                }
-              }}
-              required
-            />
-          </div>
         </div>
 
         {selectedCustomerLocked ? (
           <div className="admin-form__actions">
             <p className="booking-flow__section-hint">
-              Данные выбранного клиента можно изменить только в разделе Клиенты.
+              {t("admin.createBooking.lockedCustomerHint")}
             </p>
             <button type="button" className="admin-bookings__action-button" onClick={clearSelectedCustomer}>
-              Выбрать другого клиента
+              {t("admin.createBooking.chooseAnotherCustomer")}
             </button>
           </div>
         ) : null}
 
-        <div className="booking-flow__section-hint">Баланс клиента: {formatMoneyKzt(customerBalanceKzt)}</div>
-        {customerLookupLoading ? <p className="booking-flow__slots-hint">Проверяем баланс клиента...</p> : null}
-        {customerLookupError ? <p className="admin-create-booking__slots-error">{customerLookupError}</p> : null}
+        <div className="booking-flow__section-hint">{t("admin.createBooking.customerBalance", { amount: formatMoneyKzt(customerBalanceKzt) })}</div>
 
         <div className="admin-create-booking__payment-options">
-          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "auto"} onChange={() => setPaymentMode("auto")} /> <span>Авто: списать баланс только если хватает на всю бронь, иначе оставить неоплаченным</span></label>
-          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "wallet"} onChange={() => setPaymentMode("wallet")} /> <span>Только баланс клиента</span></label>
-          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "cash"} onChange={() => setPaymentMode("cash")} /> <span>Оплата в клубе (наличные или карта)</span></label>
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "auto"} onChange={() => setPaymentMode("auto")} /> <span>{t("admin.createBooking.paymentAuto")}</span></label>
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "wallet"} onChange={() => setPaymentMode("wallet")} /> <span>{t("admin.createBooking.paymentWallet")}</span></label>
+          <label className="admin-create-booking__payment-option"><input type="radio" checked={paymentMode === "cash"} onChange={() => setPaymentMode("cash")} /> <span>{t("admin.createBooking.paymentCash")}</span></label>
         </div>
+        {/* Promo code panel */}
         {pricePreview ? (
-          <div className="booking-flow__breakdown">
-            {pricePreview.lines.map((line) => <div key={line.key} className="booking-flow__breakdown-row"><span>{line.label}</span><span>{formatMoneyKzt(line.total)}</span></div>)}
-            <div className="booking-flow__breakdown-row booking-flow__breakdown-row--total"><span>Итого</span><span>{formatMoneyKzt(pricePreview.total)}</span></div>
+          <div className="booking-flow__promo">
+            {!promoResult ? (
+              <div className="booking-flow__promo-body">
+                <input
+                  value={promoInput}
+                  onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
+                  placeholder={t("admin.createBooking.promoPlaceholder")}
+                  className="booking-flow__promo-input"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void applyAdminPromo(); } }}
+                />
+                <button
+                  type="button"
+                  onClick={() => void applyAdminPromo()}
+                  disabled={promoLoading || !promoInput.trim()}
+                  className="booking-flow__promo-apply"
+                >
+                  {promoLoading ? "..." : t("admin.createBooking.applyPromo")}
+                </button>
+                {promoError ? <p className="booking-flow__promo-error">{promoError}</p> : null}
+              </div>
+            ) : (
+              <div className="booking-flow__promo-applied">
+                <span>{t("admin.createBooking.promoApplied", { code: promoResult.code, amount: formatMoneyKzt(promoResult.discountKzt) })}</span>
+                <button type="button" className="booking-flow__promo-clear" onClick={() => { setPromoResult(null); setPromoInput(""); }}>✕</button>
+              </div>
+            )}
           </div>
+        ) : null}
+
+        {pricePreview ? (
+          <PriceBreakdown
+            lines={[
+              ...pricePreview.lines,
+              ...(promoResult ? [{ key: "promo", label: t("admin.createBooking.promoLine", { code: promoResult.code }), total: -promoResult.discountKzt }] : []),
+            ]}
+            total={promoResult?.totalAfterDiscount ?? pricePreview.total}
+          />
         ) : null}
 
         {amountRequiredKzt !== null || currentBalanceKzt !== null || shortfallKzt !== null ? (
           <p className="booking-flow__section-hint">
-            {amountRequiredKzt !== null ? `Нужно на бронь: ${formatMoneyKzt(amountRequiredKzt)}. ` : ""}
-            {currentBalanceKzt !== null ? `Сейчас на балансе: ${formatMoneyKzt(currentBalanceKzt)}. ` : ""}
-            {shortfallKzt !== null ? `Не хватает: ${formatMoneyKzt(shortfallKzt)}.` : ""}
+            {[
+              amountRequiredKzt !== null ? t("admin.createBooking.amountRequired", { amount: formatMoneyKzt(amountRequiredKzt) }) : null,
+              currentBalanceKzt !== null ? t("admin.createBooking.currentBalance", { amount: formatMoneyKzt(currentBalanceKzt) }) : null,
+              shortfallKzt !== null ? t("admin.createBooking.shortfall", { amount: formatMoneyKzt(shortfallKzt) }) : null,
+            ].filter(Boolean).join(" ")}
           </p>
         ) : null}
         {submitWarning ? <p className="booking-flow__warning admin-create-booking__warning" role="status">{submitWarning}</p> : null}
         {submitError ? <p className="booking-flow__error-inline admin-create-booking__error" role="alert">{submitError}</p> : null}
         <button type="submit" className="booking-flow__submit" disabled={submitting || selectedCells.length === 0}>
-          {submitting ? "Создание..." : hasHeldSelection && paymentMode === "wallet" ? "Повторить после пополнения" : "Создать бронирования"}
+          {submitting ? t("admin.createBooking.creating") : hasHeldSelection && paymentMode === "wallet" ? t("admin.createBooking.retryAfterTopUp") : t("admin.createBooking.submit")}
         </button>
       </div>
     </form>

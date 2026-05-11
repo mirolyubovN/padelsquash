@@ -10,6 +10,7 @@ import {
 } from "@/src/lib/admin/media";
 import { MEDIA_CATEGORIES, MEDIA_CATEGORY_LABELS, type MediaCategory } from "@/src/lib/media/constants";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Админ: медиа | Padel & Squash KZ",
@@ -22,9 +23,9 @@ export const dynamic = "force-dynamic";
 
 function formatBytes(value: number): string {
   if (value < 1024 * 1024) {
-    return `${Math.max(1, Math.round(value / 1024)).toLocaleString("ru-KZ")} КБ`;
+    return t("admin.media.size.kb", { value: Math.max(1, Math.round(value / 1024)).toLocaleString("ru-KZ") });
   }
-  return `${(value / 1024 / 1024).toLocaleString("ru-KZ", { maximumFractionDigits: 1 })} МБ`;
+  return t("admin.media.size.mb", { value: (value / 1024 / 1024).toLocaleString("ru-KZ", { maximumFractionDigits: 1 }) });
 }
 
 function getCategoryLabel(category: string): string {
@@ -62,16 +63,14 @@ export default async function AdminMediaPage() {
 
   return (
     <AdminPageShell
-      title="Медиа"
-      description="Загрузка и управление фотографиями для главной, галереи, мероприятий, предложений и тренеров."
+      title={t("admin.media.title")}
+      description={t("admin.media.description")}
     >
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Загрузить фото</h2>
+          <h2 className="admin-section__title">{t("admin.media.uploadTitle")}</h2>
           <p className="admin-section__description">
-            Категория определяет папку загрузки и место использования: «Главная» и «Галерея» уже используются
-            на публичных/preview-страницах, «Тренеры» доступна в выборе фото тренера, «Мероприятия» и
-            «Предложения» зарезервированы для следующих блоков.
+            {t("admin.media.uploadDescription")}
           </p>
         </div>
         <MediaUploadForm defaultCategory="gallery" />
@@ -79,15 +78,14 @@ export default async function AdminMediaPage() {
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Медиатека</h2>
+          <h2 className="admin-section__title">{t("admin.media.libraryTitle")}</h2>
           <p className="admin-section__description">
-            Активные фото категории «Галерея» используются в галерейных блоках; фото категории «Тренеры» и
-            «Галерея» можно выбрать в карточке тренера. Неактивные фото скрываются из публичных выборок.
+            {t("admin.media.libraryDescription")}
           </p>
         </div>
 
         {assets.length === 0 ? (
-          <p className="admin-dashboard__empty">Фотографий пока нет.</p>
+          <p className="admin-dashboard__empty">{t("admin.media.empty")}</p>
         ) : (
           <div className="admin-media-grid">
             {assets.map((asset) => (
@@ -95,13 +93,13 @@ export default async function AdminMediaPage() {
                 <div className="admin-media-card__image-wrap">
                   <Image
                     src={asset.url}
-                    alt={asset.altText || asset.caption || "Загруженное фото"}
+                    alt={asset.altText || asset.caption || t("admin.media.uploadedPhotoAlt")}
                     fill
                     sizes="(max-width: 768px) 100vw, 360px"
                     className="admin-media-card__image"
                   />
                   <span className={`admin-media-card__status ${asset.active ? "admin-media-card__status--active" : "admin-media-card__status--inactive"}`}>
-                    {asset.active ? "Активно" : "Скрыто"}
+                    {asset.active ? t("admin.media.status.active") : t("admin.media.status.hidden")}
                   </span>
                 </div>
 
@@ -127,7 +125,7 @@ export default async function AdminMediaPage() {
                     <input type="hidden" name="mediaAssetId" value={asset.id} />
                     <div className="admin-form__group">
                       <label className="admin-form__label" htmlFor={`media-category-${asset.id}`}>
-                        Категория
+                        {t("admin.media.fields.category")}
                       </label>
                       <select
                         id={`media-category-${asset.id}`}
@@ -144,7 +142,7 @@ export default async function AdminMediaPage() {
                     </div>
                     <div className="admin-form__group">
                       <label className="admin-form__label" htmlFor={`media-alt-${asset.id}`}>
-                        Alt-текст
+                        {t("admin.media.fields.altText")}
                       </label>
                       <input
                         id={`media-alt-${asset.id}`}
@@ -155,7 +153,7 @@ export default async function AdminMediaPage() {
                     </div>
                     <div className="admin-form__group">
                       <label className="admin-form__label" htmlFor={`media-caption-${asset.id}`}>
-                        Подпись
+                        {t("admin.media.fields.caption")}
                       </label>
                       <input
                         id={`media-caption-${asset.id}`}
@@ -166,7 +164,7 @@ export default async function AdminMediaPage() {
                     </div>
                     <div className="admin-form__group">
                       <label className="admin-form__label" htmlFor={`media-sort-${asset.id}`}>
-                        Порядок
+                        {t("admin.media.fields.sortOrder")}
                       </label>
                       <input
                         id={`media-sort-${asset.id}`}
@@ -179,7 +177,7 @@ export default async function AdminMediaPage() {
                     </div>
                     <div className="admin-form__actions">
                       <button type="submit" className="admin-form__submit">
-                        Сохранить
+                        {t("admin.common.save")}
                       </button>
                     </div>
                   </form>
@@ -188,7 +186,7 @@ export default async function AdminMediaPage() {
                     <input type="hidden" name="mediaAssetId" value={asset.id} />
                     <input type="hidden" name="active" value={String(!asset.active)} />
                     <button type="submit" className="admin-bookings__action-button">
-                      {asset.active ? "Скрыть" : "Показать"}
+                      {asset.active ? t("admin.media.actions.hide") : t("admin.media.actions.show")}
                     </button>
                   </form>
                 </div>

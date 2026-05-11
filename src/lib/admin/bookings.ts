@@ -51,6 +51,12 @@ function parsePricingBreakdownLines(value: unknown): string[] {
     .map((item) => {
       if (!item || typeof item !== "object") return null;
       const componentType = "componentType" in item ? String(item.componentType) : "";
+      if (componentType === "promo") {
+        const code = "code" in item ? String(item.code) : "";
+        const discountKzt = "discountKzt" in item ? Number(item.discountKzt) : NaN;
+        if (!code || Number.isNaN(discountKzt)) return null;
+        return `Промокод ${code}: −${formatMoneyKzt(discountKzt)}`;
+      }
       const tier = "tier" in item ? String(item.tier) : "";
       const amount = "amount" in item ? Number(item.amount) : NaN;
       if (!componentType || !tier || Number.isNaN(amount)) return null;

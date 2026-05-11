@@ -11,7 +11,17 @@ import {
   type BookingUrlState,
 } from "@/src/lib/bookings/url-state";
 import { formatMoneyKzt as formatMoneyKztValue } from "@/src/lib/format/money";
+import { t } from "@/src/lib/i18n";
 import { resolvePricingTier } from "@/src/lib/pricing/engine";
+import {
+  formatShortDate,
+  formatShortWeekday,
+  getDateDiffDays,
+  getRelativeDateLabel,
+  getTodayDate,
+} from "@/src/lib/format/date";
+import { PriceBreakdown } from "@/src/components/booking/price-breakdown";
+import { TimeSlotTimetable } from "@/src/components/booking/time-slot-timetable";
 
 type ServiceKind = BookingServiceKind;
 type PricingTier = "morning" | "day" | "evening_weekend";
@@ -138,14 +148,6 @@ export interface LiveBookingFormProps {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function getTodayDate(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function getDefaultSelectedDate(todayIso: string): string {
   const now = new Date();
   if (now.getHours() >= 22) {
@@ -163,12 +165,6 @@ function addDays(dateIso: string, days: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function getDateDiffDays(fromIso: string, toIso: string): number {
-  const fromDate = new Date(`${fromIso}T00:00:00`).getTime();
-  const toDate = new Date(`${toIso}T00:00:00`).getTime();
-  return Math.round((toDate - fromDate) / 86400000);
-}
-
 function getDateWindowStart(dateIso: string, minDateIso: string, windowDays: number): string {
   const clampedDate = dateIso < minDateIso ? minDateIso : dateIso;
   const diffDays = Math.max(0, getDateDiffDays(minDateIso, clampedDate));
@@ -176,40 +172,21 @@ function getDateWindowStart(dateIso: string, minDateIso: string, windowDays: num
   return addDays(minDateIso, windowOffset);
 }
 
-function formatShortDate(dateIso: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "short",
-  })
-    .format(new Date(`${dateIso}T00:00:00`))
-    .replace(".", "");
-}
-
-function formatShortWeekday(dateIso: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    weekday: "short",
-  })
-    .format(new Date(`${dateIso}T00:00:00`))
-    .replace(".", "");
-}
-
-function getRelativeDateLabel(dateIso: string, todayIso: string): string | null {
-  const diffDays = getDateDiffDays(todayIso, dateIso);
-  if (diffDays === 0) return "Сегодня";
-  if (diffDays === 1) return "Завтра";
-  if (diffDays === 2) return "Послезавтра";
-  return null;
-}
-
 function detectServiceKind(service: ServiceOption): ServiceKind {
   return service.requiresInstructor ? "training" : "court";
 }
 
 function getSportLabel(slug: string): string {
-  if (slug === "padel") return "Падел";
-  if (slug === "squash") return "Сквош";
-  if (slug === "tennis") return "Теннис";
+  if (slug === "padel") return t("booking.live.sport.padel");
+  if (slug === "squash") return t("booking.live.sport.squash");
+  if (slug === "tennis") return t("booking.live.sport.tennis");
   return slug;
+}
+
+function getSessionWord(count: number): string {
+  if (count === 1) return t("booking.live.session.one");
+  if (count < 5) return t("booking.live.session.few");
+  return t("booking.live.session.many");
 }
 
 function formatMoneyKztLegacy(amount: number): string {
@@ -245,7 +222,7 @@ async function fetchAvailability(
   const payload = (await res.json().catch(() => null)) as AvailabilityPayload | { error?: string } | null;
   if (!res.ok) {
     throw new Error(
-      payload && "error" in payload && payload.error ? payload.error : "Не удалось получить доступность",
+      payload && "error" in payload && payload.error ? payload.error : t("booking.live.error.availabilityFetchFailed"),
     );
   }
   return payload as AvailabilityPayload;
@@ -330,6 +307,11 @@ export function LiveBookingForm({
   const [submitSuccessSummary, setSubmitSuccessSummary] = useState<BookingSuccessSummary | null>(null);
   const [holdExpiresAtMs, setHoldExpiresAtMs] = useState<number | null>(null);
   const [holdSecondsLeft, setHoldSecondsLeft] = useState<number | null>(null);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoResult, setPromoResult] = useState<{ code: string; discountKzt: number; totalAfterDiscount: number } | null>(null);
 
   const skipInitialUrlSyncRef = useRef(true);
   const skipNextContextResetRef = useRef(false);
@@ -557,6 +539,7 @@ export function LiveBookingForm({
     setSelectedCells([]);
     setSubmitError(null);
     setSubmitWarning(null);
+    setSubmitSuccessSummary(null);
     setAutoDateMessage(null);
     setAutoSearchKey("");
   }, [selectedInstructorId]);
@@ -565,6 +548,7 @@ export function LiveBookingForm({
     setSelectedCells([]);
     setSubmitError(null);
     setSubmitWarning(null);
+    setSubmitSuccessSummary(null);
     setAutoDateMessage(null);
     setAutoSearchKey("");
   }, [date]);
@@ -595,7 +579,7 @@ export function LiveBookingForm({
       } catch (err) {
         if (!cancelled) {
           setAvailability(null);
-          setAvailabilityError(err instanceof Error ? err.message : "Ошибка запроса доступности");
+          setAvailabilityError(err instanceof Error ? err.message : t("booking.live.error.availabilityRequestFailed"));
         }
       } finally {
         if (!cancelled) setAvailabilityLoading(false);
@@ -627,13 +611,13 @@ export function LiveBookingForm({
           const result = await fetchAvailability(selectedLocationSlug, svc.id, next, instrId, holdIds);
           if (cancelled) return;
           if (result.slots.length > 0) {
-            setAutoDateMessage(`На ${date} слотов нет. Показана ближайшая дата: ${next}.`);
+            setAutoDateMessage(t("booking.live.autoDateNearest", { date, next }));
             setDate(next);
             return;
           }
         } catch { if (cancelled) return; }
       }
-      if (!cancelled) setAutoDateMessage("Нет доступных слотов в ближайшие 14 дней.");
+      if (!cancelled) setAutoDateMessage(t("booking.live.autoDateNone"));
     }
     void findNext();
     return () => { cancelled = true; };
@@ -782,6 +766,7 @@ export function LiveBookingForm({
         date,
         durationMin: 60,
         instructorId: serviceKind === "training" ? selectedInstructorId : undefined,
+        promoCode: promoResult?.code,
         slots: selectedCells.map((cell) => ({
           startTime: cell.timeKey.split("|")[0],
           courtId: cell.resourceId,
@@ -799,7 +784,7 @@ export function LiveBookingForm({
       const message =
         payload && "error" in payload && payload.error
           ? payload.error
-          : "Не удалось временно удержать выбранные слоты";
+          : t("booking.live.error.holdFailed");
       setSubmitError(message);
       return false;
     }
@@ -820,9 +805,11 @@ export function LiveBookingForm({
     if (Number.isFinite(earliestExpiresAt)) {
       setHoldExpiresAtMs(earliestExpiresAt);
     }
-    setSubmitWarning("Слоты временно удержаны для вас. Пополните баланс и вернитесь к подтверждению.");
+    setSubmitWarning(t("booking.live.warning.holdsCreatedConfirm"));
     setSubmitError(
-      `Недостаточно средств для всей серии: требуется ${formatMoneyKzt(payload.data.totalAmountRequiredKzt)}.`,
+      t("booking.live.error.insufficientSeriesRequired", {
+        amountRequired: formatMoneyKzt(payload.data.totalAmountRequiredKzt),
+      }),
     );
     return true;
   }
@@ -835,10 +822,11 @@ export function LiveBookingForm({
     setSubmitError(null);
     setSubmitWarning(null);
 
+    const effectiveTotalForWallet = promoResult?.totalAfterDiscount ?? pricePreview?.total ?? 0;
     const walletShortForSelection =
       pricePreview !== null &&
       initialWalletBalanceKzt !== null &&
-      pricePreview.total > initialWalletBalanceKzt;
+      effectiveTotalForWallet > initialWalletBalanceKzt;
 
     if (walletShortForSelection) {
       const holdsCreated = await createHoldsForSelectedSlots();
@@ -858,6 +846,7 @@ export function LiveBookingForm({
         date,
         durationMin: 60,
         instructorId: serviceKind === "training" ? selectedInstructorId : undefined,
+        promoCode: promoResult?.code,
         slots: selectedCells.map((cell) => ({
           startTime: cell.timeKey.split("|")[0],
           courtId: cell.resourceId,
@@ -894,21 +883,24 @@ export function LiveBookingForm({
         setHoldExpiresAtMs(earliestExpiresAt);
       }
       setSubmitLoading(false);
-      setSubmitWarning("Слоты временно удержаны для вас. Пополните баланс и вернитесь к бронированию.");
+      setSubmitWarning(t("booking.live.warning.holdsCreatedBooking"));
       setSubmitError(
-        `Недостаточно средств для всей серии: требуется ${formatMoneyKzt(payload.amountRequiredKzt)}, не хватает ${formatMoneyKzt(payload.shortfallKzt)}.`,
+        t("booking.live.error.insufficientSeriesShortfall", {
+          amountRequired: formatMoneyKzt(payload.amountRequiredKzt),
+          shortfall: formatMoneyKzt(payload.shortfallKzt),
+        }),
       );
       return;
     }
 
     if (!res.ok || !payload || !("data" in payload)) {
       setSubmitLoading(false);
-      setSubmitError(payload && "error" in payload && payload.error ? payload.error : "Не удалось создать бронирование");
+      setSubmitError(payload && "error" in payload && payload.error ? payload.error : t("booking.live.error.createFailed"));
       return;
     }
     if (!("bookings" in payload.data)) {
       setSubmitLoading(false);
-      setSubmitError("Не удалось создать бронирование");
+      setSubmitError(t("booking.live.error.createFailed"));
       return;
     }
 
@@ -937,6 +929,43 @@ export function LiveBookingForm({
     setReloadKey((k) => k + 1);
   }
 
+  // ── Promo code ────────────────────────────────────────────────────────
+  async function applyPromo() {
+    if (!resolvedService || !promoInput.trim()) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    setPromoResult(null);
+    try {
+      const res = await fetch("/api/promo-codes/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: promoInput.trim().toUpperCase(),
+          serviceCode: resolvedService.id,
+          location: selectedLocationSlug,
+          date,
+          slots: selectedCells.map((cell) => ({ startTime: cell.timeKey.split("|")[0] })),
+          instructorId: serviceKind === "training" ? selectedInstructorId : undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { ok: boolean; discountKzt?: number; totalAfterDiscount?: number; message?: string } | null;
+      if (!data || !data.ok) {
+        setPromoError(data?.message ?? t("booking.live.error.promoInvalid"));
+      } else {
+        setPromoResult({ code: promoInput.trim().toUpperCase(), discountKzt: data.discountKzt ?? 0, totalAfterDiscount: data.totalAfterDiscount ?? 0 });
+      }
+    } catch {
+      setPromoError(t("booking.live.error.promoCheckFailed"));
+    }
+    setPromoLoading(false);
+  }
+
+  // Reset promo when selection changes
+  useEffect(() => {
+    setPromoResult(null);
+    setPromoError(null);
+  }, [selectedCells.length, date, selectedInstructorId, sport, serviceKind]);
+
   // ── Hold expiration timer ──────────────────────────────────────────────
   useEffect(() => {
     if (!holdExpiresAtMs) {
@@ -952,7 +981,7 @@ export function LiveBookingForm({
         setSelectedCells((prev) => prev.map((c) => ({ ...c, holdId: undefined })));
         setHoldExpiresAtMs(null);
         setHoldSecondsLeft(null);
-        setSubmitError("Время удержания истекло. Выберите время заново.");
+        setSubmitError(t("booking.live.error.holdExpired"));
         setSubmitWarning(null);
         setReloadKey((k) => k + 1);
       }
@@ -968,11 +997,12 @@ export function LiveBookingForm({
   const showConfirm = submitSuccessSummary !== null || selectedCells.length > 0;
   const hasHeldSelection = selectedCells.some((cell) => Boolean(cell.holdId));
   const walletBalanceKzt = initialWalletBalanceKzt ?? 0;
+  const effectiveBookingTotal = promoResult?.totalAfterDiscount ?? pricePreview?.total ?? 0;
   const walletIsInsufficient =
-    initialWalletBalanceKzt != null && pricePreview ? initialWalletBalanceKzt < pricePreview.total : false;
+    initialWalletBalanceKzt != null && pricePreview ? initialWalletBalanceKzt < effectiveBookingTotal : false;
   const walletShortfallKzt =
     initialWalletBalanceKzt != null && pricePreview
-      ? Math.max(0, pricePreview.total - initialWalletBalanceKzt)
+      ? Math.max(0, effectiveBookingTotal - initialWalletBalanceKzt)
       : 0;
   const showWalletInfo = isAuthenticated && initialWalletBalanceKzt != null && pricePreview && !submitError;
   const showHoldTimer = holdSecondsLeft !== null && holdSecondsLeft > 0;
@@ -984,13 +1014,13 @@ export function LiveBookingForm({
   return (
     <section className="booking-flow" aria-labelledby="booking-flow-title">
       <h1 id="booking-flow-title" className="booking-flow__title">
-        Забронировать
+        {t("booking.live.title")}
       </h1>
 
       {/* ── Location (only if multiple) ── */}
       {hasLocationStep ? (
         <div className="booking-flow__section">
-          <p className="booking-flow__section-label">Локация</p>
+          <p className="booking-flow__section-label">{t("booking.live.locationLabel")}</p>
           <div className="booking-flow__tabs">
             {locations.map((loc) => (
               <Link
@@ -1010,10 +1040,10 @@ export function LiveBookingForm({
 
       {/* ── Step 1: What ── */}
       <div className="booking-flow__section">
-        <p className="booking-flow__section-label">Шаг 1 — Что бронируем</p>
+        <p className="booking-flow__section-label">{t("booking.live.step1Label")}</p>
 
         {/* Sport tabs */}
-        <div className="booking-flow__tabs" role="group" aria-label="Вид спорта">
+        <div className="booking-flow__tabs" role="group" aria-label={t("booking.live.sportAriaLabel")}>
           {sportOptions.map((opt) => (
             <button
               key={opt.slug}
@@ -1027,7 +1057,7 @@ export function LiveBookingForm({
         </div>
 
         {/* Service kind toggle */}
-        <div className="booking-flow__toggle" role="group" aria-label="Тип занятия">
+        <div className="booking-flow__toggle" role="group" aria-label={t("booking.live.serviceKindAriaLabel")}>
           {(["court", "training"] as const).map((kind) => {
             const available = Boolean(availableKindsForSport[kind]);
             return (
@@ -1038,7 +1068,7 @@ export function LiveBookingForm({
                 className={`booking-flow__toggle-btn${serviceKind === kind ? " booking-flow__toggle-btn--active" : ""}${!available ? " booking-flow__toggle-btn--disabled" : ""}`}
                 onClick={() => setServiceKind(kind)}
               >
-                {kind === "court" ? "Аренда корта" : "Тренировка с тренером"}
+                {kind === "court" ? t("booking.live.serviceKind.court") : t("booking.live.serviceKind.training")}
               </button>
             );
           })}
@@ -1048,10 +1078,10 @@ export function LiveBookingForm({
         {serviceKind === "training" ? (
           <div className="booking-flow__trainers">
             {trainersForSport.length === 0 ? (
-              <p className="booking-flow__section-hint">Для этого спорта тренеры пока не добавлены.</p>
+              <p className="booking-flow__section-hint">{t("booking.live.noTrainersForSport")}</p>
             ) : (
               <>
-                <p className="booking-flow__section-hint">Выберите тренера:</p>
+                <p className="booking-flow__section-hint">{t("booking.live.chooseTrainer")}</p>
                 <div className="booking-flow__trainer-grid">
                   {trainersForSport.map((trainer) => (
                     <button
@@ -1066,7 +1096,7 @@ export function LiveBookingForm({
                       <span className="booking-flow__trainer-info">
                         <span className="booking-flow__trainer-name">{trainer.name}</span>
                         <span className="booking-flow__trainer-price">
-                          {formatMoneyKzt(trainer.sportPrices[sport] ?? 0)} / час
+                          {formatMoneyKzt(trainer.sportPrices[sport] ?? 0)} {t("booking.live.perHour")}
                         </span>
                       </span>
                     </button>
@@ -1080,15 +1110,15 @@ export function LiveBookingForm({
 
       {/* ── Step 2: When ── */}
       <div className="booking-flow__section">
-        <p className="booking-flow__section-label">Шаг 2 — Выберите дату и время</p>
+        <p className="booking-flow__section-label">{t("booking.live.step2Label")}</p>
 
-        <div className="booking-flow__quick-date-picker" role="group" aria-label="Быстрый выбор даты">
+        <div className="booking-flow__quick-date-picker" role="group" aria-label={t("booking.live.quickDateAriaLabel")}>
           <button
             type="button"
             className="booking-flow__quick-date-arrow"
             onClick={() => shiftQuickDateWindow(-1)}
             disabled={!canMoveDateWindowBack}
-            aria-label="Предыдущие 3 дня"
+            aria-label={t("booking.live.previousThreeDaysAriaLabel")}
           >
             ←
           </button>
@@ -1116,7 +1146,7 @@ export function LiveBookingForm({
             type="button"
             className="booking-flow__quick-date-arrow"
             onClick={() => shiftQuickDateWindow(1)}
-            aria-label="Следующие 3 дня"
+            aria-label={t("booking.live.nextThreeDaysAriaLabel")}
           >
             →
           </button>
@@ -1129,7 +1159,7 @@ export function LiveBookingForm({
           min={todayDate}
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          aria-label="Дата бронирования"
+          aria-label={t("booking.live.bookingDateAriaLabel")}
         />
 
         {autoDateMessage ? (
@@ -1138,9 +1168,9 @@ export function LiveBookingForm({
 
         {/* Timetable / loading / error states */}
         {!resolvedService ? (
-          <p className="booking-flow__section-hint">Выберите спорт и тип услуги выше.</p>
+          <p className="booking-flow__section-hint">{t("booking.live.chooseSportAndService")}</p>
         ) : serviceKind === "training" && !selectedInstructorId ? (
-          <p className="booking-flow__section-hint">Выберите тренера, чтобы увидеть доступное время.</p>
+          <p className="booking-flow__section-hint">{t("booking.live.chooseTrainerForAvailability")}</p>
         ) : availabilityLoading ? (
           <div className="booking-flow__slots-skeleton" aria-hidden="true">
             {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -1155,88 +1185,61 @@ export function LiveBookingForm({
               className="booking-flow__retry"
               onClick={() => setReloadKey((k) => k + 1)}
             >
-              Повторить
+              {t("booking.live.retry")}
             </button>
           </div>
         ) : availableTimeSlots.length === 0 ? (
-          <p className="booking-flow__section-hint">Нет доступного времени на эту дату.</p>
+          <p className="booking-flow__section-hint">{t("booking.live.noAvailableTimeForDate")}</p>
         ) : timetableColumns.length === 0 ? (
-          <p className="booking-flow__section-hint">Нет доступных кортов на эту дату.</p>
+          <p className="booking-flow__section-hint">{t("booking.live.noAvailableCourtsForDate")}</p>
         ) : (
           <>
             <p className="booking-flow__slots-hint">
               {selectedCells.length > 0
-                ? `Выбрано: ${selectedCells.length} ${selectedCells.length === 1 ? "сеанс" : selectedCells.length < 5 ? "сеанса" : "сеансов"}`
-                : "Выберите корт и время — можно несколько"}
+                ? t("booking.live.selectedSessions", {
+                    count: selectedCells.length,
+                    sessionWord: getSessionWord(selectedCells.length),
+                  })
+                : t("booking.live.selectCourtAndTime")}
             </p>
 
-            <div className="booking-flow__timetable-wrapper">
-              <table className="booking-flow__timetable">
-                <thead>
-                  <tr>
-                    <th className="booking-flow__timetable-time-header">Время</th>
-                    {timetableColumns.map((col) => (
-                      <th key={col.id} className="booking-flow__timetable-col-header">
-                        <span className="booking-flow__timetable-col-name">{col.label}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {availableTimeSlots.map((slot) => {
-                    const timeKey = getSlotKey(slot);
-                    const tier = resolvePricingTier(date, slot.startTime);
-                    const courtPrice = courtPrices[sport]?.[tier] ?? 0;
-                    return (
-                      <tr key={timeKey} className="booking-flow__timetable-row">
-                        <td className="booking-flow__timetable-time-cell">
-                          <span className="booking-flow__timetable-time-label">
-                            {slot.startTime}–{slot.endTime}
-                          </span>
-                          <span className="booking-flow__timetable-time-price">
-                            {formatMoneyKzt(serviceKind === "training" ? courtPrice + selectedTrainerPrice : courtPrice)}
-                          </span>
-                        </td>
-                        {timetableColumns.map((col) => {
-                          const isAvailable = slot.availableCourtIds.includes(col.id);
-                          const isSelected = selectedCells.some(
-                            (c) => c.timeKey === timeKey && c.resourceId === col.id,
-                          );
-                          const cellPrice =
-                            serviceKind === "training" ? courtPrice + selectedTrainerPrice : null;
-                          return (
-                            <td key={col.id} className="booking-flow__timetable-cell-wrapper">
-                              <button
-                                type="button"
-                                disabled={!isAvailable}
-                                className={`booking-flow__timetable-cell${
-                                  isSelected
-                                    ? " booking-flow__timetable-cell--selected"
-                                    : isAvailable
-                                    ? " booking-flow__timetable-cell--available"
-                                    : " booking-flow__timetable-cell--unavailable"
-                                }`}
-                                onClick={() => isAvailable && toggleCell(timeKey, col.id)}
-                                aria-label={`${slot.startTime}–${slot.endTime}, ${col.label}${!isAvailable ? " — занято" : ""}`}
-                                aria-pressed={isSelected}
-                              >
-                                {isSelected
-                                  ? "✓"
-                                  : isAvailable && cellPrice !== null
-                                  ? formatMoneyKzt(cellPrice)
-                                  : isAvailable
-                                  ? "Свободно"
-                                  : "Занято"}
-                              </button>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <TimeSlotTimetable
+              slots={availableTimeSlots}
+              columns={timetableColumns}
+              isSelected={(startTime, colId) =>
+                selectedCells.some(
+                  (c) => c.timeKey.startsWith(`${startTime}|`) && c.resourceId === colId,
+                )
+              }
+              onCellClick={(startTime, colId) => {
+                const slot = availableTimeSlots.find((s) => s.startTime === startTime);
+                if (slot) toggleCell(getSlotKey(slot), colId);
+              }}
+              getTimeCellExtra={(slot) => {
+                const tier = resolvePricingTier(date, slot.startTime);
+                const courtPrice = courtPrices[sport]?.[tier] ?? 0;
+                return (
+                  <span className="booking-flow__timetable-time-price">
+                    {formatMoneyKzt(
+                      serviceKind === "training" ? courtPrice + selectedTrainerPrice : courtPrice,
+                    )}
+                  </span>
+                );
+              }}
+              getCellContent={(slot, col, isSelected, isAvailable) => {
+                const tier = resolvePricingTier(date, slot.startTime);
+                const courtPrice = courtPrices[sport]?.[tier] ?? 0;
+                const cellPrice =
+                  serviceKind === "training" ? courtPrice + selectedTrainerPrice : null;
+                return isSelected
+                  ? "✓"
+                  : isAvailable && cellPrice !== null
+                  ? formatMoneyKzt(cellPrice)
+                  : isAvailable
+                  ? t("booking.live.cellAvailable")
+                  : t("booking.live.cellUnavailable");
+              }}
+            />
           </>
         )}
       </div>
@@ -1244,12 +1247,12 @@ export function LiveBookingForm({
       {/* ── Step 3: Confirm ── */}
       {showConfirm ? (
         <div className="booking-flow__section">
-          <p className="booking-flow__section-label">Шаг 3 — Подтверждение</p>
+          <p className="booking-flow__section-label">{t("booking.live.step3Label")}</p>
 
           {/* Success state */}
           {submitSuccessSummary ? (
             <div className="booking-flow__success" role="status">
-              <p className="booking-flow__success-title">Бронирование создано</p>
+              <p className="booking-flow__success-title">{t("booking.live.bookingCreated")}</p>
               <div className="booking-flow__success-sessions">
                 {submitSuccessSummary.sessions.map((s) => (
                   <div key={`${s.date}-${s.startTime}-${s.courtLabel}`} className="booking-flow__success-row">
@@ -1262,27 +1265,77 @@ export function LiveBookingForm({
                 ))}
               </div>
               <p className="booking-flow__success-total">
-                Итого: <strong>{formatMoneyKzt(submitSuccessSummary.totalAmount)}</strong>
+                {t("booking.live.totalLabelWithColon")} <strong>{formatMoneyKzt(submitSuccessSummary.totalAmount)}</strong>
               </p>
               <Link href="/account/bookings" className="booking-flow__account-link">
-                Открыть личный кабинет →
+                {t("booking.live.openAccount")}
               </Link>
             </div>
           ) : (
             <>
               {/* Price breakdown */}
               {pricePreview ? (
-                <div className="booking-flow__breakdown">
-                  {pricePreview.lines.map((line) => (
-                    <div key={line.key} className="booking-flow__breakdown-row">
-                      <span>{line.label}</span>
-                      <span>{formatMoneyKzt(line.total)}</span>
+                <PriceBreakdown
+                  lines={[
+                    ...pricePreview.lines,
+                    ...(promoResult
+                      ? [{ key: "promo", label: t("booking.live.promoLineLabel", { code: promoResult.code }), total: -promoResult.discountKzt }]
+                      : []),
+                  ]}
+                  total={effectiveBookingTotal}
+                />
+              ) : null}
+
+              {/* Promo code panel */}
+              {isAuthenticated && pricePreview ? (
+                <div className="booking-flow__promo">
+                  {!promoResult ? (
+                    <>
+                      <button
+                        type="button"
+                        className="booking-flow__promo-toggle"
+                        onClick={() => setPromoOpen((o) => !o)}
+                      >
+                        {promoOpen ? `▲ ${t("booking.live.promoCollapse")}` : `▼ ${t("booking.live.promoExpand")}`}
+                      </button>
+                      {promoOpen ? (
+                        <div className="booking-flow__promo-body">
+                          <input
+                            value={promoInput}
+                            onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                            placeholder={t("booking.live.promoPlaceholder")}
+                            className="booking-flow__promo-input"
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void applyPromo(); } }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void applyPromo()}
+                            disabled={promoLoading || !promoInput.trim()}
+                            className="booking-flow__promo-apply"
+                          >
+                            {promoLoading ? t("booking.live.promoChecking") : t("booking.live.promoApply")}
+                          </button>
+                          {promoError ? <p className="booking-flow__promo-error">{promoError}</p> : null}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="booking-flow__promo-applied">
+                      <span>
+                        {t("booking.live.promoApplied", {
+                          code: promoResult.code,
+                          discount: formatMoneyKzt(promoResult.discountKzt),
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        className="booking-flow__promo-clear"
+                        onClick={() => { setPromoResult(null); setPromoInput(""); setPromoError(null); }}
+                      >
+                        ✕
+                      </button>
                     </div>
-                  ))}
-                  <div className="booking-flow__breakdown-row booking-flow__breakdown-row--total">
-                    <span>Итого</span>
-                    <span>{formatMoneyKzt(pricePreview.total)}</span>
-                  </div>
+                  )}
                 </div>
               ) : null}
 
@@ -1290,20 +1343,20 @@ export function LiveBookingForm({
               {!isAuthenticated ? (
                 <div className="booking-flow__auth-gate">
                   <p className="booking-flow__auth-gate-text">
-                    Войдите или зарегистрируйтесь, чтобы завершить бронирование
+                    {t("booking.live.authGateText")}
                   </p>
                   <div className="booking-flow__auth-gate-actions">
                     <Link
                       href={`/login?next=${encodeURIComponent(bookingReturnToPath)}`}
                       className="booking-flow__auth-btn booking-flow__auth-btn--primary"
                     >
-                      Войти
+                      {t("booking.live.login")}
                     </Link>
                     <Link
                       href={`/register?next=${encodeURIComponent(bookingReturnToPath)}`}
                       className="booking-flow__auth-btn"
                     >
-                      Зарегистрироваться
+                      {t("booking.live.register")}
                     </Link>
                   </div>
                 </div>
@@ -1313,9 +1366,9 @@ export function LiveBookingForm({
                     <div className="booking-flow__status-group">
                       {showWalletInfo ? (
                         <div className={`booking-flow__wallet-info booking-flow__status-item${walletIsInsufficient ? " booking-flow__wallet-info--insufficient" : ""}`}>
-                          <span>Ваш баланс: {formatMoneyKzt(walletBalanceKzt)}</span>
+                          <span>{t("booking.live.walletBalance", { balance: formatMoneyKzt(walletBalanceKzt) })}</span>
                           {walletIsInsufficient ? (
-                            <span>Не хватает: {formatMoneyKzt(walletShortfallKzt)}</span>
+                            <span>{t("booking.live.walletShortfall", { shortfall: formatMoneyKzt(walletShortfallKzt) })}</span>
                           ) : null}
                         </div>
                       ) : null}
@@ -1329,7 +1382,10 @@ export function LiveBookingForm({
 
                       {showHoldTimer ? (
                         <p className={`booking-flow__hold-timer booking-flow__status-item${holdSecondsLeft < 120 ? " booking-flow__hold-timer--expiring" : ""}`}>
-                          Бронь удерживается: {Math.floor(holdSecondsLeft / 60)} мин {holdSecondsLeft % 60} сек
+                          {t("booking.live.holdTimer", {
+                            minutes: Math.floor(holdSecondsLeft / 60),
+                            seconds: holdSecondsLeft % 60,
+                          })}
                         </p>
                       ) : null}
 
@@ -1343,7 +1399,7 @@ export function LiveBookingForm({
 
                       {showTopUpLink ? (
                         <Link href={topUpPath} className="booking-flow__account-link booking-flow__status-item">
-                          Пополнить баланс и вернуться →
+                          {t("booking.live.topUpAndReturn")}
                         </Link>
                       ) : null}
                     </div>
@@ -1355,7 +1411,7 @@ export function LiveBookingForm({
                     disabled={submitLoading}
                     onClick={() => void submitBooking()}
                   >
-                    {submitLoading ? "Создаём бронирование..." : "Забронировать"}
+                    {submitLoading ? t("booking.live.creatingBooking") : t("booking.live.title")}
                   </button>
                 </div>
               )}

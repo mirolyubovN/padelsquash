@@ -5,6 +5,7 @@ import { AdminEditModal } from "@/src/components/admin/admin-edit-modal";
 import { AdminRescheduleModal } from "@/src/components/admin/admin-reschedule-modal";
 import { ADMIN_BOOKING_STATUS_LABELS, type AdminBookingRow } from "@/src/lib/admin/booking-types";
 import type { RescheduleBookingResult } from "@/src/lib/bookings/reschedule";
+import { t } from "@/src/lib/i18n";
 
 function defaultPaymentStateForRow(row: AdminBookingRow) {
   if (row.paymentStatus === "paid" && row.paymentProvider === "wallet") return "paid_wallet";
@@ -35,39 +36,39 @@ export function AdminBookingActionsModal({
 }: AdminBookingActionsModalProps) {
   return (
     <AdminEditModal
-      triggerLabel="Управлять"
-      title={`Бронь: ${row.serviceName}`}
+      triggerLabel={t("admin.bookings.actions.manage")}
+      title={t("admin.bookings.modal.title", { serviceName: row.serviceName })}
       triggerClassName="admin-bookings__action-button admin-bookings__action-button--primary"
     >
       <div className="admin-bookings__manage-modal">
         <section className="admin-bookings__manage-section admin-bookings__manage-section--summary">
           <div className="admin-bookings__manage-summary-grid">
             <div>
-              <p className="admin-bookings__manage-kicker">Клиент</p>
+              <p className="admin-bookings__manage-kicker">{t("admin.bookings.modal.customer")}</p>
               <p className="admin-bookings__manage-value">{row.customerName}</p>
               <p className="admin-bookings__manage-sub">{row.customerPhone}</p>
             </div>
             <div>
-              <p className="admin-bookings__manage-kicker">Сеанс</p>
+              <p className="admin-bookings__manage-kicker">{t("admin.bookings.modal.session")}</p>
               <p className="admin-bookings__manage-value">{row.date} · {row.time}</p>
               <p className="admin-bookings__manage-sub">{row.serviceName}</p>
             </div>
             <div>
-              <p className="admin-bookings__manage-kicker">Оплата</p>
+              <p className="admin-bookings__manage-kicker">{t("admin.bookings.modal.payment")}</p>
               <p className="admin-bookings__manage-value">{row.amountKzt}</p>
-              <p className="admin-bookings__manage-sub">{row.pricingBreakdownLines.join(" · ") || "Без разбивки"}</p>
+              <p className="admin-bookings__manage-sub">{row.pricingBreakdownLines.join(" · ") || t("admin.bookings.modal.noBreakdown")}</p>
             </div>
           </div>
           {resolvedCourtLabels.length > 0 ? (
-            <p className="admin-bookings__manage-meta">Корт: {resolvedCourtLabels.join(", ")}</p>
+            <p className="admin-bookings__manage-meta">{t("admin.common.courtList", { courts: resolvedCourtLabels.join(", ") })}</p>
           ) : null}
           {row.instructorLabels.length > 0 ? (
-            <p className="admin-bookings__manage-meta">Тренер: {row.instructorLabels.join(", ")}</p>
+            <p className="admin-bookings__manage-meta">{t("admin.common.trainerList", { trainers: row.instructorLabels.join(", ") })}</p>
           ) : null}
         </section>
 
         <section className="admin-bookings__manage-section">
-          <h4 className="admin-bookings__manage-title">Быстрые действия</h4>
+          <h4 className="admin-bookings__manage-title">{t("admin.bookings.modal.quickActions")}</h4>
           {(row.status === "pending_payment" || row.status === "confirmed") ? (
             <div className="admin-bookings__manage-actions">
               {row.status === "pending_payment" ? (
@@ -75,13 +76,13 @@ export function AdminBookingActionsModal({
                   <form action={bookingAction} className="admin-bookings__manage-action-form">
                     <input type="hidden" name="bookingId" value={row.id} />
                     <button type="submit" name="action" value="pay_wallet" className="admin-bookings__action-button">
-                      Списать с баланса
+                      {t("admin.bookings.actions.payWallet")}
                     </button>
                   </form>
                   <form action={bookingAction} className="admin-bookings__manage-action-form">
                     <input type="hidden" name="bookingId" value={row.id} />
                     <button type="submit" name="action" value="pay_manual" className="admin-bookings__action-button">
-                      Оплачено вручную
+                      {t("admin.bookings.actions.payManual")}
                     </button>
                   </form>
                 </>
@@ -92,13 +93,13 @@ export function AdminBookingActionsModal({
                   <form action={bookingAction} className="admin-bookings__manage-action-form">
                     <input type="hidden" name="bookingId" value={row.id} />
                     <button type="submit" name="action" value="completed" className="admin-bookings__action-button">
-                      Завершено
+                      {t("admin.bookings.actions.completed")}
                     </button>
                   </form>
                   <form action={bookingAction} className="admin-bookings__manage-action-form">
                     <input type="hidden" name="bookingId" value={row.id} />
                     <button type="submit" name="action" value="no_show" className="admin-bookings__action-button">
-                      Неявка
+                      {t("admin.bookings.actions.noShow")}
                     </button>
                   </form>
                   <div className="admin-bookings__manage-action-form">
@@ -123,33 +124,33 @@ export function AdminBookingActionsModal({
                 <AdminConfirmActionForm
                   action={bookingAction}
                   hiddenFields={{ bookingId: row.id, action: "cancelled" }}
-                  triggerLabel="Отменить"
+                  triggerLabel={t("admin.bookings.actions.cancel")}
                   triggerClassName="admin-bookings__action-button admin-bookings__action-button--danger"
-                  title="Подтвердите отмену"
-                  description="Бронирование будет отменено. Если оплата была с баланса — средства вернутся клиенту."
-                  confirmLabel="Да, отменить"
+                  title={t("admin.bookings.cancelConfirmTitle")}
+                  description={t("admin.bookings.cancelConfirmDescription")}
+                  confirmLabel={t("admin.bookings.cancelConfirmButton")}
                 />
               </div>
             </div>
           ) : (
             <p className="admin-bookings__manage-empty">
-              Для этой брони быстрые действия недоступны. Используйте корректировку ниже, если нужно исправить статус вручную.
+              {t("admin.bookings.modal.quickActionsUnavailable")}
             </p>
           )}
         </section>
 
         <section className="admin-bookings__manage-section">
-          <h4 className="admin-bookings__manage-title">Корректировка</h4>
+          <h4 className="admin-bookings__manage-title">{t("admin.bookings.modal.adjustment")}</h4>
           <div className="admin-bookings__edit-modal">
             <form action={bookingAction} className="admin-bookings__edit-form">
               <input type="hidden" name="bookingId" value={row.id} />
               <label className="admin-bookings__edit-label" htmlFor={`booking-status-${row.id}`}>
-                Статус брони
+                {t("admin.bookings.fields.bookingStatus")}
               </label>
               <select
                 id={`booking-status-${row.id}`}
                 name="nextStatus"
-                aria-label="Статус брони"
+                aria-label={t("admin.bookings.fields.bookingStatus")}
                 defaultValue={row.status}
                 className="admin-form__field admin-bookings__edit-field"
               >
@@ -158,36 +159,36 @@ export function AdminBookingActionsModal({
                 ))}
               </select>
               <button type="submit" name="action" value="set_status" className="admin-bookings__action-button">
-                Сохранить статус
+                {t("admin.bookings.actions.saveStatus")}
               </button>
             </form>
 
             <form action={bookingAction} className="admin-bookings__edit-form">
               <input type="hidden" name="bookingId" value={row.id} />
               <label className="admin-bookings__edit-label" htmlFor={`booking-payment-${row.id}`}>
-                Статус оплаты
+                {t("admin.bookings.fields.paymentStatus")}
               </label>
               <select
                 id={`booking-payment-${row.id}`}
                 name="nextPaymentState"
-                aria-label="Статус оплаты"
+                aria-label={t("admin.bookings.fields.paymentStatus")}
                 defaultValue={defaultPaymentStateForRow(row)}
                 className="admin-form__field admin-bookings__edit-field"
               >
-                <option value="unpaid_manual">Не оплачено</option>
-                <option value="paid_manual">Оплачено вручную (нал/карта)</option>
-                <option value="paid_wallet">Оплачено с баланса</option>
-                <option value="refunded_manual">Возврат</option>
+                <option value="unpaid_manual">{t("admin.bookings.paymentOptions.unpaidManual")}</option>
+                <option value="paid_manual">{t("admin.bookings.paymentOptions.paidManual")}</option>
+                <option value="paid_wallet">{t("admin.bookings.paymentOptions.paidWallet")}</option>
+                <option value="refunded_manual">{t("admin.bookings.paymentOptions.refundedManual")}</option>
               </select>
               <button type="submit" name="action" value="set_payment" className="admin-bookings__action-button">
-                Сохранить оплату
+                {t("admin.bookings.actions.savePayment")}
               </button>
             </form>
           </div>
         </section>
 
         <section className="admin-bookings__manage-section">
-          <h4 className="admin-bookings__manage-title">История изменений</h4>
+          <h4 className="admin-bookings__manage-title">{t("admin.bookings.modal.history")}</h4>
           {row.historyItems.length > 0 ? (
             <div className="admin-bookings__history-list">
               {row.historyItems.map((item) => (
@@ -204,7 +205,7 @@ export function AdminBookingActionsModal({
               ))}
             </div>
           ) : (
-            <p className="admin-bookings__manage-empty">Изменений по этой брони пока нет.</p>
+            <p className="admin-bookings__manage-empty">{t("admin.bookings.modal.noHistory")}</p>
           )}
         </section>
       </div>

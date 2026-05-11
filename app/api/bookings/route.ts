@@ -8,6 +8,7 @@ import {
 import { demoServices } from "@/src/lib/availability/demo";
 import { demoComponentPrices } from "@/src/lib/pricing/demo";
 import { prisma } from "@/src/lib/prisma";
+import { PromoIneligibleError } from "@/src/lib/promo/apply";
 import { createBookingSchema } from "@/src/lib/validation/booking";
 import { resolveLocationBySlug } from "@/src/lib/locations/service";
 
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
       courtId: parsed.data.courtId,
       instructorId: parsed.data.instructorId,
       holdId: parsed.data.holdId,
+      promoCode: parsed.data.promoCode,
       customerUserId: accountCustomer?.id,
       customer: accountCustomer
         ? {
@@ -111,6 +113,10 @@ export async function POST(request: Request) {
         },
         { status: 402 },
       );
+    }
+
+    if (error instanceof PromoIneligibleError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
     }
 
     const message = error instanceof Error ? error.message : "Ошибка создания бронирования";

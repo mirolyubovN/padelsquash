@@ -1,6 +1,7 @@
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { AdminTable } from "@/src/components/admin/admin-table";
 import { assertSuperAdmin } from "@/src/lib/auth/guards";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -16,19 +17,34 @@ export default async function AdminPricingRulesPage() {
   await assertSuperAdmin();
   return (
     <AdminPageShell
-      title="Периоды цен"
-      description="Вместо сложных правил используется фиксированная схема периодов: утро, день, вечер/выходные."
+      title={t("admin.pricingRules.title")}
+      description={t("admin.pricingRules.description")}
     >
       <AdminTable
-        columns={["Период", "Когда действует", "Применение", "Активно"]}
+        columns={[
+          t("admin.pricingRules.table.period"),
+          t("admin.pricingRules.table.when"),
+          t("admin.pricingRules.table.application"),
+          t("admin.pricingRules.table.active"),
+        ]}
         rows={[
-          ["Утро", "Пн-Пт 07:00-12:00", "Берется цена периода 'утро'", "Да"],
-          ["День", "Пн-Пт 12:00-17:00", "Берется цена периода 'день'", "Да"],
           [
-            "Вечер / выходные",
-            "Пн-Пт 17:00-23:00 и Сб-Вс весь день",
-            "Берется цена периода 'вечер/выходные'",
-            "Да",
+            t("admin.pricingRules.periods.morning"),
+            t("admin.pricingRules.when.morning"),
+            t("admin.pricingRules.application.morning"),
+            t("admin.common.yes"),
+          ],
+          [
+            t("admin.pricingRules.periods.day"),
+            t("admin.pricingRules.when.day"),
+            t("admin.pricingRules.application.day"),
+            t("admin.common.yes"),
+          ],
+          [
+            t("admin.pricingRules.periods.eveningWeekend"),
+            t("admin.pricingRules.when.eveningWeekend"),
+            t("admin.pricingRules.application.eveningWeekend"),
+            t("admin.common.yes"),
           ],
         ]}
       />

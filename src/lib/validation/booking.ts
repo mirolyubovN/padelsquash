@@ -30,6 +30,7 @@ export const createBookingSchema = z.object({
   courtId: z.string().optional(),
   instructorId: z.string().optional(),
   holdId: z.string().optional(),
+  promoCode: z.string().trim().toUpperCase().optional(),
   customer: z.object({
     name: z.string().min(1),
     email: z.string().email(),
@@ -43,6 +44,7 @@ export const createBookingHoldsSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   durationMin: fixedOneHourDurationSchema.optional().default(60),
   instructorId: z.string().optional(),
+  promoCode: z.string().trim().toUpperCase().optional(),
   slots: z
     .array(
       z.object({
@@ -66,6 +68,7 @@ export const createBookingSeriesSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   durationMin: fixedOneHourDurationSchema.optional().default(60),
   instructorId: z.string().optional(),
+  promoCode: z.string().trim().toUpperCase().optional(),
   customer: z.object({
     name: z.string().min(1),
     email: z.string().email(),

@@ -689,6 +689,81 @@
   vertical-align: -1px;
 }
 
+/* Promo code panel */
+.booking-flow__promo {
+  @apply flex flex-col gap-2;
+}
+
+.booking-flow__promo-toggle {
+  @apply text-sm font-medium text-left;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.booking-flow__promo-toggle:hover {
+  text-decoration: underline;
+}
+
+.booking-flow__promo-body {
+  @apply flex items-center gap-2 flex-wrap;
+}
+
+.booking-flow__promo-input {
+  @apply rounded border px-3 py-2 text-sm;
+  border-color: var(--line);
+  background-color: var(--background);
+  color: var(--text);
+  width: 12rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.booking-flow__promo-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.booking-flow__promo-apply {
+  @apply rounded px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50;
+  background-color: var(--accent);
+  color: var(--text-on-primary);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.booking-flow__promo-apply:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.booking-flow__promo-applied {
+  @apply flex items-center gap-2 text-sm;
+  color: var(--text);
+}
+
+.booking-flow__promo-clear {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+.booking-flow__promo-clear:hover {
+  color: var(--text);
+}
+
+.booking-flow__promo-error {
+  @apply text-sm;
+  color: #b91c1c;
+}
+
 @keyframes button-spin {
   to {
     transform: rotate(360deg);

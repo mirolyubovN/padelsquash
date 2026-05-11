@@ -13,6 +13,7 @@ import { buildAccountSetupPath, createAccountSetupToken } from "@/src/lib/auth/a
 import { siteConfig } from "@/src/lib/content/site-data";
 import { prisma } from "@/src/lib/prisma";
 import { adjustUserWalletByEmail } from "@/src/lib/wallet/service";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -38,14 +39,14 @@ function getRequestOrigin(headerStore: Headers): string {
 }
 
 function getWalletTypeLabel(type: string): string {
-  if (type === "topup") return "Пополнение";
-  if (type === "bonus") return "Бонус";
-  if (type === "admin_credit") return "Начисление";
-  if (type === "admin_debit") return "Списание";
-  if (type === "booking_charge") return "Оплата брони";
-  if (type === "booking_refund") return "Возврат брони";
-  if (type === "event_charge") return "Оплата события";
-  if (type === "event_refund") return "Возврат события";
+  if (type === "topup") return t("admin.wallet.transaction.topup");
+  if (type === "bonus") return t("admin.wallet.transaction.bonus");
+  if (type === "admin_credit") return t("admin.wallet.transaction.adminCredit");
+  if (type === "admin_debit") return t("admin.wallet.transaction.adminDebit");
+  if (type === "booking_charge") return t("admin.wallet.transaction.bookingCharge");
+  if (type === "booking_refund") return t("admin.wallet.transaction.bookingRefund");
+  if (type === "event_charge") return t("admin.wallet.transaction.eventCharge");
+  if (type === "event_refund") return t("admin.wallet.transaction.eventRefund");
   return type;
 }
 
@@ -81,19 +82,19 @@ export default async function AdminCustomerPage({
     : null;
 
   const successMessage =
-    sp.success === "adjusted" ? "Баланс обновлен." :
-    sp.success === "updated" ? "Данные клиента сохранены." :
-    sp.success === "password_reset" ? "Пароль сброшен." :
-    sp.success === "booking_paid_wallet" ? "Бронь оплачена с баланса клиента." :
-    sp.success === "booking_paid_manual" ? "Бронь отмечена как оплаченная вручную (нал/карта)." :
-    sp.success === "booking_cancelled" ? "Бронь отменена." : null;
+    sp.success === "adjusted" ? t("admin.clientProfile.success.adjusted") :
+    sp.success === "updated" ? t("admin.clientProfile.success.updated") :
+    sp.success === "password_reset" ? t("admin.clientProfile.success.passwordReset") :
+    sp.success === "booking_paid_wallet" ? t("admin.clientProfile.success.bookingPaidWallet") :
+    sp.success === "booking_paid_manual" ? t("admin.clientProfile.success.bookingPaidManual") :
+    sp.success === "booking_cancelled" ? t("admin.clientProfile.success.bookingCancelled") : null;
   const errorMessage =
-    sp.error === "adjust_failed" ? "Не удалось обновить баланс." :
-    sp.error === "update_failed" ? "Не удалось обновить данные." :
-    sp.error === "email_taken" ? "Этот email уже используется." :
-    sp.error === "password_reset_failed" ? "Не удалось сбросить пароль." :
-    sp.error === "booking_wallet_insufficient" ? "Недостаточно средств на балансе клиента для оплаты этой брони." :
-    sp.error === "booking_action_failed" ? "Не удалось выполнить действие по брони." : null;
+    sp.error === "adjust_failed" ? t("admin.clientProfile.error.adjustFailed") :
+    sp.error === "update_failed" ? t("admin.clientProfile.error.updateFailed") :
+    sp.error === "email_taken" ? t("admin.clientProfile.error.emailTaken") :
+    sp.error === "password_reset_failed" ? t("admin.clientProfile.error.passwordResetFailed") :
+    sp.error === "booking_wallet_insufficient" ? t("admin.clientProfile.error.bookingWalletInsufficient") :
+    sp.error === "booking_action_failed" ? t("admin.clientProfile.error.bookingActionFailed") : null;
 
   async function adjustBalanceAction(formData: FormData) {
     "use server";
@@ -216,8 +217,8 @@ export default async function AdminCustomerPage({
 
   return (
     <AdminPageShell
-      title={`Клиент: ${customer.name}`}
-      description="Карточка клиента с балансом, бронированиями и управлением аккаунтом."
+      title={t("admin.clientProfile.title", { name: customer.name })}
+      description={t("admin.clientProfile.description")}
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">{errorMessage}</p>
@@ -229,7 +230,7 @@ export default async function AdminCustomerPage({
       <div className="admin-client-profile">
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Информация</h2>
+            <h2 className="admin-section__title">{t("admin.clientProfile.info.title")}</h2>
           </div>
           <div className="admin-form admin-form--panel">
             <div className="admin-form__panel-grid">
@@ -238,29 +239,29 @@ export default async function AdminCustomerPage({
                 <input className="admin-form__field" value={customer.email} readOnly />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label">Телефон</label>
+                <label className="admin-form__label">{t("admin.common.phone")}</label>
                 <input className="admin-form__field" value={customer.phone} readOnly />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label">Баланс</label>
+                <label className="admin-form__label">{t("admin.common.balance")}</label>
                 <input className="admin-form__field" value={customer.balanceKzt} readOnly />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label">Статус аккаунта</label>
-                <input className="admin-form__field" value={customer.needsPasswordSetup ? "Нет пароля (не активирован)" : "Активирован"} readOnly />
+                <label className="admin-form__label">{t("admin.clientProfile.info.accountStatus")}</label>
+                <input className="admin-form__field" value={customer.needsPasswordSetup ? t("admin.clientProfile.info.noPasswordInactive") : t("admin.common.activated")} readOnly />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label">Клиент с</label>
+                <label className="admin-form__label">{t("admin.clientProfile.info.customerSince")}</label>
                 <input className="admin-form__field" value={formatDateTime(customer.createdAtIso)} readOnly />
               </div>
             </div>
             <div className="admin-form__actions">
               <Link href={`/admin/bookings/create?customerEmail=${encodeURIComponent(customer.email)}`} className="admin-bookings__action-button">
-                Создать бронь
+                {t("admin.common.createBooking")}
               </Link>
               {setupUrl ? (
                 <a href={setupUrl} target="_blank" rel="noreferrer" className="admin-bookings__action-button">
-                  Ссылка активации
+                  {t("admin.common.activationLink")}
                 </a>
               ) : null}
             </div>
@@ -269,39 +270,38 @@ export default async function AdminCustomerPage({
 
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Ручная корректировка баланса</h2>
+            <h2 className="admin-section__title">{t("admin.clientProfile.adjust.title")}</h2>
             <p className="admin-section__description">
-              Используйте только для внесения или списания денег вне конкретной брони. Для оплаты брони с баланса
-              применяйте кнопки в таблице бронирований ниже, чтобы отмена вернула средства автоматически.
+              {t("admin.clientProfile.adjust.description")}
             </p>
           </div>
           <form action={adjustBalanceAction} className="admin-form admin-form--panel">
             <div className="admin-form__panel-grid">
               <div className="admin-form__group">
-                <label className="admin-form__label" htmlFor="cp-amount">Сумма, KZT</label>
+                <label className="admin-form__label" htmlFor="cp-amount">{t("admin.common.amountKzt")}</label>
                 <input id="cp-amount" name="amountKzt" type="number" min="1" step="1" className="admin-form__field" required />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label" htmlFor="cp-direction">Действие</label>
+                <label className="admin-form__label" htmlFor="cp-direction">{t("admin.common.action")}</label>
                 <select id="cp-direction" name="direction" className="admin-form__field" defaultValue="credit">
-                  <option value="credit">Начислить</option>
-                  <option value="debit">Списать</option>
+                  <option value="credit">{t("admin.common.credit")}</option>
+                  <option value="debit">{t("admin.common.debit")}</option>
                 </select>
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label" htmlFor="cp-note">Комментарий</label>
-                <input id="cp-note" name="note" className="admin-form__field" placeholder="Например: оплата в клубе" />
+                <label className="admin-form__label" htmlFor="cp-note">{t("admin.common.comment")}</label>
+                <input id="cp-note" name="note" className="admin-form__field" placeholder={t("admin.common.notePlaceholder")} />
               </div>
             </div>
             <div className="admin-form__actions">
-              <button type="submit" className="admin-form__submit">Провести операцию</button>
+              <button type="submit" className="admin-form__submit">{t("admin.common.runOperation")}</button>
             </div>
           </form>
         </section>
 
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Изменить контакты</h2>
+            <h2 className="admin-section__title">{t("admin.clientProfile.contacts.title")}</h2>
           </div>
           <form action={updateContactsAction} className="admin-form admin-form--panel">
             <div className="admin-form__panel-grid">
@@ -310,25 +310,25 @@ export default async function AdminCustomerPage({
                 <input id="cp-email" name="email" type="email" className="admin-form__field" defaultValue={customer.email} required />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label" htmlFor="cp-phone">Телефон</label>
+                <label className="admin-form__label" htmlFor="cp-phone">{t("admin.common.phone")}</label>
                 <input id="cp-phone" name="phone" className="admin-form__field" defaultValue={customer.phone} required />
               </div>
             </div>
             <div className="admin-form__actions">
-              <button type="submit" className="admin-form__submit">Сохранить</button>
+              <button type="submit" className="admin-form__submit">{t("admin.common.save")}</button>
             </div>
           </form>
         </section>
 
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Сброс пароля</h2>
-            <p className="admin-section__description">Отключает текущий пароль. После сброса появится новая ссылка активации.</p>
+            <h2 className="admin-section__title">{t("admin.common.resetPassword")}</h2>
+            <p className="admin-section__description">{t("admin.clientProfile.passwordReset.description")}</p>
           </div>
           <form action={resetPasswordAction} className="admin-form admin-form--panel">
             <div className="admin-form__actions">
               <button type="submit" className="admin-bookings__action-button admin-bookings__action-button--danger">
-                Сбросить пароль
+                {t("admin.common.resetPassword")}
               </button>
             </div>
           </form>
@@ -336,33 +336,33 @@ export default async function AdminCustomerPage({
       </div>
 
       <div className="admin-list-toolbar">
-        <p className="admin-list-toolbar__meta">Всего: {customer.totalBookings}</p>
-        <p className="admin-list-toolbar__meta">Активных: {customer.upcomingBookings}</p>
-        <p className="admin-list-toolbar__meta">Завершённых: {customer.completedBookings}</p>
-        <p className="admin-list-toolbar__meta">Отмен: {customer.cancelledBookings}</p>
-        <p className="admin-list-toolbar__meta">Неявок: {customer.noShowBookings}</p>
+        <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.total", { count: customer.totalBookings })}</p>
+        <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.active", { count: customer.upcomingBookings })}</p>
+        <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.completed", { count: customer.completedBookings })}</p>
+        <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.cancelled", { count: customer.cancelledBookings })}</p>
+        <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.noShow", { count: customer.noShowBookings })}</p>
       </div>
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Бронирования</h2>
+          <h2 className="admin-section__title">{t("admin.clientProfile.bookings.title")}</h2>
         </div>
         <div className="admin-table">
           <table className="admin-table__table">
             <thead>
               <tr className="admin-table__row">
-                <th className="admin-table__cell admin-table__cell--head">Услуга</th>
-                <th className="admin-table__cell admin-table__cell--head">Дата / время</th>
-                <th className="admin-table__cell admin-table__cell--head">Статус</th>
-                <th className="admin-table__cell admin-table__cell--head">Оплата</th>
-                <th className="admin-table__cell admin-table__cell--head">Сумма</th>
-                <th className="admin-table__cell admin-table__cell--head">Действия</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.clientProfile.bookings.service")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.dateTime")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.status")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.payment")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.amount")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.actions")}</th>
               </tr>
             </thead>
             <tbody>
               {customer.bookings.length === 0 ? (
                 <tr className="admin-table__row">
-                  <td className="admin-table__cell" colSpan={6}>У клиента пока нет бронирований.</td>
+                  <td className="admin-table__cell" colSpan={6}>{t("admin.clientProfile.bookings.empty")}</td>
                 </tr>
               ) : (
                 customer.bookings.map((booking) => (
@@ -373,10 +373,10 @@ export default async function AdminCustomerPage({
                       </div>
                       <div className="admin-bookings__cell-sub">{booking.sportName}</div>
                       {booking.courtLabels.length > 0 ? (
-                        <div className="admin-bookings__cell-sub">Корт: {booking.courtLabels.join(", ")}</div>
+                        <div className="admin-bookings__cell-sub">{t("admin.common.courtList", { courts: booking.courtLabels.join(", ") })}</div>
                       ) : null}
                       {booking.instructorLabels.length > 0 ? (
-                        <div className="admin-bookings__cell-sub">Тренер: {booking.instructorLabels.join(", ")}</div>
+                        <div className="admin-bookings__cell-sub">{t("admin.common.trainerList", { trainers: booking.instructorLabels.join(", ") })}</div>
                       ) : null}
                     </td>
                     <td className="admin-table__cell">
@@ -400,23 +400,23 @@ export default async function AdminCustomerPage({
                           <form action={bookingAction}>
                             <input type="hidden" name="bookingId" value={booking.id} />
                             <button type="submit" name="action" value="pay_wallet" className="admin-bookings__action-button">
-                              Списать с баланса
+                              {t("admin.clientProfile.bookings.payWallet")}
                             </button>
                           </form>
                           <form action={bookingAction}>
                             <input type="hidden" name="bookingId" value={booking.id} />
                             <button type="submit" name="action" value="pay_manual" className="admin-bookings__action-button">
-                              Оплачено вручную (нал/карта)
+                              {t("admin.clientProfile.bookings.payManual")}
                             </button>
                           </form>
                           <AdminConfirmActionForm
                             action={bookingAction}
                             hiddenFields={{ bookingId: booking.id, action: "cancelled" }}
-                            triggerLabel="Отменить"
+                            triggerLabel={t("admin.common.cancel")}
                             triggerClassName="admin-bookings__action-button admin-bookings__action-button--danger"
-                            title="Подтвердите отмену"
-                            description="Бронирование будет отменено. Если оплата была с баланса через кнопки брони, средства вернутся клиенту."
-                            confirmLabel="Да, отменить"
+                            title={t("admin.clientProfile.bookings.cancelConfirmTitle")}
+                            description={t("admin.clientProfile.bookings.cancelConfirmDescription")}
+                            confirmLabel={t("admin.clientProfile.bookings.cancelConfirmLabel")}
                           />
                         </div>
                       ) : booking.status === "confirmed" ? (
@@ -424,11 +424,11 @@ export default async function AdminCustomerPage({
                           <AdminConfirmActionForm
                             action={bookingAction}
                             hiddenFields={{ bookingId: booking.id, action: "cancelled" }}
-                            triggerLabel="Отменить"
+                            triggerLabel={t("admin.common.cancel")}
                             triggerClassName="admin-bookings__action-button admin-bookings__action-button--danger"
-                            title="Подтвердите отмену"
-                            description="Бронирование будет отменено. Если оплата была с баланса через кнопки брони, средства вернутся клиенту."
-                            confirmLabel="Да, отменить"
+                            title={t("admin.clientProfile.bookings.cancelConfirmTitle")}
+                            description={t("admin.clientProfile.bookings.cancelConfirmDescription")}
+                            confirmLabel={t("admin.clientProfile.bookings.cancelConfirmLabel")}
                           />
                         </div>
                       ) : (
@@ -445,23 +445,23 @@ export default async function AdminCustomerPage({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Операции по кошельку</h2>
+          <h2 className="admin-section__title">{t("admin.clientProfile.wallet.title")}</h2>
         </div>
         <div className="admin-table">
           <table className="admin-table__table">
             <thead>
               <tr className="admin-table__row">
-                <th className="admin-table__cell admin-table__cell--head">Дата</th>
-                <th className="admin-table__cell admin-table__cell--head">Тип</th>
-                <th className="admin-table__cell admin-table__cell--head">Сумма</th>
-                <th className="admin-table__cell admin-table__cell--head">Баланс после</th>
-                <th className="admin-table__cell admin-table__cell--head">Комментарий</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.date")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.type")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.amount")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.wallet.table.balanceAfter")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.comment")}</th>
               </tr>
             </thead>
             <tbody>
               {customer.walletTransactions.length === 0 ? (
                 <tr className="admin-table__row">
-                  <td className="admin-table__cell" colSpan={5}>Операций пока нет.</td>
+                  <td className="admin-table__cell" colSpan={5}>{t("admin.wallet.empty")}</td>
                 </tr>
               ) : (
                 customer.walletTransactions.map((row) => (

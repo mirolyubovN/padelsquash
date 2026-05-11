@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createBookingHoldsInDb } from "@/src/lib/bookings/persistence";
 import { prisma } from "@/src/lib/prisma";
+import { PromoIneligibleError } from "@/src/lib/promo/apply";
 import { createBookingHoldsSchema } from "@/src/lib/validation/booking";
 import { resolveLocationBySlug } from "@/src/lib/locations/service";
 
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
       date: parsed.data.date,
       durationMin: parsed.data.durationMin,
       instructorId: parsed.data.instructorId,
+      promoCode: parsed.data.promoCode,
       customerUserId: accountCustomer.id,
       customer: {
         name: accountCustomer.name,
@@ -64,6 +66,9 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof PromoIneligibleError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
+    }
     const message = error instanceof Error ? error.message : "Ошибка создания hold";
     const status = message.includes("занят")
       ? 409

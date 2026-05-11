@@ -12,6 +12,7 @@ import {
   sendCommonChatTestMessage,
 } from "@/src/lib/notifications/telegram-channels";
 import { runDailyDigest } from "@/src/lib/notifications/daily-digest";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Админ: Telegram | Padel & Squash KZ",
@@ -23,18 +24,18 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 function getMessage(code: string | undefined): string | null {
-  if (code === "saved") return "Настройки Telegram сохранены.";
-  if (code === "test_sent") return "Тестовое сообщение отправлено.";
-  if (code === "digest_sent") return "Дайджест отправлен вручную.";
-  if (code === "disconnected") return "Общий канал отключен.";
+  if (code === "saved") return t("admin.telegram.messages.saved");
+  if (code === "test_sent") return t("admin.telegram.messages.testSent");
+  if (code === "digest_sent") return t("admin.telegram.messages.digestSent");
+  if (code === "disconnected") return t("admin.telegram.messages.disconnected");
   return null;
 }
 
 function getError(code: string | undefined): string | null {
-  if (code === "chat_required") return "Укажите chat id.";
-  if (code === "test_failed") return "Не удалось отправить тестовое сообщение.";
-  if (code === "digest_failed") return "Не удалось отправить дайджест.";
-  if (code) return "Не удалось сохранить настройки.";
+  if (code === "chat_required") return t("admin.telegram.errors.chatRequired");
+  if (code === "test_failed") return t("admin.telegram.errors.testFailed");
+  if (code === "digest_failed") return t("admin.telegram.errors.digestFailed");
+  if (code) return t("admin.telegram.errors.saveFailed");
   return null;
 }
 
@@ -100,15 +101,17 @@ export default async function AdminTelegramSettingsPage({
   }
 
   return (
-    <AdminPageShell title="Telegram" description="Общий канал операций и ручная отправка уведомлений.">
+    <AdminPageShell title="Telegram" description={t("admin.telegram.pageDescription")}>
       {message ? <p className="account-history__message account-history__message--success" role="status">{message}</p> : null}
       {error ? <p className="account-history__message account-history__message--error" role="alert">{error}</p> : null}
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Общий канал уведомлений</h2>
+          <h2 className="admin-section__title">{t("admin.telegram.commonChannelTitle")}</h2>
           <p className="admin-section__description">
-            Добавьте бота {botUsername ? `@${botUsername}` : "из переменной TELEGRAM_BOT_USERNAME"} в группу и дайте ему право отправлять сообщения.
+            {t("admin.telegram.commonChannelDescription", {
+              bot: botUsername ? `@${botUsername}` : t("admin.telegram.botUsernameFallback"),
+            })}
           </p>
         </div>
 
@@ -121,12 +124,12 @@ export default async function AdminTelegramSettingsPage({
                 name="commonChatId"
                 className="admin-form__field"
                 defaultValue={settings.commonChatId ?? ""}
-                placeholder="-1001234567890 или @channelname"
+                placeholder={t("admin.telegram.chatIdPlaceholder")}
               />
-              <p className="admin-bookings__cell-sub">Можно отправить `/getchatid` в группе, где находится бот.</p>
+              <p className="admin-bookings__cell-sub">{t("admin.telegram.getChatIdHint")}</p>
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="telegram-common-chat-title">Название</label>
+              <label className="admin-form__label" htmlFor="telegram-common-chat-title">{t("admin.telegram.fields.title")}</label>
               <input
                 id="telegram-common-chat-title"
                 name="commonChatTitle"
@@ -138,26 +141,26 @@ export default async function AdminTelegramSettingsPage({
             <div className="admin-form__group">
               <label className="admin-form__checkbox">
                 <input name="enabled" type="checkbox" defaultChecked={settings.enabled} />
-                <span>Канал включен</span>
+                <span>{t("admin.telegram.fields.enabled")}</span>
               </label>
             </div>
           </div>
           <div className="admin-form__actions">
-            <button type="submit" className="admin-form__submit">Сохранить</button>
+            <button type="submit" className="admin-form__submit">{t("admin.common.save")}</button>
           </div>
         </form>
       </section>
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Автоподключение группы</h2>
+          <h2 className="admin-section__title">{t("admin.telegram.autoConnectTitle")}</h2>
           <p className="admin-section__description">
-            Отправьте эту команду в нужной группе. Секрет действует 10 минут.
+            {t("admin.telegram.autoConnectDescription")}
           </p>
         </div>
         <div className="admin-form admin-form--panel">
           <div className="admin-form__group">
-            <label className="admin-form__label">Команда для группы</label>
+            <label className="admin-form__label">{t("admin.telegram.groupCommandLabel")}</label>
             <input className="admin-form__field" value={`/registerchat ${registerSecret}`} readOnly />
           </div>
         </div>
@@ -166,13 +169,13 @@ export default async function AdminTelegramSettingsPage({
       <section className="admin-section">
         <div className="admin-bookings__actions">
           <form action={testAction}>
-            <button type="submit" className="admin-bookings__action-button">Отправить тест</button>
+            <button type="submit" className="admin-bookings__action-button">{t("admin.telegram.actions.sendTest")}</button>
           </form>
           <form action={digestAction}>
-            <button type="submit" className="admin-bookings__action-button">Отправить дайджест на завтра</button>
+            <button type="submit" className="admin-bookings__action-button">{t("admin.telegram.actions.sendTomorrowDigest")}</button>
           </form>
           <form action={disconnectAction}>
-            <button type="submit" className="admin-bookings__action-button admin-bookings__action-button--danger">Отключить канал</button>
+            <button type="submit" className="admin-bookings__action-button admin-bookings__action-button--danger">{t("admin.telegram.actions.disconnect")}</button>
           </form>
         </div>
       </section>

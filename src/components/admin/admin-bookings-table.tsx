@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { AdminBookingActionsModal } from "@/src/components/admin/admin-booking-actions-modal";
 import { type AdminBookingRow, type AdminBookingStatus } from "@/src/lib/admin/booking-types";
 import type { RescheduleBookingResult } from "@/src/lib/bookings/reschedule";
+import { t } from "@/src/lib/i18n";
 
 function resolveCourtLabel(
   courtId: string,
@@ -15,7 +16,7 @@ function resolveCourtLabel(
   const mappedLabel = courtNamesById[courtId];
   if (mappedLabel) return mappedLabel;
   if (fallbackLabel && fallbackLabel !== courtId) return fallbackLabel;
-  return `Корт ${index + 1}`;
+  return t("admin.common.courtNumber", { number: index + 1 });
 }
 
 interface AdminBookingsTableProps {
@@ -80,7 +81,10 @@ export function AdminBookingsTable({
     startTransition(async () => {
       const result = await bulkAction(ids, status);
       setSelectedIds(new Set());
-      setBulkResult(`Обновлено ${result.updated} из ${result.total} бронирований.${result.failed > 0 ? ` Ошибка: ${result.failed}.` : ""}`);
+      setBulkResult(
+        t("admin.bookings.bulkResult", { updated: result.updated, total: result.total }) +
+          (result.failed > 0 ? t("admin.bookings.bulkResultFailed", { failed: result.failed }) : ""),
+      );
     });
   }
 
@@ -104,24 +108,24 @@ export function AdminBookingsTable({
                   className="admin-bookings__checkbox"
                   checked={allSelected}
                   onChange={toggleAll}
-                  aria-label="Выбрать все"
+                  aria-label={t("admin.bookings.selectAll")}
                   disabled={allActionableIds.length === 0}
                 />
               </th>
-              <th className="admin-table__cell admin-table__cell--head">Клиент</th>
-              <th className="admin-table__cell admin-table__cell--head">Услуга</th>
-              <th className="admin-table__cell admin-table__cell--head">Дата / время</th>
-              <th className="admin-table__cell admin-table__cell--head">Статус</th>
-              <th className="admin-table__cell admin-table__cell--head">Оплата</th>
-              {canSeeRevenue ? <th className="admin-table__cell admin-table__cell--head">Сумма</th> : null}
-              <th className="admin-table__cell admin-table__cell--head">Действия</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.bookings.table.customer")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.bookings.table.service")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.bookings.table.dateTime")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.bookings.table.status")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.bookings.table.payment")}</th>
+              {canSeeRevenue ? <th className="admin-table__cell admin-table__cell--head">{t("admin.bookings.table.amount")}</th> : null}
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.bookings.table.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr className="admin-table__row">
                 <td className="admin-table__cell" colSpan={colSpan}>
-                  Бронирований пока нет.
+                  {t("admin.bookings.empty")}
                 </td>
               </tr>
             ) : (
@@ -138,7 +142,7 @@ export function AdminBookingsTable({
                         className="admin-bookings__checkbox"
                         checked={selectedIds.has(row.id)}
                         onChange={() => toggleRow(row.id)}
-                        aria-label={`Выбрать бронирование ${row.id}`}
+                        aria-label={t("admin.bookings.selectBooking", { id: row.id })}
                         disabled={!actionable}
                       />
                     </td>
@@ -155,10 +159,10 @@ export function AdminBookingsTable({
                       <div className="admin-bookings__cell-title">{row.serviceName}</div>
                       <div className="admin-bookings__cell-sub">{row.serviceCode} · {row.serviceSportName}</div>
                       {resolvedCourtLabels.length > 0 ? (
-                        <div className="admin-bookings__cell-sub">Корт: {resolvedCourtLabels.join(", ")}</div>
+                        <div className="admin-bookings__cell-sub">{t("admin.common.courtList", { courts: resolvedCourtLabels.join(", ") })}</div>
                       ) : null}
                       {row.instructorLabels.length > 0 ? (
-                        <div className="admin-bookings__cell-sub">Тренер: {row.instructorLabels.join(", ")}</div>
+                        <div className="admin-bookings__cell-sub">{t("admin.common.trainerList", { trainers: row.instructorLabels.join(", ") })}</div>
                       ) : null}
                     </td>
                     <td className="admin-table__cell">
@@ -206,32 +210,32 @@ export function AdminBookingsTable({
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 ? (
-        <div className="admin-bookings__bulk-bar" role="region" aria-label="Массовые действия">
-          <span className="admin-bookings__bulk-count">Выбрано: {selectedIds.size}</span>
+        <div className="admin-bookings__bulk-bar" role="region" aria-label={t("admin.bookings.bulkActionsLabel")}>
+          <span className="admin-bookings__bulk-count">{t("admin.bookings.selectedCount", { count: selectedIds.size })}</span>
           <div className="admin-bookings__bulk-actions">
             <button
               type="button"
               className="admin-bookings__action-button"
-              onClick={() => openBulkDialog("completed", "Завершить")}
+              onClick={() => openBulkDialog("completed", t("admin.bookings.actions.complete"))}
               disabled={isPending}
             >
-              Завершить
+              {t("admin.bookings.actions.complete")}
             </button>
             <button
               type="button"
               className="admin-bookings__action-button"
-              onClick={() => openBulkDialog("no_show", "Неявка")}
+              onClick={() => openBulkDialog("no_show", t("admin.bookings.actions.noShow"))}
               disabled={isPending}
             >
-              Неявка
+              {t("admin.bookings.actions.noShow")}
             </button>
             <button
               type="button"
               className="admin-bookings__action-button admin-bookings__action-button--danger"
-              onClick={() => openBulkDialog("cancelled", "Отменить")}
+              onClick={() => openBulkDialog("cancelled", t("admin.bookings.actions.cancel"))}
               disabled={isPending}
             >
-              Отменить
+              {t("admin.bookings.actions.cancel")}
             </button>
             <button
               type="button"
@@ -239,10 +243,10 @@ export function AdminBookingsTable({
               onClick={() => setSelectedIds(new Set())}
               disabled={isPending}
             >
-              Сбросить
+              {t("admin.bookings.actions.reset")}
             </button>
           </div>
-          {isPending ? <span className="admin-bookings__bulk-loading">Обновляем...</span> : null}
+          {isPending ? <span className="admin-bookings__bulk-loading">{t("admin.bookings.bulkLoading")}</span> : null}
         </div>
       ) : null}
 
@@ -255,11 +259,11 @@ export function AdminBookingsTable({
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="account-dialog__title">Подтвердите действие</h3>
+            <h3 className="account-dialog__title">{t("admin.bookings.confirmBulkTitle")}</h3>
             <p className="account-dialog__text">
               {bulkDialog.status === "cancelled"
-                ? `Отменить ${selectedIds.size} бронирование(й)? Оплаченные с баланса — вернутся клиентам.`
-                : `Установить статус «${bulkDialog.label}» для ${selectedIds.size} бронирование(й)?`}
+                ? t("admin.bookings.confirmBulkCancel", { count: selectedIds.size })
+                : t("admin.bookings.confirmBulkStatus", { label: bulkDialog.label, count: selectedIds.size })}
             </p>
             <div className="account-dialog__actions">
               <button
@@ -274,7 +278,7 @@ export function AdminBookingsTable({
                 className="admin-bookings__action-button"
                 onClick={() => setBulkDialog(null)}
               >
-                Отмена
+                {t("admin.common.cancel")}
               </button>
             </div>
           </div>

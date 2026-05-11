@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { t } from "@/src/lib/i18n";
 
 interface AdminPageShellProps {
   title: string;
@@ -20,7 +21,7 @@ export function AdminPageShell({
       <div className="admin-page__header">
         <div>
           {breadcrumbs.length > 0 ? (
-            <nav className="admin-page__breadcrumbs" aria-label="Навигация по разделу">
+            <nav className="admin-page__breadcrumbs" aria-label={t("admin.pageShell.breadcrumbsLabel")}>
               {breadcrumbs.map((crumb, index) => (
                 <span key={`${crumb.label}-${index}`} className="admin-page__breadcrumb-item">
                   {crumb.href ? (
@@ -39,7 +40,7 @@ export function AdminPageShell({
               ))}
             </nav>
           ) : null}
-          <p className="admin-page__eyebrow">Админ-панель</p>
+          <p className="admin-page__eyebrow">{t("admin.pageShell.eyebrow")}</p>
           <h1 className="admin-page__title">{title}</h1>
           <p className="admin-page__description">{description}</p>
         </div>

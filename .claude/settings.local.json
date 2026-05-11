@@ -25,7 +25,24 @@
       "Bash(curl:*)",
       "Bash(node_modules/.bin/sass:*)",
       "Bash(xargs grep:*)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Websites\\\\padelsquash\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(sort -t: -k2 -rn)",
+      "Bash(Test-Path D:\\\\Websites\\\\padelsquash\\\\app\\\\api\\\\promo-codes *)",
+      "Bash([ ! -f \"$d/migration.sql\" ])",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"yes\" npx prisma *)",
+      "Bash(git stash *)",
+      "Bash(node \"C:/Users/User/.claude/plugins/cache/openai-codex/codex/1.0.2/scripts/codex-companion.mjs\" task \"Extract all hardcoded Russian UI strings from TSX/TS files into src/messages/ru.json, create src/lib/i18n.ts with a typed t\\(\\) helper, and update all listed component/page files to use t\\(\\) instead of inline Russian strings. Details follow.\" --write)",
+      "Bash(Get-Content \"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Websites-padelsquash\\\\30e7f962-be3d-4bf6-a204-cd8f6f758fd4\\\\tasks\\\\bsf52ga7v.output\" -Wait -Tail 50)",
+      "Bash(Select-String -Pattern \".\")",
+      "Bash(Select-Object -First 200)",
+      "Read(//mnt/c/Users/User/AppData/Local/Temp/claude/D--Websites-padelsquash/30e7f962-be3d-4bf6-a204-cd8f6f758fd4/tasks/**)",
+      "Bash(grep -v '^[a-z]+$')",
+      "Bash(git grep *)",
+      "Bash(git diff *)",
+      "Bash(node *)",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 5; Get-Content 'C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Websites-padelsquash\\\\30e7f962-be3d-4bf6-a204-cd8f6f758fd4\\\\tasks\\\\btw5tvnrg.output' -ErrorAction SilentlyContinue\")"
     ]
   }
 }

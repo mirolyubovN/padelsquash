@@ -14,6 +14,7 @@ import {
   updateCourtFromForm,
 } from "@/src/lib/admin/resources";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Админ: корты | Padel & Squash KZ",
@@ -35,11 +36,11 @@ export default async function AdminCourtsPage({
   const defaultSportId = sportOptions[0]?.id ?? "";
   const errorMessage =
     params.error === "delete_blocked"
-      ? "Корт нельзя удалить: он уже используется в истории бронирований."
+      ? t("admin.courts.deleteBlocked")
       : params.error === "delete_failed"
-        ? "Не удалось удалить корт."
+        ? t("admin.courts.deleteFailed")
         : null;
-  const successMessage = params.success === "deleted" ? "Корт удален." : null;
+  const successMessage = params.success === "deleted" ? t("admin.courts.deleted") : null;
 
   async function createAction(formData: FormData) {
     "use server";
@@ -98,8 +99,8 @@ export default async function AdminCourtsPage({
 
   return (
     <AdminPageShell
-      title="Корты"
-      description="Список кортов клуба, включение/выключение и ссылки на разовые исключения."
+      title={t("admin.courts.title")}
+      description={t("admin.courts.description")}
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">
@@ -114,26 +115,26 @@ export default async function AdminCourtsPage({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Добавить корт</h2>
-          <p className="admin-section__description">Новая площадка появится в бронировании сразу после создания.</p>
+          <h2 className="admin-section__title">{t("admin.courts.addTitle")}</h2>
+          <p className="admin-section__description">{t("admin.courts.addDescription")}</p>
         </div>
         <form action={createAction} className="admin-form admin-form--panel">
           <div className="admin-form__panel-grid">
             <div className="admin-form__group">
               <label className="admin-form__label" htmlFor="court-name">
-                Название
+                {t("admin.common.fields.name")}
               </label>
               <input
                 id="court-name"
                 name="name"
                 className="admin-form__field"
-                placeholder="Падел 4"
+                placeholder={t("admin.courts.placeholders.name")}
                 required
               />
             </div>
             <div className="admin-form__group">
               <label className="admin-form__label" htmlFor="court-sport">
-                Спорт
+                {t("admin.common.fields.sport")}
               </label>
               <select id="court-sport" name="sportId" className="admin-form__field" defaultValue={defaultSportId} required>
                 {sportOptions.map((sport) => (
@@ -145,19 +146,19 @@ export default async function AdminCourtsPage({
             </div>
             <div className="admin-form__group">
               <label className="admin-form__label" htmlFor="court-notes">
-                Примечание (опционально)
+                {t("admin.courts.fields.notesOptional")}
               </label>
               <input
                 id="court-notes"
                 name="notes"
                 className="admin-form__field"
-                placeholder="Например: временно без камеры"
+                placeholder={t("admin.courts.placeholders.notes")}
               />
             </div>
           </div>
           <div className="admin-form__actions">
             <button type="submit" className="admin-form__submit">
-              Добавить корт
+              {t("admin.courts.addSubmit")}
             </button>
           </div>
         </form>
@@ -167,19 +168,19 @@ export default async function AdminCourtsPage({
         <table className="admin-table__table">
           <thead>
             <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Название</th>
-              <th className="admin-table__cell admin-table__cell--head">Спорт</th>
-              <th className="admin-table__cell admin-table__cell--head">Активен</th>
-              <th className="admin-table__cell admin-table__cell--head">Примечание</th>
-              <th className="admin-table__cell admin-table__cell--head">Исключения</th>
-              <th className="admin-table__cell admin-table__cell--head">Действия</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.name")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.sport")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.courts.table.active")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.note")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.courts.table.exceptions")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {courts.length === 0 ? (
               <tr className="admin-table__row">
                 <td className="admin-table__cell" colSpan={6}>
-                  Кортов пока нет.
+                  {t("admin.courts.empty")}
                 </td>
               </tr>
             ) : (
@@ -193,7 +194,7 @@ export default async function AdminCourtsPage({
                   <td className="admin-table__cell">
                     <span className={`admin-status-badge ${court.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
                       <span className="admin-status-badge__dot" aria-hidden="true" />
-                      {court.active ? "Активен" : "Неактивен"}
+                      {court.active ? t("admin.common.active") : t("admin.common.inactive")}
                     </span>
                   </td>
                   <td className="admin-table__cell">
@@ -204,24 +205,24 @@ export default async function AdminCourtsPage({
                       href={`/admin/courts/${court.id}/exceptions`}
                       className="admin-inline-links__item"
                     >
-                      Открыть
+                      {t("admin.common.open")}
                     </Link>
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
-                      <AdminEditModal triggerLabel="Редактировать" title={`Корт: ${court.name}`}>
+                      <AdminEditModal triggerLabel={t("admin.common.edit")} title={t("admin.courts.editTitle", { name: court.name })}>
                         <form action={updateAction} className="admin-form">
                           <input type="hidden" name="courtId" value={court.id} />
                           <div className="admin-form__group">
-                            <label className="admin-form__label" htmlFor={`court-name-modal-${court.id}`}>Название</label>
+                            <label className="admin-form__label" htmlFor={`court-name-modal-${court.id}`}>{t("admin.common.fields.name")}</label>
                             <input id={`court-name-modal-${court.id}`} name="name" className="admin-form__field" defaultValue={court.name} required />
                           </div>
                           <div className="admin-form__group">
-                            <label className="admin-form__label" htmlFor={`court-notes-modal-${court.id}`}>Примечание</label>
-                            <input id={`court-notes-modal-${court.id}`} name="notes" className="admin-form__field" defaultValue={court.notes ?? ""} placeholder="Например: временно без камеры" />
+                            <label className="admin-form__label" htmlFor={`court-notes-modal-${court.id}`}>{t("admin.common.fields.note")}</label>
+                            <input id={`court-notes-modal-${court.id}`} name="notes" className="admin-form__field" defaultValue={court.notes ?? ""} placeholder={t("admin.courts.placeholders.notes")} />
                           </div>
                           <div className="admin-form__actions">
-                            <button type="submit" className="admin-form__submit">Сохранить</button>
+                            <button type="submit" className="admin-form__submit">{t("admin.common.save")}</button>
                           </div>
                         </form>
                       </AdminEditModal>
@@ -229,16 +230,16 @@ export default async function AdminCourtsPage({
                         <input type="hidden" name="courtId" value={court.id} />
                         <input type="hidden" name="nextActive" value={String(!court.active)} />
                         <button type="submit" className="admin-bookings__action-button">
-                          {court.active ? "Выключить" : "Включить"}
+                          {court.active ? t("admin.common.disable") : t("admin.common.enable")}
                         </button>
                       </form>
                       <AdminConfirmActionForm
                         action={deleteAction}
                         hiddenFields={{ courtId: court.id }}
-                        triggerLabel="Удалить"
-                        confirmLabel="Удалить корт"
-                        title="Удалить корт?"
-                        description="Удаление доступно только если корт не используется в истории бронирований."
+                        triggerLabel={t("admin.common.delete")}
+                        confirmLabel={t("admin.courts.deleteConfirm")}
+                        title={t("admin.courts.deleteTitle")}
+                        description={t("admin.courts.deleteDescription")}
                       />
                     </div>
                   </td>

@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { FormSubmitButton } from "@/src/components/ui/form-submit-button";
 import { submitRegisterAction } from "@/app/register/actions";
 import { AuthPanelLinks } from "@/src/components/auth/auth-panel";
 import { createInitialRegisterFormState } from "@/src/lib/auth/register-form-state";
+import { t } from "@/src/lib/i18n";
 
 interface RegisterFormProps {
   next: string;
@@ -30,7 +32,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
 
         <div className="auth-form__group">
           <label htmlFor="register-name" className="auth-form__label">
-            Имя
+            {t("auth.common.name")}
           </label>
           <input
             id="register-name"
@@ -73,7 +75,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
 
         <div className="auth-form__group">
           <label htmlFor="register-phone" className="auth-form__label">
-            Телефон
+            {t("auth.common.phone")}
           </label>
           <input
             id="register-phone"
@@ -87,7 +89,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
             aria-describedby="register-phone-hint register-phone-error"
           />
           <p id="register-phone-hint" className="auth-form__hint">
-            Формат: +7 (7XX) XXX-XX-XX
+            {t("auth.register.phoneFormat")}
           </p>
           {state.fieldErrors.phone ? (
             <p id="register-phone-error" className="auth-form__field-error" role="alert">
@@ -98,7 +100,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
 
         <div className="auth-form__group">
           <label htmlFor="register-password" className="auth-form__label">
-            Пароль
+            {t("auth.common.password")}
           </label>
           <div className="auth-form__field-row">
             <input
@@ -118,7 +120,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
               onClick={() => setShowPasswords((value) => !value)}
               aria-pressed={showPasswords}
             >
-              {showPasswords ? "Скрыть" : "Показать"}
+              {showPasswords ? t("auth.common.hidePassword") : t("auth.common.showPassword")}
             </button>
           </div>
           {state.fieldErrors.password ? (
@@ -130,7 +132,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
 
         <div className="auth-form__group">
           <label htmlFor="register-password-confirm" className="auth-form__label">
-            Повторите пароль
+            {t("auth.register.passwordConfirm")}
           </label>
           <div className="auth-form__field-row">
             <input
@@ -150,7 +152,7 @@ export function RegisterForm({ next }: RegisterFormProps) {
               onClick={() => setShowPasswords((value) => !value)}
               aria-pressed={showPasswords}
             >
-              {showPasswords ? "Скрыть" : "Показать"}
+              {showPasswords ? t("auth.common.hidePassword") : t("auth.common.showPassword")}
             </button>
           </div>
           {state.fieldErrors.passwordConfirm ? (
@@ -160,19 +162,18 @@ export function RegisterForm({ next }: RegisterFormProps) {
           ) : null}
         </div>
 
-        <button
-          type="submit"
-          className={`auth-form__submit${isPending ? " auth-form__submit--loading" : ""}`}
-          disabled={isPending}
-        >
-          {isPending ? "Создаем аккаунт..." : "Создать аккаунт"}
-        </button>
-        <p className="auth-form__hint">После регистрации нужно подтвердить email и телефон через Telegram-бота.</p>
+        <FormSubmitButton
+          className="auth-form__submit"
+          label={t("auth.register.submit")}
+          loadingLabel={t("auth.register.submitting")}
+          pending={isPending}
+        />
+        <p className="auth-form__hint">{t("auth.register.verificationHint")}</p>
       </form>
 
       <AuthPanelLinks>
         <Link href={`/login?next=${encodeURIComponent(state.values.next)}`} className="auth-panel__link">
-          Уже есть аккаунт? Войти
+          {t("auth.register.loginLink")}
         </Link>
       </AuthPanelLinks>
     </>

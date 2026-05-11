@@ -19,6 +19,7 @@ import { getSelectableInstructorPhotoAssets } from "@/src/lib/admin/media";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 import { InstructorPhotoInput, type InstructorPhotoAsset } from "@/src/components/admin/instructor-photo-input";
 import { InstructorPhotoGalleryInput } from "@/src/components/admin/instructor-photo-gallery-input";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Админ: тренеры | Padel & Squash KZ",
@@ -51,11 +52,11 @@ export default async function AdminInstructorsPage({
   const defaultSportId = sportOptions[0]?.id ?? "";
   const errorMessage =
     params.error === "delete_blocked"
-      ? "Тренера нельзя удалить: он уже используется в истории бронирований."
+      ? t("admin.instructors.deleteBlocked")
       : params.error === "delete_failed"
-        ? "Не удалось удалить тренера."
+        ? t("admin.instructors.deleteFailed")
         : null;
-  const successMessage = params.success === "deleted" ? "Тренер удален." : null;
+  const successMessage = params.success === "deleted" ? t("admin.instructors.deleted") : null;
 
   async function createAction(formData: FormData) {
     "use server";
@@ -131,8 +132,8 @@ export default async function AdminInstructorsPage({
 
   return (
     <AdminPageShell
-      title="Тренеры"
-      description="Тренеры с несколькими видами спорта, описанием, индивидуальной ставкой за час и настройкой графика."
+      title={t("admin.instructors.title")}
+      description={t("admin.instructors.description")}
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">
@@ -148,25 +149,25 @@ export default async function AdminInstructorsPage({
       {canEditPricing ? (
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Добавить тренера</h2>
-            <p className="admin-section__description">Тренер появится в бронировании и на странице тренеров.</p>
+            <h2 className="admin-section__title">{t("admin.instructors.addTitle")}</h2>
+            <p className="admin-section__description">{t("admin.instructors.addDescription")}</p>
           </div>
           <form action={createAction} className="admin-form admin-form--panel">
             <div className="admin-form__panel-grid">
               <div className="admin-form__group">
                 <label className="admin-form__label" htmlFor="instructor-name">
-                  Имя
+                  {t("admin.instructors.fields.name")}
                 </label>
                 <input
                   id="instructor-name"
                   name="name"
                   className="admin-form__field"
-                  placeholder="Имя Фамилия"
+                  placeholder={t("admin.instructors.placeholders.fullName")}
                   required
                 />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label">Виды спорта и ставка за час (₸)</label>
+                <label className="admin-form__label">{t("admin.instructors.fields.sportsAndHourlyRate")}</label>
                 <div className="admin-inline-sport-prices">
                   {sportOptions.map((sport) => (
                     <div key={sport.id} className="admin-inline-sport-price-row">
@@ -186,7 +187,7 @@ export default async function AdminInstructorsPage({
                         step="1"
                         className="admin-form__field admin-form__field--narrow"
                         defaultValue={10000}
-                        placeholder="₸ / час"
+                        placeholder={t("admin.instructors.placeholders.hourlyRate")}
                       />
                     </div>
                   ))}
@@ -194,29 +195,29 @@ export default async function AdminInstructorsPage({
               </div>
               <div className="admin-form__group">
                 <label className="admin-form__label" htmlFor="instructor-bio">
-                  Описание (для страницы тренеров)
+                  {t("admin.instructors.fields.bioForCoachesPage")}
                 </label>
                 <input
                   id="instructor-bio"
                   name="bio"
                   className="admin-form__field"
-                  placeholder="Направление, опыт, формат занятий"
+                  placeholder={t("admin.instructors.placeholders.bio")}
                 />
               </div>
               <div className="admin-form__group">
                 <label className="admin-form__label" htmlFor="instructor-photo-url">
-                  Главное фото
+                  {t("admin.instructors.fields.mainPhoto")}
                 </label>
                 <InstructorPhotoInput inputId="instructor-photo-url" mediaAssets={selectablePhotoAssets} />
               </div>
               <div className="admin-form__group">
-                <label className="admin-form__label">Галерея тренера</label>
+                <label className="admin-form__label">{t("admin.instructors.fields.gallery")}</label>
                 <InstructorPhotoGalleryInput mediaAssets={selectablePhotoAssets} />
               </div>
             </div>
             <div className="admin-form__actions">
               <button type="submit" className="admin-form__submit">
-                Добавить тренера
+                {t("admin.instructors.addSubmit")}
               </button>
             </div>
           </form>
@@ -224,9 +225,9 @@ export default async function AdminInstructorsPage({
       ) : (
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Ограничение доступа</h2>
+            <h2 className="admin-section__title">{t("admin.instructors.accessRestrictedTitle")}</h2>
             <p className="admin-section__description">
-              Изменение тренерских ставок доступно только супер-администратору.
+              {t("admin.instructors.pricingRestrictedDescription")}
             </p>
           </div>
         </section>
@@ -236,19 +237,19 @@ export default async function AdminInstructorsPage({
         <table className="admin-table__table">
           <thead>
             <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Имя</th>
-              <th className="admin-table__cell admin-table__cell--head">Виды спорта</th>
-              <th className="admin-table__cell admin-table__cell--head">Описание</th>
-              <th className="admin-table__cell admin-table__cell--head">Активен</th>
-              <th className="admin-table__cell admin-table__cell--head">График</th>
-              <th className="admin-table__cell admin-table__cell--head">Действия</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.name")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.sports")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.description")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.active")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.schedule")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {instructors.length === 0 ? (
               <tr className="admin-table__row">
                 <td className="admin-table__cell" colSpan={6}>
-                  Тренеров пока нет.
+                  {t("admin.instructors.empty")}
                 </td>
               </tr>
             ) : (
@@ -269,31 +270,31 @@ export default async function AdminInstructorsPage({
                   <td className="admin-table__cell">
                     <span className={`admin-status-badge ${instructor.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
                       <span className="admin-status-badge__dot" aria-hidden="true" />
-                      {instructor.active ? "Активен" : "Неактивен"}
+                      {instructor.active ? t("admin.common.active") : t("admin.common.inactive")}
                     </span>
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
                       <Link href={`/admin/instructors/${instructor.id}`} className="admin-inline-links__item">
-                        Профиль
+                        {t("admin.instructors.profileLink")}
                       </Link>
                       <Link href={`/admin/instructors/${instructor.id}/schedule`} className="admin-inline-links__item">
-                        График
+                        {t("admin.instructors.scheduleLink")}
                       </Link>
                     </div>
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
-                      <AdminEditModal triggerLabel="Редактировать" title={`Тренер: ${instructor.name}`}>
+                      <AdminEditModal triggerLabel={t("admin.common.edit")} title={t("admin.instructors.editTitle", { name: instructor.name })}>
                         {canEditPricing ? (
                           <form action={updatePricingAction} className="admin-form">
                             <input type="hidden" name="instructorId" value={instructor.id} />
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`name-${instructor.id}`}>Имя</label>
+                              <label className="admin-form__label" htmlFor={`name-${instructor.id}`}>{t("admin.instructors.fields.name")}</label>
                               <input id={`name-${instructor.id}`} name="name" className="admin-form__field" defaultValue={instructor.name} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label">Виды спорта и ставка (₸ / час)</label>
+                              <label className="admin-form__label">{t("admin.instructors.fields.sportsAndRate")}</label>
                               <div className="admin-inline-sport-prices">
                                 {sportOptions.map((sport) => {
                                   const existingSport = instructor.sports.find((s) => s.sportId === sport.id);
@@ -303,18 +304,18 @@ export default async function AdminInstructorsPage({
                                         <input name="sportIds" type="checkbox" value={sport.id} defaultChecked={Boolean(existingSport)} />
                                         <span>{sport.name}</span>
                                       </label>
-                                      <input name={`price_${sport.id}`} type="number" min="0" step="1" className="admin-form__field admin-form__field--narrow" defaultValue={existingSport?.pricePerHour ?? 10000} placeholder="₸ / час" />
+                                      <input name={`price_${sport.id}`} type="number" min="0" step="1" className="admin-form__field admin-form__field--narrow" defaultValue={existingSport?.pricePerHour ?? 10000} placeholder={t("admin.instructors.placeholders.hourlyRate")} />
                                     </div>
                                   );
                                 })}
                               </div>
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`bio-${instructor.id}`}>Описание</label>
-                              <input id={`bio-${instructor.id}`} name="bio" className="admin-form__field" defaultValue={instructor.bio ?? ""} placeholder="Направление, опыт, формат занятий" />
+                              <label className="admin-form__label" htmlFor={`bio-${instructor.id}`}>{t("admin.instructors.fields.bio")}</label>
+                              <input id={`bio-${instructor.id}`} name="bio" className="admin-form__field" defaultValue={instructor.bio ?? ""} placeholder={t("admin.instructors.placeholders.bio")} />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label">Главное фото</label>
+                              <label className="admin-form__label">{t("admin.instructors.fields.mainPhoto")}</label>
                               <InstructorPhotoInput
                                 defaultValue={instructor.photoUrl ?? ""}
                                 inputId={`photo-${instructor.id}`}
@@ -322,29 +323,29 @@ export default async function AdminInstructorsPage({
                               />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label">Галерея тренера</label>
+                              <label className="admin-form__label">{t("admin.instructors.fields.gallery")}</label>
                               <InstructorPhotoGalleryInput
                                 defaultValues={instructor.galleryPhotoUrls}
                                 mediaAssets={selectablePhotoAssets}
                               />
                             </div>
                             <div className="admin-form__actions">
-                              <button type="submit" className="admin-form__submit">Сохранить</button>
+                              <button type="submit" className="admin-form__submit">{t("admin.common.save")}</button>
                             </div>
                           </form>
                         ) : (
                           <form action={updateBasicAction} className="admin-form">
                             <input type="hidden" name="instructorId" value={instructor.id} />
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`name-basic-${instructor.id}`}>Имя</label>
+                              <label className="admin-form__label" htmlFor={`name-basic-${instructor.id}`}>{t("admin.instructors.fields.name")}</label>
                               <input id={`name-basic-${instructor.id}`} name="name" className="admin-form__field" defaultValue={instructor.name} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`bio-basic-${instructor.id}`}>Описание</label>
-                              <input id={`bio-basic-${instructor.id}`} name="bio" className="admin-form__field" defaultValue={instructor.bio ?? ""} placeholder="Направление, опыт, формат занятий" />
+                              <label className="admin-form__label" htmlFor={`bio-basic-${instructor.id}`}>{t("admin.instructors.fields.bio")}</label>
+                              <input id={`bio-basic-${instructor.id}`} name="bio" className="admin-form__field" defaultValue={instructor.bio ?? ""} placeholder={t("admin.instructors.placeholders.bio")} />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label">Главное фото</label>
+                              <label className="admin-form__label">{t("admin.instructors.fields.mainPhoto")}</label>
                               <InstructorPhotoInput
                                 defaultValue={instructor.photoUrl ?? ""}
                                 inputId={`photo-basic-${instructor.id}`}
@@ -352,14 +353,14 @@ export default async function AdminInstructorsPage({
                               />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label">Галерея тренера</label>
+                              <label className="admin-form__label">{t("admin.instructors.fields.gallery")}</label>
                               <InstructorPhotoGalleryInput
                                 defaultValues={instructor.galleryPhotoUrls}
                                 mediaAssets={selectablePhotoAssets}
                               />
                             </div>
                             <div className="admin-form__actions">
-                              <button type="submit" className="admin-form__submit">Сохранить</button>
+                              <button type="submit" className="admin-form__submit">{t("admin.common.save")}</button>
                             </div>
                           </form>
                         )}
@@ -368,16 +369,16 @@ export default async function AdminInstructorsPage({
                         <input type="hidden" name="instructorId" value={instructor.id} />
                         <input type="hidden" name="nextActive" value={String(!instructor.active)} />
                         <button type="submit" className="admin-bookings__action-button">
-                          {instructor.active ? "Деактивировать" : "Активировать"}
+                          {instructor.active ? t("admin.common.deactivate") : t("admin.common.activate")}
                         </button>
                       </form>
                       <AdminConfirmActionForm
                         action={deleteAction}
                         hiddenFields={{ instructorId: instructor.id }}
-                        triggerLabel="Удалить"
-                        confirmLabel="Удалить тренера"
-                        title="Удалить тренера?"
-                        description="Удаление доступно только если тренер не используется в истории бронирований."
+                        triggerLabel={t("admin.common.delete")}
+                        confirmLabel={t("admin.instructors.deleteConfirm")}
+                        title={t("admin.instructors.deleteTitle")}
+                        description={t("admin.instructors.deleteDescription")}
                       />
                     </div>
                   </td>

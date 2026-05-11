@@ -3,6 +3,7 @@ import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
 import { getAdminDashboardData } from "@/src/lib/admin/dashboard";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import { canViewRevenue } from "@/src/lib/auth/roles";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -18,27 +19,27 @@ export default async function AdminIndexPage() {
   const dashboard = await getAdminDashboardData();
   return (
     <AdminPageShell
-      title="Панель управления"
-      description="Короткая операционная сводка и быстрые переходы по ключевым задачам."
+      title={t("admin.dashboard.title")}
+      description={t("admin.dashboard.description")}
     >
       <section className="admin-dashboard__stats">
         <article className="admin-dashboard__stat-card">
-          <p className="admin-dashboard__stat-label">Брони сегодня</p>
+          <p className="admin-dashboard__stat-label">{t("admin.dashboard.stats.todayBookings")}</p>
           <p className="admin-dashboard__stat-value">{dashboard.todayBookingsCount}</p>
         </article>
         <Link href="/admin/bookings?status=pending_payment" className="admin-dashboard__stat-card admin-dashboard__stat-card--link">
-          <p className="admin-dashboard__stat-label">Ожидают оплаты</p>
+          <p className="admin-dashboard__stat-label">{t("admin.dashboard.stats.pendingPayments")}</p>
           <p className="admin-dashboard__stat-value">{dashboard.pendingPaymentsCount}</p>
         </Link>
         <article className="admin-dashboard__stat-card">
-          <p className="admin-dashboard__stat-label">Активные корты / тренеры</p>
+          <p className="admin-dashboard__stat-label">{t("admin.dashboard.stats.activeCourtsInstructors")}</p>
           <p className="admin-dashboard__stat-value">
             {dashboard.activeCourtsCount} / {dashboard.activeInstructorsCount}
           </p>
         </article>
         {canSeeRevenue ? (
           <article className="admin-dashboard__stat-card">
-            <p className="admin-dashboard__stat-label">Выручка за неделю</p>
+            <p className="admin-dashboard__stat-label">{t("admin.dashboard.stats.weekRevenue")}</p>
             <p className="admin-dashboard__stat-value">
               {dashboard.weekRevenueKzt.toLocaleString("ru-KZ")} ₸
             </p>
@@ -48,21 +49,21 @@ export default async function AdminIndexPage() {
 
       <section className="admin-dashboard__row">
         <div className="admin-dashboard__panel">
-          <h2 className="admin-dashboard__panel-title">Быстрые действия</h2>
+          <h2 className="admin-dashboard__panel-title">{t("admin.dashboard.quickActions.title")}</h2>
           <div className="admin-dashboard__quick-links">
             <Link href="/admin/bookings/create" className="admin-link-grid__item admin-link-grid__item--primary">
-              Создать бронирование
+              {t("admin.dashboard.quickActions.createBooking")}
             </Link>
             <Link href="/admin/bookings?status=pending_payment" className="admin-link-grid__item">
-              Ожидают оплаты
+              {t("admin.dashboard.quickActions.pendingPayments")}
             </Link>
             {canSeeRevenue ? (
               <>
                 <Link href="/admin/exceptions" className="admin-link-grid__item">
-                  Добавить исключение
+                  {t("admin.dashboard.quickActions.addException")}
                 </Link>
                 <Link href="/admin/pricing/base" className="admin-link-grid__item">
-                  Цены
+                  {t("admin.dashboard.quickActions.prices")}
                 </Link>
               </>
             ) : null}
@@ -70,9 +71,9 @@ export default async function AdminIndexPage() {
         </div>
 
         <div className="admin-dashboard__panel">
-          <h2 className="admin-dashboard__panel-title">Оповещения</h2>
+          <h2 className="admin-dashboard__panel-title">{t("admin.dashboard.alerts.title")}</h2>
           {dashboard.alerts.length === 0 ? (
-            <p className="admin-dashboard__empty">Критичных оповещений нет.</p>
+            <p className="admin-dashboard__empty">{t("admin.dashboard.alerts.empty")}</p>
           ) : (
             <ul className="admin-dashboard__alerts">
               {dashboard.alerts.map((alert) => (
@@ -86,9 +87,9 @@ export default async function AdminIndexPage() {
       </section>
 
       <section className="admin-dashboard__panel">
-        <h2 className="admin-dashboard__panel-title">Последние бронирования</h2>
+        <h2 className="admin-dashboard__panel-title">{t("admin.dashboard.recentBookings.title")}</h2>
         {dashboard.recentBookings.length === 0 ? (
-          <p className="admin-dashboard__empty">Данных пока нет.</p>
+          <p className="admin-dashboard__empty">{t("admin.common.noDataYet")}</p>
         ) : (
           <div className="admin-dashboard__recent-list">
             {dashboard.recentBookings.map((row) => (

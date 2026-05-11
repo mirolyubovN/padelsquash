@@ -8,6 +8,7 @@ import {
   getAdminExceptions,
   getExceptionTargetOptions,
 } from "@/src/lib/admin/resources";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -49,8 +50,8 @@ export default async function AdminExceptionsPage() {
 
   return (
     <AdminPageShell
-      title="Блокировки расписания"
-      description="Блокирует конкретные часы для бронирования. Площадка = все ресурсы недоступны. Корт / тренер = один ресурс."
+      title={t("admin.exceptions.title")}
+      description={t("admin.exceptions.description")}
     >
       <form action={createAction} className="admin-form">
         <div className="admin-table">
@@ -59,7 +60,7 @@ export default async function AdminExceptionsPage() {
               <tr className="admin-table__row">
                 <td className="admin-table__cell">
                   <label className="admin-form__label" htmlFor="exception-target">
-                    Ресурс
+                    {t("admin.exceptions.form.resource")}
                   </label>
                   <select
                     id="exception-target"
@@ -76,13 +77,13 @@ export default async function AdminExceptionsPage() {
                 </td>
                 <td className="admin-table__cell">
                   <label className="admin-form__label" htmlFor="exception-date">
-                    Дата
+                    {t("admin.exceptions.form.date")}
                   </label>
                   <input id="exception-date" name="date" type="date" className="admin-form__field" required />
                 </td>
                 <td className="admin-table__cell">
                   <label className="admin-form__label" htmlFor="exception-start">
-                    Начало
+                    {t("admin.exceptions.form.start")}
                   </label>
                   <input
                     id="exception-start"
@@ -94,7 +95,7 @@ export default async function AdminExceptionsPage() {
                 </td>
                 <td className="admin-table__cell">
                   <label className="admin-form__label" htmlFor="exception-end">
-                    Конец
+                    {t("admin.exceptions.form.end")}
                   </label>
                   <input
                     id="exception-end"
@@ -106,7 +107,7 @@ export default async function AdminExceptionsPage() {
                 </td>
                 <td className="admin-table__cell">
                   <label className="admin-form__label" htmlFor="exception-type">
-                    Тип
+                    {t("admin.exceptions.form.type")}
                   </label>
                   <select
                     id="exception-type"
@@ -114,27 +115,27 @@ export default async function AdminExceptionsPage() {
                     className="admin-form__field"
                     defaultValue="closed"
                   >
-                    <option value="closed">Недоступно</option>
-                    <option value="maintenance">Тех. обслуживание</option>
+                    <option value="closed">{t("admin.exceptions.type.closed")}</option>
+                    <option value="maintenance">{t("admin.exceptions.type.maintenance")}</option>
                   </select>
                 </td>
               </tr>
               <tr className="admin-table__row">
                 <td className="admin-table__cell" colSpan={4}>
                   <label className="admin-form__label" htmlFor="exception-note">
-                    Комментарий (опционально)
+                    {t("admin.exceptions.form.note")}
                   </label>
                   <input
                     id="exception-note"
                     name="note"
                     className="admin-form__field"
-                    placeholder="Например: закрытие на мероприятие"
+                    placeholder={t("admin.exceptions.form.notePlaceholder")}
                   />
                 </td>
                 <td className="admin-table__cell">
                   <div className="admin-form__actions">
                     <button type="submit" className="admin-form__submit">
-                      Добавить исключение
+                      {t("admin.exceptions.add")}
                     </button>
                   </div>
                 </td>
@@ -148,19 +149,19 @@ export default async function AdminExceptionsPage() {
         <table className="admin-table__table">
           <thead>
             <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Ресурс</th>
-              <th className="admin-table__cell admin-table__cell--head">Дата</th>
-              <th className="admin-table__cell admin-table__cell--head">Время</th>
-              <th className="admin-table__cell admin-table__cell--head">Тип</th>
-              <th className="admin-table__cell admin-table__cell--head">Комментарий</th>
-              <th className="admin-table__cell admin-table__cell--head">Действия</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.exceptions.table.resource")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.exceptions.table.date")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.exceptions.table.time")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.exceptions.table.type")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.exceptions.table.note")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.exceptions.table.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {exceptions.length === 0 ? (
               <tr className="admin-table__row">
                 <td className="admin-table__cell" colSpan={6}>
-                  Исключений пока нет.
+                  {t("admin.exceptions.empty")}
                 </td>
               </tr>
             ) : (
@@ -180,7 +181,7 @@ export default async function AdminExceptionsPage() {
                     <form action={deleteAction} className="admin-bookings__actions">
                       <input type="hidden" name="exceptionId" value={row.id} />
                       <button type="submit" className="admin-bookings__action-button">
-                        Удалить
+                        {t("admin.common.delete")}
                       </button>
                     </form>
                   </td>

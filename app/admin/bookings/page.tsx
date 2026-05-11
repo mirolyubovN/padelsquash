@@ -17,6 +17,7 @@ import { logAuditEvent } from "@/src/lib/audit/log";
 import { getAdminCourts, getAdminSportOptions } from "@/src/lib/admin/resources";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import { canViewRevenue } from "@/src/lib/auth/roles";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata = buildPageMetadata({
@@ -235,11 +236,11 @@ export default async function AdminBookingsPage({
 
   return (
     <AdminPageShell
-      title="Бронирования"
+      title={t("admin.bookings.page.title")}
       description={
         canSeeRevenue
-          ? "Поиск, фильтры, пагинация и действия по бронированиям с деталями клиентов, ресурсов и цены."
-          : "Поиск, фильтры, пагинация и действия по бронированиям."
+          ? t("admin.bookings.page.descriptionWithRevenue")
+          : t("admin.bookings.page.description")
       }
     >
       <form method="get" className="admin-filters">
@@ -248,19 +249,19 @@ export default async function AdminBookingsPage({
         <div className="admin-filters__grid">
           <div className="admin-form__group">
             <label htmlFor="admin-bookings-q" className="admin-form__label">
-              Поиск (клиент)
+              {t("admin.bookings.filters.searchLabel")}
             </label>
             <input
               id="admin-bookings-q"
               name="q"
               className="admin-form__field"
               defaultValue={params.q ?? ""}
-              placeholder="Имя, телефон или email"
+              placeholder={t("admin.bookings.filters.searchPlaceholder")}
             />
           </div>
           <div className="admin-form__group">
             <label htmlFor="admin-bookings-status" className="admin-form__label">
-              Статус брони
+              {t("admin.bookings.filters.statusLabel")}
             </label>
             <select
               id="admin-bookings-status"
@@ -268,7 +269,7 @@ export default async function AdminBookingsPage({
               className="admin-form__field"
               defaultValue={params.status ?? ""}
             >
-              <option value="">Все</option>
+              <option value="">{t("admin.common.all")}</option>
               {Object.entries(ADMIN_BOOKING_STATUS_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -278,7 +279,7 @@ export default async function AdminBookingsPage({
           </div>
           <div className="admin-form__group">
             <label htmlFor="admin-bookings-sport" className="admin-form__label">
-              Спорт
+              {t("admin.bookings.filters.sportLabel")}
             </label>
             <select
               id="admin-bookings-sport"
@@ -286,7 +287,7 @@ export default async function AdminBookingsPage({
               className="admin-form__field"
               defaultValue={params.sport ?? ""}
             >
-              <option value="">Все</option>
+              <option value="">{t("admin.common.all")}</option>
               {sportOptions.map((sport) => (
                 <option key={sport.id} value={sport.slug}>
                   {sport.name}
@@ -296,7 +297,7 @@ export default async function AdminBookingsPage({
           </div>
           <div className="admin-form__group">
             <label htmlFor="admin-bookings-date-from" className="admin-form__label">
-              С даты
+              {t("admin.bookings.filters.dateFromLabel")}
             </label>
             <input
               id="admin-bookings-date-from"
@@ -308,7 +309,7 @@ export default async function AdminBookingsPage({
           </div>
           <div className="admin-form__group">
             <label htmlFor="admin-bookings-date-to" className="admin-form__label">
-              По дату
+              {t("admin.bookings.filters.dateToLabel")}
             </label>
             <input
               id="admin-bookings-date-to"
@@ -320,30 +321,42 @@ export default async function AdminBookingsPage({
           </div>
           <div className="admin-form__group">
             <label htmlFor="admin-bookings-sort" className="admin-form__label">
-              Сортировка
+              {t("admin.bookings.filters.sortLabel")}
             </label>
             <select id="admin-bookings-sort" name="sort" className="admin-form__field" defaultValue={params.sort}>
-              <option value="date_asc">По дате: ближайшие сначала</option>
-              <option value="date_desc">По дате: дальние сначала</option>
+              <option value="date_asc">{t("admin.bookings.filters.sortDateAsc")}</option>
+              <option value="date_desc">{t("admin.bookings.filters.sortDateDesc")}</option>
             </select>
           </div>
         </div>
         <div className="admin-filters__actions">
           <button type="submit" className="admin-form__submit">
-            Применить
+            {t("admin.common.apply")}
           </button>
           <Link href="/admin/bookings" className="admin-bookings__action-button">
-            Сбросить
+            {t("admin.common.reset")}
           </Link>
         </div>
       </form>
 
       <div className="admin-list-toolbar">
-        {params.customerEmail ? <p className="admin-list-toolbar__meta">Клиент: {params.customerEmail}</p> : null}
+        {params.customerEmail ? (
+          <p className="admin-list-toolbar__meta">
+            {t("admin.bookings.toolbar.customer", { email: params.customerEmail })}
+          </p>
+        ) : null}
         <p className="admin-list-toolbar__meta">
-          Найдено: {bookings.total}. Страница {bookings.page} из {bookings.totalPages}.
+          {t("admin.bookings.toolbar.found", {
+            total: bookings.total,
+            page: bookings.page,
+            totalPages: bookings.totalPages,
+          })}
         </p>
-        {params.bookingId ? <p className="admin-list-toolbar__meta">Показана бронь: {params.bookingId}</p> : null}
+        {params.bookingId ? (
+          <p className="admin-list-toolbar__meta">
+            {t("admin.bookings.toolbar.shownBooking", { bookingId: params.bookingId })}
+          </p>
+        ) : null}
       </div>
 
       <AdminBookingsTable
@@ -361,17 +374,17 @@ export default async function AdminBookingsPage({
           className={`admin-pagination__link${bookings.page <= 1 ? " admin-pagination__link--disabled" : ""}`}
           aria-disabled={bookings.page <= 1}
         >
-          Назад
+          {t("admin.common.back")}
         </Link>
         <span className="admin-pagination__meta">
-          Страница {bookings.page} / {bookings.totalPages}
+          {t("admin.pagination.pageSlash", { page: bookings.page, totalPages: bookings.totalPages })}
         </span>
         <Link
           href={buildBookingsUrl({ ...params, page: Math.min(bookings.totalPages, bookings.page + 1) })}
           className={`admin-pagination__link${bookings.page >= bookings.totalPages ? " admin-pagination__link--disabled" : ""}`}
           aria-disabled={bookings.page >= bookings.totalPages}
         >
-          Вперёд
+          {t("admin.common.forward")}
         </Link>
       </div>
     </AdminPageShell>

@@ -6,6 +6,7 @@ import {
 } from "@/src/lib/bookings/persistence";
 import { resolveLocationBySlug } from "@/src/lib/locations/service";
 import { prisma } from "@/src/lib/prisma";
+import { PromoIneligibleError } from "@/src/lib/promo/apply";
 import { createBookingSeriesSchema } from "@/src/lib/validation/booking";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
       date: parsed.data.date,
       durationMin: parsed.data.durationMin,
       instructorId: parsed.data.instructorId,
+      promoCode: parsed.data.promoCode,
       customerUserId: accountCustomer.id,
       customer,
       slots: parsed.data.slots,
@@ -80,6 +82,10 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ошибка создания бронирования";
 
+    if (error instanceof PromoIneligibleError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
+    }
+
     if (message.includes("Недостаточно средств")) {
       try {
         const holdResult = await createBookingHoldsInDb({
@@ -88,6 +94,7 @@ export async function POST(request: Request) {
           date: parsed.data.date,
           durationMin: parsed.data.durationMin,
           instructorId: parsed.data.instructorId,
+          promoCode: parsed.data.promoCode,
           customerUserId: accountCustomer.id,
           customer,
           slots: parsed.data.slots,

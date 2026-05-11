@@ -234,8 +234,10 @@ async function main() {
     await tx.clubEventSeries.deleteMany();
     await tx.bookingHold.deleteMany();
     await tx.payment.deleteMany();
+    await tx.promoCodeRedemption.deleteMany();
     await tx.bookingResource.deleteMany();
     await tx.booking.deleteMany();
+    await tx.promoCode.deleteMany();
     await tx.walletBonusConfig.deleteMany();
     await tx.componentPrice.deleteMany();
     await tx.scheduleException.deleteMany();
@@ -444,6 +446,27 @@ async function main() {
     await tx.resourceSchedule.createMany({
       data: buildInstructorScheduleRows(instructors),
     });
+
+    if (process.env.NODE_ENV !== "production") {
+      await tx.promoCode.create({
+        data: {
+          code: "WELCOME10",
+          description: "Скидка 10% для новых клиентов",
+          discountType: "percent",
+          discountValue: 10,
+          maxDiscountKzt: null,
+          minOrderKzt: null,
+          validFrom: null,
+          validUntil: null,
+          totalRedemptionLimit: null,
+          perCustomerLimit: 1,
+          appliesToServiceCodes: [],
+          appliesToSportIds: [],
+          firstBookingOnly: true,
+          status: "active",
+        },
+      });
+    }
   });
 
   console.log(

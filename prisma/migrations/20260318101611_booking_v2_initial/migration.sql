@@ -1,0 +1,1 @@
+-- Empty placeholder migration (directory was present but migration.sql was missing)

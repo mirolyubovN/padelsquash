@@ -28,3 +28,16 @@ Use a new email that does not exist in seed data:
 4. Complete email verification via `/verify/email` link from SMTP mailbox.
 5. Complete phone verification via Telegram bot link and contact share.
 6. Confirm login succeeds only after both confirmations are complete.
+
+
+  ┌─────────────┬───────────────────────┬──────────────┐
+  │    Role     │         Email         │   Password   │
+  ├─────────────┼───────────────────────┼──────────────┤
+  │ Super admin │ admin@example.com     │ Admin123!    │
+  ├─────────────┼───────────────────────┼──────────────┤
+  │ Admin       │ admin+ops@example.com │ Admin123!    │
+  ├─────────────┼───────────────────────┼──────────────┤
+  │ Trainer     │ trainer@example.com   │ Trainer123!  │
+  ├─────────────┼───────────────────────┼──────────────┤
+  │ Customer    │ customer@example.com  │ Customer123! │
+  └─────────────┴───────────────────────┴──────────────┘

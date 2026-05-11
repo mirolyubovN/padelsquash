@@ -10,6 +10,7 @@ import {
   type CalendarBooking,
   type CalendarException,
 } from "@/src/lib/admin/calendar";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 import { venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 
@@ -23,11 +24,11 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 const STATUS_LABELS: Record<CalendarBooking["status"], string> = {
-  pending_payment: "Ожидает оплаты",
-  confirmed: "Подтверждено",
-  cancelled: "Отменено",
-  completed: "Завершено",
-  no_show: "Не явился",
+  pending_payment: t("admin.calendar.status.pendingPayment"),
+  confirmed: t("admin.calendar.status.confirmed"),
+  cancelled: t("admin.calendar.status.cancelled"),
+  completed: t("admin.calendar.status.completed"),
+  no_show: t("admin.calendar.status.noShow"),
 };
 
 function getTodayVenueDate(): string {
@@ -57,8 +58,29 @@ export default async function AdminCalendarPage({
     const todayMonday = getMondayOfWeek(today);
     const weekData = await getCalendarWeekData(monday, locationSlug);
 
-    const DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-    const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+    const DAY_NAMES = [
+      t("admin.calendar.weekdays.monShort"),
+      t("admin.calendar.weekdays.tueShort"),
+      t("admin.calendar.weekdays.wedShort"),
+      t("admin.calendar.weekdays.thuShort"),
+      t("admin.calendar.weekdays.friShort"),
+      t("admin.calendar.weekdays.satShort"),
+      t("admin.calendar.weekdays.sunShort"),
+    ];
+    const MONTH_NAMES = [
+      t("admin.calendar.months.janShort"),
+      t("admin.calendar.months.febShort"),
+      t("admin.calendar.months.marShort"),
+      t("admin.calendar.months.aprShort"),
+      t("admin.calendar.months.mayShort"),
+      t("admin.calendar.months.junShort"),
+      t("admin.calendar.months.julShort"),
+      t("admin.calendar.months.augShort"),
+      t("admin.calendar.months.sepShort"),
+      t("admin.calendar.months.octShort"),
+      t("admin.calendar.months.novShort"),
+      t("admin.calendar.months.decShort"),
+    ];
 
     function buildWeekNavLink(targetMonday: string) {
       const q = new URLSearchParams({ view: "week", date: targetMonday });
@@ -73,16 +95,16 @@ export default async function AdminCalendarPage({
     }
 
     return (
-      <AdminPageShell title="Расписание" description="Недельный обзор занятости кортов">
+      <AdminPageShell title={t("admin.calendar.title")} description={t("admin.calendar.weekDescription")}>
         <div className="admin-calendar__nav">
-          <Link href={buildWeekNavLink(prevMonday)} className="admin-calendar__nav-btn">← Пред. неделя</Link>
+          <Link href={buildWeekNavLink(prevMonday)} className="admin-calendar__nav-btn">{t("admin.calendar.nav.previousWeek")}</Link>
           {monday !== todayMonday ? (
-            <Link href={buildWeekNavLink(todayMonday)} className="admin-calendar__nav-today">Текущая неделя</Link>
+            <Link href={buildWeekNavLink(todayMonday)} className="admin-calendar__nav-today">{t("admin.calendar.nav.currentWeek")}</Link>
           ) : (
-            <span className="admin-calendar__nav-today admin-calendar__nav-today--active">Текущая неделя</span>
+            <span className="admin-calendar__nav-today admin-calendar__nav-today--active">{t("admin.calendar.nav.currentWeek")}</span>
           )}
-          <Link href={buildWeekNavLink(nextMonday)} className="admin-calendar__nav-btn">След. неделя →</Link>
-          <Link href={buildDayLink(today)} className="admin-calendar__view-toggle">Вид: день</Link>
+          <Link href={buildWeekNavLink(nextMonday)} className="admin-calendar__nav-btn">{t("admin.calendar.nav.nextWeek")}</Link>
+          <Link href={buildDayLink(today)} className="admin-calendar__view-toggle">{t("admin.calendar.view.day")}</Link>
         </div>
 
         <div className="admin-calendar__week-grid">
@@ -115,9 +137,9 @@ export default async function AdminCalendarPage({
         </div>
 
         <div className="admin-calendar__legend">
-          <span className="admin-calendar__legend-item admin-calendar__legend-item--free">Свободно</span>
-          <span className="admin-calendar__legend-item admin-calendar__legend-item--partial">Частично занято</span>
-          <span className="admin-calendar__legend-item admin-calendar__legend-item--confirmed">Полностью занято</span>
+          <span className="admin-calendar__legend-item admin-calendar__legend-item--free">{t("admin.calendar.legend.free")}</span>
+          <span className="admin-calendar__legend-item admin-calendar__legend-item--partial">{t("admin.calendar.legend.partiallyOccupied")}</span>
+          <span className="admin-calendar__legend-item admin-calendar__legend-item--confirmed">{t("admin.calendar.legend.fullyOccupied")}</span>
         </div>
       </AdminPageShell>
     );
@@ -204,33 +226,33 @@ export default async function AdminCalendarPage({
   }
 
   return (
-    <AdminPageShell title="Расписание" description={formatCalendarDate(date)}>
+    <AdminPageShell title={t("admin.calendar.title")} description={formatCalendarDate(date)}>
       <div className="admin-calendar__nav">
         <Link href={buildNavLink(prevDate)} className="admin-calendar__nav-btn">
-          ← Назад
+          {t("admin.calendar.nav.back")}
         </Link>
         {!isToday ? (
           <Link href={buildNavLink(today)} className="admin-calendar__nav-today">
-            Сегодня
+            {t("admin.calendar.nav.today")}
           </Link>
         ) : (
-          <span className="admin-calendar__nav-today admin-calendar__nav-today--active">Сегодня</span>
+          <span className="admin-calendar__nav-today admin-calendar__nav-today--active">{t("admin.calendar.nav.today")}</span>
         )}
         <Link href={buildNavLink(nextDate)} className="admin-calendar__nav-btn">
-          Вперёд →
+          {t("admin.calendar.nav.forward")}
         </Link>
         <form method="get" action="/admin/calendar" className="admin-calendar__date-form">
           {locationSlug ? <input type="hidden" name="location" value={locationSlug} /> : null}
           <input type="date" name="date" defaultValue={date} className="admin-form__field admin-calendar__date-input" />
-          <button type="submit" className="admin-bookings__action-button">Перейти</button>
+          <button type="submit" className="admin-bookings__action-button">{t("admin.calendar.nav.go")}</button>
         </form>
-        <Link href={buildWeekViewLink()} className="admin-calendar__view-toggle">Вид: неделя</Link>
+        <Link href={buildWeekViewLink()} className="admin-calendar__view-toggle">{t("admin.calendar.view.week")}</Link>
       </div>
 
       {data.courts.length === 0 ? (
-        <p className="admin-dashboard__empty">Нет активных кортов. Добавьте корты в разделе «Корты».</p>
+        <p className="admin-dashboard__empty">{t("admin.calendar.empty.noActiveCourts")}</p>
       ) : hours.length === 0 ? (
-        <p className="admin-dashboard__empty">Нет расписания для этого дня.</p>
+        <p className="admin-dashboard__empty">{t("admin.calendar.empty.noScheduleForDay")}</p>
       ) : (
         <div className="admin-calendar__scroll">
           <table className="admin-calendar__grid">
@@ -288,7 +310,7 @@ export default async function AdminCalendarPage({
                         return (
                           <td key={court.id} rowSpan={rowSpan} className="admin-calendar__cell admin-calendar__cell--blocked">
                             <span className="admin-calendar__blocked-label">
-                              {exception.type === "closed" ? "Закрыто" : "Тех. обслуживание"}
+                              {exception.type === "closed" ? t("admin.calendar.exception.closed") : t("admin.calendar.exception.maintenance")}
                               {exception.note ? ` · ${exception.note}` : ""}
                             </span>
                           </td>
@@ -299,7 +321,7 @@ export default async function AdminCalendarPage({
                         return (
                           <td key={court.id} className="admin-calendar__cell admin-calendar__cell--free admin-calendar__cell_passed">
                             <span className="admin-calendar__free-slot" aria-disabled="true">
-                              Прошло
+                              {t("admin.calendar.slot.passed")}
                             </span>
                           </td>
                         );
@@ -308,7 +330,7 @@ export default async function AdminCalendarPage({
                       return (
                         <td key={court.id} className="admin-calendar__cell admin-calendar__cell--free">
                           <Link href={buildCreateLink(hour, court.id)} className="admin-calendar__free-slot">
-                            + Занять
+                            {t("admin.calendar.slot.occupy")}
                           </Link>
                         </td>
                       );
@@ -322,11 +344,11 @@ export default async function AdminCalendarPage({
       )}
 
       <div className="admin-calendar__legend">
-        <span className="admin-calendar__legend-item admin-calendar__legend-item--confirmed">Подтверждено</span>
-        <span className="admin-calendar__legend-item admin-calendar__legend-item--pending-payment">Ожидает оплаты</span>
-        <span className="admin-calendar__legend-item admin-calendar__legend-item--past">Прошедшие сессии</span>
-        <span className="admin-calendar__legend-item admin-calendar__legend-item--blocked">Заблокировано</span>
-        <span className="admin-calendar__legend-item admin-calendar__legend-item--free">Свободно</span>
+        <span className="admin-calendar__legend-item admin-calendar__legend-item--confirmed">{t("admin.calendar.status.confirmed")}</span>
+        <span className="admin-calendar__legend-item admin-calendar__legend-item--pending-payment">{t("admin.calendar.status.pendingPayment")}</span>
+        <span className="admin-calendar__legend-item admin-calendar__legend-item--past">{t("admin.calendar.legend.pastSessions")}</span>
+        <span className="admin-calendar__legend-item admin-calendar__legend-item--blocked">{t("admin.calendar.legend.blocked")}</span>
+        <span className="admin-calendar__legend-item admin-calendar__legend-item--free">{t("admin.calendar.legend.free")}</span>
       </div>
     </AdminPageShell>
   );

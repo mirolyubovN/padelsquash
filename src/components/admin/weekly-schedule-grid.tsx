@@ -2,22 +2,33 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { t } from "@/src/lib/i18n";
 
 const DAYS = [
-  { label: "Пн", value: 1 },
-  { label: "Вт", value: 2 },
-  { label: "Ср", value: 3 },
-  { label: "Чт", value: 4 },
-  { label: "Пт", value: 5 },
-  { label: "Сб", value: 6 },
-  { label: "Вс", value: 0 },
+  { label: t("admin.schedule.days.mon"), value: 1 },
+  { label: t("admin.schedule.days.tue"), value: 2 },
+  { label: t("admin.schedule.days.wed"), value: 3 },
+  { label: t("admin.schedule.days.thu"), value: 4 },
+  { label: t("admin.schedule.days.fri"), value: 5 },
+  { label: t("admin.schedule.days.sat"), value: 6 },
+  { label: t("admin.schedule.days.sun"), value: 0 },
 ];
 
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7..21
 
 const RU_MONTHS_SHORT = [
-  "янв", "фев", "мар", "апр", "май", "июн",
-  "июл", "авг", "сен", "окт", "ноя", "дек",
+  t("admin.schedule.months.jan"),
+  t("admin.schedule.months.feb"),
+  t("admin.schedule.months.mar"),
+  t("admin.schedule.months.apr"),
+  t("admin.schedule.months.may"),
+  t("admin.schedule.months.jun"),
+  t("admin.schedule.months.jul"),
+  t("admin.schedule.months.aug"),
+  t("admin.schedule.months.sep"),
+  t("admin.schedule.months.oct"),
+  t("admin.schedule.months.nov"),
+  t("admin.schedule.months.dec"),
 ];
 
 interface ScheduleEntry {
@@ -170,23 +181,23 @@ export function WeeklyScheduleGrid({
   let bannerText = "";
   let bannerMod = "";
   if (editMode) {
-    bannerText = "Режим редактирования";
+    bannerText = t("admin.schedule.banner.editing");
     bannerMod = "editing";
   } else if (usesBaseTemplate) {
-    bannerText = "Применяется базовый шаблон";
+    bannerText = t("admin.schedule.banner.template");
     bannerMod = "template";
   } else if (hasWeekOverride) {
-    bannerText = "Настроено индивидуально";
+    bannerText = t("admin.schedule.banner.custom");
     bannerMod = "custom";
   }
 
   const sportSelector = sportOptions.length > 0 ? (
     <div className="schedule-grid__sport-row">
       <label className="admin-form__label" htmlFor="grid-sport">
-        Вид спорта
+        {t("admin.schedule.sportLabel")}
       </label>
       <select id="grid-sport" name="sportId" className="admin-form__field schedule-grid__sport-select">
-        <option value="">Все виды спорта</option>
+        <option value="">{t("admin.schedule.allSports")}</option>
         {sportOptions.map((sport) => (
           <option key={sport.id} value={sport.id}>
             {sport.name}
@@ -205,28 +216,28 @@ export function WeeklyScheduleGrid({
           className="schedule-grid__nav-btn"
           onClick={() => navigateTo(prevWeekStr)}
         >
-          ← Пред.
+          {t("admin.schedule.prevWeek")}
         </button>
         <button
           type="button"
           className={`schedule-grid__nav-btn${isBaseMode ? " schedule-grid__nav-btn--active" : ""}`}
           onClick={() => navigateTo(null)}
         >
-          Базовый шаблон
+          {t("admin.schedule.baseTemplate")}
         </button>
         <button
           type="button"
           className={`schedule-grid__nav-btn${!isBaseMode ? " schedule-grid__nav-btn--active" : ""}`}
           onClick={() => navigateTo(weekStart ?? todayWeekStart)}
         >
-          Нед. {getWeekLabel(refWeek)}
+          {t("admin.schedule.weekLabel", { week: getWeekLabel(refWeek) })}
         </button>
         <button
           type="button"
           className="schedule-grid__nav-btn"
           onClick={() => navigateTo(nextWeekStr)}
         >
-          След. →
+          {t("admin.schedule.nextWeek")}
         </button>
       </div>
 
@@ -283,15 +294,15 @@ export function WeeklyScheduleGrid({
           <div className="schedule-grid__actions">
             <span className="schedule-grid__hint">
               {selectedCells.size > 0
-                ? `Выбрано: ${selectedCells.size} ячеек`
-                : "Нет выбранных ячеек"}
+                ? t("admin.schedule.selectedCells", { count: selectedCells.size })
+                : t("admin.schedule.noSelectedCells")}
             </span>
             <div className="schedule-grid__action-group">
               <button type="button" className="admin-form__cancel" onClick={handleCancelEdit}>
-                Отмена
+                {t("admin.common.cancel")}
               </button>
               <button type="submit" className="admin-form__submit">
-                {isBaseMode ? "Сохранить шаблон" : "Сохранить неделю"}
+                {isBaseMode ? t("admin.schedule.saveTemplate") : t("admin.schedule.saveWeek")}
               </button>
             </div>
           </div>
@@ -340,7 +351,7 @@ export function WeeklyScheduleGrid({
                 className="admin-form__submit"
                 onClick={() => handleEnterEdit(baseSchedule)}
               >
-                Редактировать
+                {t("admin.schedule.edit")}
               </button>
             )}
             {usesBaseTemplate && (
@@ -349,7 +360,7 @@ export function WeeklyScheduleGrid({
                 className="admin-form__submit"
                 onClick={() => handleEnterEdit(baseSchedule)}
               >
-                Настроить эту неделю
+                {t("admin.schedule.customizeWeek")}
               </button>
             )}
             {hasWeekOverride && (
@@ -357,7 +368,7 @@ export function WeeklyScheduleGrid({
                 <form action={resetWeekAction}>
                   <input type="hidden" name="weekStart" value={weekStart!} />
                   <button type="submit" className="admin-form__cancel">
-                    Сбросить к шаблону
+                    {t("admin.schedule.resetToTemplate")}
                   </button>
                 </form>
                 <button
@@ -365,7 +376,7 @@ export function WeeklyScheduleGrid({
                   className="admin-form__submit"
                   onClick={() => handleEnterEdit(weekSchedule!)}
                 >
-                  Изменить
+                  {t("admin.schedule.change")}
                 </button>
               </div>
             )}

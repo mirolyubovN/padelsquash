@@ -8,6 +8,7 @@ import { buildAccountSetupPath, createAccountSetupToken } from "@/src/lib/auth/a
 import { assertSuperAdmin } from "@/src/lib/auth/guards";
 import { getRoleLabel, type AppRole } from "@/src/lib/auth/roles";
 import { siteConfig } from "@/src/lib/content/site-data";
+import { t } from "@/src/lib/i18n";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 import {
   StaffActionError,
@@ -65,26 +66,26 @@ function buildSetupUrl(row: StaffMemberRow, origin: string): string | null {
 }
 
 function getSuccessMessage(code: string | undefined): string | null {
-  if (code === "created") return "Сотрудник создан.";
-  if (code === "updated") return "Данные сотрудника сохранены.";
-  if (code === "password_reset") return "Пароль сброшен. Используйте новую ссылку активации.";
-  if (code === "activated") return "Аккаунт включен.";
-  if (code === "deactivated") return "Аккаунт отключен.";
-  if (code === "role_changed") return "Роль сотрудника изменена.";
-  if (code === "trainer_linked") return "Карточка тренера обновлена.";
+  if (code === "created") return t("admin.staff.success.created");
+  if (code === "updated") return t("admin.staff.success.updated");
+  if (code === "password_reset") return t("admin.staff.success.passwordReset");
+  if (code === "activated") return t("admin.staff.success.activated");
+  if (code === "deactivated") return t("admin.staff.success.deactivated");
+  if (code === "role_changed") return t("admin.staff.success.roleChanged");
+  if (code === "trainer_linked") return t("admin.staff.success.trainerLinked");
   return null;
 }
 
 function getErrorMessage(code: string | undefined): string | null {
-  if (code === "staff_email_taken") return "Этот email уже используется другим аккаунтом.";
-  if (code === "self_deactivate") return "Нельзя отключить собственный аккаунт.";
-  if (code === "self_demote") return "Нельзя понизить собственную роль.";
-  if (code === "last_super_admin") return "Нельзя отключить или понизить последнего активного супер-администратора.";
-  if (code === "instructor_taken") return "Эта карточка тренера уже связана с другим аккаунтом.";
-  if (code === "instructor_not_found") return "Карточка тренера не найдена.";
-  if (code === "staff_not_found") return "Сотрудник не найден.";
-  if (code === "password_mismatch") return "Пароли не совпадают.";
-  if (code) return "Не удалось выполнить действие.";
+  if (code === "staff_email_taken") return t("admin.staff.error.emailTaken");
+  if (code === "self_deactivate") return t("admin.staff.error.selfDeactivate");
+  if (code === "self_demote") return t("admin.staff.error.selfDemote");
+  if (code === "last_super_admin") return t("admin.staff.error.lastSuperAdmin");
+  if (code === "instructor_taken") return t("admin.staff.error.instructorTaken");
+  if (code === "instructor_not_found") return t("admin.staff.error.instructorNotFound");
+  if (code === "staff_not_found") return t("admin.staff.error.staffNotFound");
+  if (code === "password_mismatch") return t("admin.staff.error.passwordMismatch");
+  if (code) return t("admin.staff.error.actionFailed");
   return null;
 }
 
@@ -237,8 +238,8 @@ export default async function AdminStaffPage({
 
   return (
     <AdminPageShell
-      title="Сотрудники"
-      description="Создание и управление аккаунтами администраторов, супер-администраторов и тренеров."
+      title={t("admin.staff.title")}
+      description={t("admin.staff.description")}
     >
       {errorMessage ? (
         <p className="account-history__message account-history__message--error" role="alert">{errorMessage}</p>
@@ -249,15 +250,15 @@ export default async function AdminStaffPage({
 
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Новый сотрудник</h2>
+          <h2 className="admin-section__title">{t("admin.staff.new.title")}</h2>
           <p className="admin-section__description">
-            Ссылка активации создается автоматически, если пароль не задается вручную.
+            {t("admin.staff.new.description")}
           </p>
         </div>
         <form action={createAction} className="admin-form admin-form--panel">
           <div className="admin-form__panel-grid">
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="staff-name">Имя</label>
+              <label className="admin-form__label" htmlFor="staff-name">{t("admin.common.name")}</label>
               <input id="staff-name" name="name" className="admin-form__field" required />
             </div>
             <div className="admin-form__group">
@@ -265,64 +266,64 @@ export default async function AdminStaffPage({
               <input id="staff-email" name="email" type="email" className="admin-form__field" required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="staff-phone">Телефон</label>
+              <label className="admin-form__label" htmlFor="staff-phone">{t("admin.common.phone")}</label>
               <input id="staff-phone" name="phone" className="admin-form__field" required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="staff-role">Роль</label>
+              <label className="admin-form__label" htmlFor="staff-role">{t("admin.common.role")}</label>
               <select id="staff-role" name="role" className="admin-form__field" defaultValue="admin">
-                <option value="admin">Администратор</option>
-                <option value="super_admin">Супер-администратор</option>
-                <option value="trainer">Тренер</option>
+                <option value="admin">{t("admin.staff.role.admin")}</option>
+                <option value="super_admin">{t("admin.staff.role.superAdmin")}</option>
+                <option value="trainer">{t("admin.staff.role.trainer")}</option>
               </select>
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="password-mode">Пароль</label>
+              <label className="admin-form__label" htmlFor="password-mode">{t("admin.common.password")}</label>
               <select id="password-mode" name="passwordMode" className="admin-form__field" defaultValue="activation_link">
-                <option value="activation_link">Ссылка активации</option>
-                <option value="manual">Задать вручную</option>
+                <option value="activation_link">{t("admin.common.activationLink")}</option>
+                <option value="manual">{t("admin.staff.passwordMode.manual")}</option>
               </select>
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="staff-password">Пароль вручную</label>
+              <label className="admin-form__label" htmlFor="staff-password">{t("admin.staff.manualPassword")}</label>
               <input id="staff-password" name="password" type="password" className="admin-form__field" autoComplete="new-password" />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="staff-password-confirm">Повторите пароль</label>
+              <label className="admin-form__label" htmlFor="staff-password-confirm">{t("admin.staff.passwordConfirm")}</label>
               <input id="staff-password-confirm" name="passwordConfirm" type="password" className="admin-form__field" autoComplete="new-password" />
             </div>
           </div>
 
           <div className="admin-form__group">
-            <label className="admin-form__label" htmlFor="instructor-mode">Карточка тренера, если роль — тренер</label>
+            <label className="admin-form__label" htmlFor="instructor-mode">{t("admin.staff.instructorMode.label")}</label>
             <select id="instructor-mode" name="instructorMode" className="admin-form__field" defaultValue="link_existing">
-              <option value="link_existing">Связать с существующей карточкой</option>
-              <option value="create_new">Создать новую карточку</option>
+              <option value="link_existing">{t("admin.staff.instructorMode.linkExisting")}</option>
+              <option value="create_new">{t("admin.staff.instructorMode.createNew")}</option>
             </select>
           </div>
 
           <div className="admin-form__panel-grid">
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="instructor-id">Существующая карточка</label>
+              <label className="admin-form__label" htmlFor="instructor-id">{t("admin.staff.existingInstructor")}</label>
               <select id="instructor-id" name="instructorId" className="admin-form__field" defaultValue="">
-                <option value="">Не выбрана</option>
+                <option value="">{t("admin.common.notSelected")}</option>
                 {data.unlinkedInstructors.map((instructor) => (
                   <option key={instructor.id} value={instructor.id}>{instructor.name}</option>
                 ))}
               </select>
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="new-instructor-name">Имя новой карточки</label>
-              <input id="new-instructor-name" name="newInstructorName" className="admin-form__field" placeholder="По умолчанию имя сотрудника" />
+              <label className="admin-form__label" htmlFor="new-instructor-name">{t("admin.staff.newInstructorName")}</label>
+              <input id="new-instructor-name" name="newInstructorName" className="admin-form__field" placeholder={t("admin.staff.newInstructorNamePlaceholder")} />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="new-instructor-bio">Описание новой карточки</label>
+              <label className="admin-form__label" htmlFor="new-instructor-bio">{t("admin.staff.newInstructorBio")}</label>
               <input id="new-instructor-bio" name="newInstructorBio" className="admin-form__field" />
             </div>
           </div>
 
           <div className="admin-form__group">
-            <label className="admin-form__label">Виды спорта и ставка для новой карточки</label>
+            <label className="admin-form__label">{t("admin.staff.newInstructorSportsAndRate")}</label>
             <div className="admin-inline-sport-prices">
               {data.sports.map((sport) => (
                 <div key={sport.id} className="admin-inline-sport-price-row">
@@ -337,7 +338,7 @@ export default async function AdminStaffPage({
           </div>
 
           <div className="admin-form__group">
-            <label className="admin-form__label">Локации для новой карточки</label>
+            <label className="admin-form__label">{t("admin.staff.newInstructorLocations")}</label>
             <div className="admin-inline-sport-prices">
               {data.locations.map((location) => (
                 <label key={location.id} className="admin-form__checkbox">
@@ -349,7 +350,7 @@ export default async function AdminStaffPage({
           </div>
 
           <div className="admin-form__actions">
-            <button type="submit" className="admin-form__submit">Создать сотрудника</button>
+            <button type="submit" className="admin-form__submit">{t("admin.staff.new.submit")}</button>
           </div>
         </form>
       </section>
@@ -358,30 +359,30 @@ export default async function AdminStaffPage({
         <form method="get" className="admin-filters">
           <div className="admin-filters__grid">
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="staff-query">Поиск</label>
-              <input id="staff-query" name="q" className="admin-form__field" defaultValue={params.q ?? ""} placeholder="Имя, телефон или email" />
+              <label className="admin-form__label" htmlFor="staff-query">{t("admin.common.search")}</label>
+              <input id="staff-query" name="q" className="admin-form__field" defaultValue={params.q ?? ""} placeholder={t("admin.common.searchNamePhoneEmailPlaceholder")} />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="staff-role-filter">Роль</label>
+              <label className="admin-form__label" htmlFor="staff-role-filter">{t("admin.common.role")}</label>
               <select id="staff-role-filter" name="role" className="admin-form__field" defaultValue={roleFilter}>
-                <option value="all">Все роли</option>
-                <option value="admin">Администраторы</option>
-                <option value="super_admin">Супер-администраторы</option>
-                <option value="trainer">Тренеры</option>
+                <option value="all">{t("admin.staff.filter.allRoles")}</option>
+                <option value="admin">{t("admin.staff.filter.admins")}</option>
+                <option value="super_admin">{t("admin.staff.filter.superAdmins")}</option>
+                <option value="trainer">{t("admin.staff.filter.trainers")}</option>
               </select>
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="staff-active-filter">Статус</label>
+              <label className="admin-form__label" htmlFor="staff-active-filter">{t("admin.common.status")}</label>
               <select id="staff-active-filter" name="active" className="admin-form__field" defaultValue={activeFilter}>
-                <option value="all">Все</option>
-                <option value="active">Активные</option>
-                <option value="disabled">Отключенные</option>
+                <option value="all">{t("admin.common.all")}</option>
+                <option value="active">{t("admin.staff.filter.active")}</option>
+                <option value="disabled">{t("admin.staff.filter.disabled")}</option>
               </select>
             </div>
           </div>
           <div className="admin-filters__actions">
-            <button type="submit" className="admin-form__submit">Найти</button>
-            <Link href="/admin/staff" className="admin-bookings__action-button">Сбросить</Link>
+            <button type="submit" className="admin-form__submit">{t("admin.common.find")}</button>
+            <Link href="/admin/staff" className="admin-bookings__action-button">{t("admin.common.reset")}</Link>
           </div>
         </form>
 
@@ -389,18 +390,18 @@ export default async function AdminStaffPage({
           <table className="admin-table__table">
             <thead>
               <tr className="admin-table__row">
-                <th className="admin-table__cell admin-table__cell--head">Сотрудник</th>
-                <th className="admin-table__cell admin-table__cell--head">Роль</th>
-                <th className="admin-table__cell admin-table__cell--head">Тренер</th>
-                <th className="admin-table__cell admin-table__cell--head">Статус</th>
-                <th className="admin-table__cell admin-table__cell--head">Создан</th>
-                <th className="admin-table__cell admin-table__cell--head">Действия</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.staff.table.staffMember")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.role")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.staff.table.trainer")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.status")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.created")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.actions")}</th>
               </tr>
             </thead>
             <tbody>
               {data.staff.length === 0 ? (
                 <tr className="admin-table__row">
-                  <td className="admin-table__cell" colSpan={6}>Сотрудники не найдены.</td>
+                  <td className="admin-table__cell" colSpan={6}>{t("admin.staff.empty")}</td>
                 </tr>
               ) : (
                 data.staff.map((row) => {
@@ -420,7 +421,7 @@ export default async function AdminStaffPage({
                         {row.instructorId && row.instructorName ? (
                           <Link href={`/admin/instructors/${row.instructorId}`}>{row.instructorName}</Link>
                         ) : row.role === "trainer" ? (
-                          <span className="account-history__message account-history__message--error">Не привязан</span>
+                          <span className="account-history__message account-history__message--error">{t("admin.staff.notLinked")}</span>
                         ) : (
                           "—"
                         )}
@@ -428,21 +429,21 @@ export default async function AdminStaffPage({
                       <td className="admin-table__cell">
                         <span className={`admin-status-badge ${row.active ? "admin-status-badge--active" : "admin-status-badge--inactive"}`}>
                           <span className="admin-status-badge__dot" aria-hidden="true" />
-                          {row.active ? "Активен" : "Отключен"}
+                          {row.active ? t("admin.staff.status.active") : t("admin.staff.status.disabled")}
                         </span>
                         {row.needsPasswordSetup ? (
-                          <div className="admin-bookings__cell-sub">Ожидает пароль</div>
+                          <div className="admin-bookings__cell-sub">{t("admin.staff.status.awaitingPassword")}</div>
                         ) : null}
                       </td>
                       <td className="admin-table__cell">{formatDate(row.createdAtIso)}</td>
                       <td className="admin-table__cell">
                         <div className="admin-bookings__actions">
-                          <AdminEditModal triggerLabel="Управлять" title={`Сотрудник: ${row.name}`}>
+                          <AdminEditModal triggerLabel={t("admin.common.manage")} title={t("admin.staff.modal.title", { name: row.name })}>
                             <form action={updateAction} className="admin-form admin-form--panel">
                               <input type="hidden" name="userId" value={row.id} />
                               <div className="admin-form__panel-grid">
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Имя</label>
+                                  <label className="admin-form__label">{t("admin.common.name")}</label>
                                   <input name="name" className="admin-form__field" defaultValue={row.name} required />
                                 </div>
                                 <div className="admin-form__group">
@@ -450,32 +451,32 @@ export default async function AdminStaffPage({
                                   <input name="email" type="email" className="admin-form__field" defaultValue={row.email} required />
                                 </div>
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Телефон</label>
+                                  <label className="admin-form__label">{t("admin.common.phone")}</label>
                                   <input name="phone" className="admin-form__field" defaultValue={row.phone} required />
                                 </div>
                               </div>
                               <div className="admin-form__actions">
-                                <button type="submit" className="admin-form__submit">Сохранить данные</button>
+                                <button type="submit" className="admin-form__submit">{t("admin.common.saveData")}</button>
                               </div>
                             </form>
 
                             {setupUrl ? (
                               <div className="admin-form admin-form--panel">
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Ссылка активации</label>
+                                  <label className="admin-form__label">{t("admin.common.activationLink")}</label>
                                   <input className="admin-form__field" value={setupUrl} readOnly />
                                 </div>
                                 <div className="admin-form__actions">
-                                  <a href={setupUrl} target="_blank" rel="noreferrer" className="admin-form__submit">Открыть ссылку</a>
+                                  <a href={setupUrl} target="_blank" rel="noreferrer" className="admin-form__submit">{t("admin.common.openLink")}</a>
                                 </div>
                               </div>
                             ) : null}
 
                             <form action={resetPasswordAction} className="admin-form admin-form--panel">
                               <input type="hidden" name="userId" value={row.id} />
-                              <p className="admin-bookings__cell-sub">Сброс пароля отключит текущий пароль и создаст новую ссылку активации.</p>
+                              <p className="admin-bookings__cell-sub">{t("admin.staff.passwordResetHint")}</p>
                               <div className="admin-form__actions">
-                                <button type="submit" className="admin-bookings__action-button">Сбросить пароль</button>
+                                <button type="submit" className="admin-bookings__action-button">{t("admin.common.resetPassword")}</button>
                               </div>
                             </form>
 
@@ -483,11 +484,11 @@ export default async function AdminStaffPage({
                               <input type="hidden" name="userId" value={row.id} />
                               <input type="hidden" name="active" value={String(!row.active)} />
                               <p className="admin-bookings__cell-sub">
-                                Отключенный сотрудник не сможет войти, история бронирований и журнал действий сохраняются.
+                                {t("admin.staff.toggleActiveHint")}
                               </p>
                               <div className="admin-form__actions">
                                 <button type="submit" className={`admin-bookings__action-button${row.active ? " admin-bookings__action-button--danger" : ""}`}>
-                                  {row.active ? "Отключить аккаунт" : "Включить аккаунт"}
+                                  {row.active ? t("admin.staff.actions.disableAccount") : t("admin.staff.actions.enableAccount")}
                                 </button>
                               </div>
                             </form>
@@ -496,14 +497,14 @@ export default async function AdminStaffPage({
                               <form action={changeRoleAction} className="admin-form admin-form--panel">
                                 <input type="hidden" name="userId" value={row.id} />
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Роль администратора</label>
+                                  <label className="admin-form__label">{t("admin.staff.adminRoleLabel")}</label>
                                   <select name="role" className="admin-form__field" defaultValue={row.role}>
-                                    <option value="admin">Администратор</option>
-                                    <option value="super_admin">Супер-администратор</option>
+                                    <option value="admin">{t("admin.staff.role.admin")}</option>
+                                    <option value="super_admin">{t("admin.staff.role.superAdmin")}</option>
                                   </select>
                                 </div>
                                 <div className="admin-form__actions">
-                                  <button type="submit" className="admin-form__submit">Изменить роль</button>
+                                  <button type="submit" className="admin-form__submit">{t("admin.staff.actions.changeRole")}</button>
                                 </div>
                               </form>
                             ) : null}
@@ -512,16 +513,16 @@ export default async function AdminStaffPage({
                               <form action={relinkTrainerAction} className="admin-form admin-form--panel">
                                 <input type="hidden" name="userId" value={row.id} />
                                 <div className="admin-form__group">
-                                  <label className="admin-form__label">Связанная карточка тренера</label>
+                                  <label className="admin-form__label">{t("admin.staff.linkedInstructorLabel")}</label>
                                   <select name="instructorId" className="admin-form__field" defaultValue={row.instructorId ?? ""}>
-                                    <option value="">Не привязана</option>
+                                    <option value="">{t("admin.staff.notLinkedFemale")}</option>
                                     {data.allInstructors.map((instructor) => (
                                       <option key={instructor.id} value={instructor.id}>{instructor.name}</option>
                                     ))}
                                   </select>
                                 </div>
                                 <div className="admin-form__actions">
-                                  <button type="submit" className="admin-form__submit">Обновить привязку</button>
+                                  <button type="submit" className="admin-form__submit">{t("admin.staff.actions.updateLink")}</button>
                                 </div>
                               </form>
                             ) : null}

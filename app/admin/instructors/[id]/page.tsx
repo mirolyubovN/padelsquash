@@ -6,6 +6,7 @@ import { canViewRevenue } from "@/src/lib/auth/roles";
 import { getInstructorSchedulePageData } from "@/src/lib/admin/resources";
 import { getTrainerEarnings } from "@/src/lib/trainer/earnings";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Тренер | Админ",
@@ -17,11 +18,11 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 const BOOKING_STATUS_LABELS = {
-  pending_payment: "Ожидает оплаты",
-  confirmed: "Подтверждено",
-  cancelled: "Отменено",
-  completed: "Завершено",
-  no_show: "Неявка",
+  pending_payment: t("admin.bookingStatuses.pendingPayment"),
+  confirmed: t("admin.bookingStatuses.confirmed"),
+  cancelled: t("admin.bookingStatuses.cancelled"),
+  completed: t("admin.bookingStatuses.completed"),
+  no_show: t("admin.bookingStatuses.noShow"),
 } as const;
 
 function getEarningsDateRange(period: string): { dateFrom: string; dateTo: string; label: string } {
@@ -37,7 +38,7 @@ function getEarningsDateRange(period: string): { dateFrom: string; dateTo: strin
     return {
       dateFrom: monday.toISOString().split("T")[0],
       dateTo: sunday.toISOString().split("T")[0],
-      label: "Эта неделя",
+      label: t("admin.instructorProfile.period.thisWeek"),
     };
   }
 
@@ -77,39 +78,39 @@ export default async function AdminInstructorProfilePage({
 
   return (
     <AdminPageShell
-      title={`Тренер: ${instructor.name}`}
-      description="Профиль тренера: сессии, история и заработки."
+      title={t("admin.instructorProfile.title", { name: instructor.name })}
+      description={t("admin.instructorProfile.description")}
     >
       {/* Info */}
       <div className="admin-form admin-form--panel">
         <div className="admin-form__panel-grid">
           <div className="admin-form__group">
-            <label className="admin-form__label">Виды спорта и ставка</label>
+            <label className="admin-form__label">{t("admin.instructorProfile.fields.sportsAndRate")}</label>
             <input
               className="admin-form__field"
               value={
                 instructor.sports.length > 0
-                  ? instructor.sports.map((s) => `${s.name}: ${Number(s.pricePerHour).toLocaleString("ru-KZ")} ₸/ч`).join(", ")
+                  ? instructor.sports.map((s) => t("admin.instructorProfile.sportRate", { sport: s.name, price: Number(s.pricePerHour).toLocaleString("ru-KZ") })).join(", ")
                   : "—"
               }
               readOnly
             />
           </div>
           <div className="admin-form__group">
-            <label className="admin-form__label">Описание</label>
+            <label className="admin-form__label">{t("admin.instructorProfile.fields.description")}</label>
             <input className="admin-form__field" value={instructor.bio ?? "—"} readOnly />
           </div>
           <div className="admin-form__group">
-            <label className="admin-form__label">Статус</label>
-            <input className="admin-form__field" value={instructor.active ? "Активен" : "Неактивен"} readOnly />
+            <label className="admin-form__label">{t("admin.instructorProfile.fields.status")}</label>
+            <input className="admin-form__field" value={instructor.active ? t("admin.common.active") : t("admin.common.inactive")} readOnly />
           </div>
         </div>
         <div className="admin-form__actions">
           <Link href={`/admin/instructors/${id}/schedule`} className="admin-bookings__action-button">
-            График и расписание
+            {t("admin.instructorProfile.scheduleLink")}
           </Link>
           <Link href="/admin/instructors" className="admin-bookings__action-button">
-            ← Все тренеры
+            {t("admin.instructorProfile.allInstructorsLink")}
           </Link>
         </div>
       </div>
@@ -118,19 +119,19 @@ export default async function AdminInstructorProfilePage({
       {canSeeRevenue && earnings ? (
         <section className="admin-section">
           <div className="admin-section__head">
-            <h2 className="admin-section__title">Заработки</h2>
+            <h2 className="admin-section__title">{t("admin.instructorProfile.earningsTitle")}</h2>
             <div className="admin-calendar__view-toggle">
               <Link
                 href={`/admin/instructors/${id}?period=month`}
                 className={`admin-bookings__action-button${earningsPeriod === "month" ? " admin-bookings__action-button--active" : ""}`}
               >
-                Этот месяц
+                {t("admin.instructorProfile.period.thisMonth")}
               </Link>
               <Link
                 href={`/admin/instructors/${id}?period=week`}
                 className={`admin-bookings__action-button${earningsPeriod === "week" ? " admin-bookings__action-button--active" : ""}`}
               >
-                Эта неделя
+                {t("admin.instructorProfile.period.thisWeek")}
               </Link>
             </div>
           </div>
@@ -139,7 +140,7 @@ export default async function AdminInstructorProfilePage({
             <div className="trainer-earnings__card">
               <div className="trainer-earnings__card-label">{periodLabel}</div>
               <div className="trainer-earnings__card-total">{earnings.totalKzt}</div>
-              <div className="trainer-earnings__card-count">{earnings.sessionCount} завершённых сессий</div>
+              <div className="trainer-earnings__card-count">{t("admin.instructorProfile.completedSessionsCount", { count: earnings.sessionCount })}</div>
             </div>
           </div>
 
@@ -148,11 +149,11 @@ export default async function AdminInstructorProfilePage({
               <table className="admin-table__table">
                 <thead>
                   <tr className="admin-table__row">
-                    <th className="admin-table__cell admin-table__cell--head">Дата</th>
-                    <th className="admin-table__cell admin-table__cell--head">Время</th>
-                    <th className="admin-table__cell admin-table__cell--head">Услуга</th>
-                    <th className="admin-table__cell admin-table__cell--head">Клиент</th>
-                    <th className="admin-table__cell admin-table__cell--head">Сумма</th>
+                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.date")}</th>
+                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.time")}</th>
+                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.service")}</th>
+                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.customer")}</th>
+                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.amount")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,7 +170,7 @@ export default async function AdminInstructorProfilePage({
               </table>
             </div>
           ) : (
-            <p className="admin-section__description">Нет завершённых сессий за выбранный период.</p>
+            <p className="admin-section__description">{t("admin.instructorProfile.noCompletedSessions")}</p>
           )}
         </section>
       ) : null}
@@ -177,24 +178,24 @@ export default async function AdminInstructorProfilePage({
       {/* Sessions */}
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Последние сессии</h2>
+          <h2 className="admin-section__title">{t("admin.instructorProfile.recentSessionsTitle")}</h2>
         </div>
         <div className="admin-table">
           <table className="admin-table__table">
             <thead>
               <tr className="admin-table__row">
-                <th className="admin-table__cell admin-table__cell--head">Дата</th>
-                <th className="admin-table__cell admin-table__cell--head">Время</th>
-                <th className="admin-table__cell admin-table__cell--head">Услуга</th>
-                <th className="admin-table__cell admin-table__cell--head">Клиент</th>
-                <th className="admin-table__cell admin-table__cell--head">Корт</th>
-                <th className="admin-table__cell admin-table__cell--head">Статус</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.date")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.time")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.service")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.customer")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.court")}</th>
+                <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.status")}</th>
               </tr>
             </thead>
             <tbody>
               {sessions.length === 0 ? (
                 <tr className="admin-table__row">
-                  <td className="admin-table__cell" colSpan={6}>Сессий пока нет.</td>
+                  <td className="admin-table__cell" colSpan={6}>{t("admin.instructorProfile.noSessions")}</td>
                 </tr>
               ) : (
                 sessions.map((row) => (

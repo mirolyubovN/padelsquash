@@ -15,6 +15,7 @@ import {
 } from "@/src/lib/events/service";
 import { formatDateInVenueTimezone, formatTimeInVenueTimezone, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
+import { t } from "@/src/lib/i18n";
 
 export const metadata = buildPageMetadata({
   title: "Админ: события | Padel & Squash KZ",
@@ -30,9 +31,9 @@ function eventDateTimeLabel(startAt: Date, endAt: Date): string {
 }
 
 function statusLabel(status: string): string {
-  if (status === "published") return "Опубликовано";
-  if (status === "draft") return "Черновик";
-  if (status === "cancelled") return "Отменено";
+  if (status === "published") return t("admin.events.status.published");
+  if (status === "draft") return t("admin.events.status.draft");
+  if (status === "cancelled") return t("admin.events.status.cancelled");
   return status;
 }
 
@@ -92,14 +93,14 @@ export default async function AdminEventsPage() {
 
   return (
     <AdminPageShell
-      title="События"
-      description="Создавайте клубные дни, групповые тренировки и повторяющиеся еженедельные события с лимитом мест и оплатой с баланса клиента."
+      title={t("admin.events.title")}
+      description={t("admin.events.description")}
     >
       <section className="admin-section">
         <div className="admin-section__head">
-          <h2 className="admin-section__title">Новое событие</h2>
+          <h2 className="admin-section__title">{t("admin.events.addTitle")}</h2>
           <p className="admin-section__description">
-            Для регулярных групп выберите «Повторять еженедельно» и количество недель: система создаст отдельные события.
+            {t("admin.events.addDescription")}
           </p>
         </div>
 
@@ -107,16 +108,16 @@ export default async function AdminEventsPage() {
           <input type="hidden" name="category" value="group_training" />
           <div className="admin-form__panel-grid">
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-title">Название</label>
-              <input id="event-title" name="title" className="admin-form__field" placeholder="Клубный день по паделу" required />
+              <label className="admin-form__label" htmlFor="event-title">{t("admin.common.fields.name")}</label>
+              <input id="event-title" name="title" className="admin-form__field" placeholder={t("admin.events.placeholders.title")} required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-description">Описание</label>
-              <textarea id="event-description" name="description" className="admin-form__field admin-form__textarea" placeholder="Для кого событие, что входит, формат занятия" />
+              <label className="admin-form__label" htmlFor="event-description">{t("admin.common.fields.description")}</label>
+              <textarea id="event-description" name="description" className="admin-form__field admin-form__textarea" placeholder={t("admin.events.placeholders.description")} />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-level">Уровень</label>
-              <input id="event-level" name="level" className="admin-form__field" placeholder="Новички / средний / все уровни" />
+              <label className="admin-form__label" htmlFor="event-level">{t("admin.events.fields.level")}</label>
+              <input id="event-level" name="level" className="admin-form__field" placeholder={t("admin.events.placeholders.level")} />
             </div>
             <EventCourtPicker
               sports={options.sports}
@@ -125,54 +126,54 @@ export default async function AdminEventsPage() {
               idPrefix="event-create"
             />
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-location">Локация</label>
+              <label className="admin-form__label" htmlFor="event-location">{t("admin.events.fields.location")}</label>
               <select id="event-location" name="locationId" className="admin-form__field" defaultValue={options.locations[0]?.id ?? ""}>
-                <option value="">Не привязывать</option>
+                <option value="">{t("admin.events.locationNone")}</option>
                 {options.locations.map((location) => (
                   <option key={location.id} value={location.id}>{location.name}</option>
                 ))}
               </select>
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-date">Дата первого события</label>
+              <label className="admin-form__label" htmlFor="event-date">{t("admin.events.fields.firstDate")}</label>
               <input id="event-date" name="date" type="date" className="admin-form__field" defaultValue={today} required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-start-time">Время начала</label>
+              <label className="admin-form__label" htmlFor="event-start-time">{t("admin.events.fields.startTime")}</label>
               <input id="event-start-time" name="startTime" type="time" step="900" className="admin-form__field" defaultValue="19:00" required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-duration">Длительность, минут</label>
+              <label className="admin-form__label" htmlFor="event-duration">{t("admin.events.fields.durationMinutes")}</label>
               <input id="event-duration" name="durationMin" type="number" min="30" max="480" step="15" className="admin-form__field" defaultValue={90} required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-price">Цена, KZT</label>
+              <label className="admin-form__label" htmlFor="event-price">{t("admin.events.fields.price")}</label>
               <input id="event-price" name="priceKzt" type="number" min="0" step="1" className="admin-form__field" defaultValue={0} required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-capacity">Максимум участников</label>
+              <label className="admin-form__label" htmlFor="event-capacity">{t("admin.events.fields.capacity")}</label>
               <input id="event-capacity" name="capacity" type="number" min="1" max="200" step="1" className="admin-form__field" defaultValue={8} required />
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-recurrence">Повтор</label>
+              <label className="admin-form__label" htmlFor="event-recurrence">{t("admin.events.fields.recurrence")}</label>
               <select id="event-recurrence" name="recurrence" className="admin-form__field" defaultValue="none">
-                <option value="none">Один раз</option>
-                <option value="weekly">Повторять еженедельно</option>
+                <option value="none">{t("admin.events.recurrence.once")}</option>
+                <option value="weekly">{t("admin.events.recurrence.weekly")}</option>
               </select>
             </div>
             <div className="admin-form__group">
-              <label className="admin-form__label" htmlFor="event-repeat-count">Количество недель</label>
+              <label className="admin-form__label" htmlFor="event-repeat-count">{t("admin.events.fields.repeatWeeks")}</label>
               <input id="event-repeat-count" name="repeatCount" type="number" min="1" max="52" step="1" className="admin-form__field" defaultValue={4} />
             </div>
             <div className="admin-form__group">
               <label className="admin-form__checkbox">
                 <input name="publish" type="checkbox" defaultChecked />
-                <span>Опубликовать сразу</span>
+                <span>{t("admin.events.publishImmediately")}</span>
               </label>
             </div>
           </div>
           <div className="admin-form__actions">
-            <button type="submit" className="admin-form__submit">Создать событие</button>
+            <button type="submit" className="admin-form__submit">{t("admin.events.createSubmit")}</button>
           </div>
           <EventCreateConfirmation />
         </form>
@@ -182,17 +183,17 @@ export default async function AdminEventsPage() {
         <table className="admin-table__table">
           <thead>
             <tr className="admin-table__row">
-              <th className="admin-table__cell admin-table__cell--head">Событие</th>
-              <th className="admin-table__cell admin-table__cell--head">Дата</th>
-              <th className="admin-table__cell admin-table__cell--head">Цена / места</th>
-              <th className="admin-table__cell admin-table__cell--head">Статус</th>
-              <th className="admin-table__cell admin-table__cell--head">Действия</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.events.table.event")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.date")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.events.table.priceSeats")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.status")}</th>
+              <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {events.length === 0 ? (
               <tr className="admin-table__row">
-                <td className="admin-table__cell" colSpan={5}>Событий пока нет.</td>
+                <td className="admin-table__cell" colSpan={5}>{t("admin.events.empty")}</td>
               </tr>
             ) : (
               events.map((event) => (
@@ -203,7 +204,7 @@ export default async function AdminEventsPage() {
                       {[
                         event.level,
                         event.sportName,
-                        event.courtNames.length > 0 ? `Корты: ${event.courtNames.join(", ")}` : null,
+                        event.courtNames.length > 0 ? t("admin.events.courtsList", { courts: event.courtNames.join(", ") }) : null,
                         event.instructorName,
                       ].filter(Boolean).join(" · ")}
                     </div>
@@ -212,7 +213,7 @@ export default async function AdminEventsPage() {
                   <td className="admin-table__cell">
                     <div>{event.priceKzt.toLocaleString("ru-KZ")} ₸</div>
                     <div className="admin-bookings__cell-sub">
-                      {event.confirmedCount}/{event.capacity} участников, свободно {event.spotsLeft}
+                      {t("admin.events.seatsSummary", { confirmed: event.confirmedCount, capacity: event.capacity, spotsLeft: event.spotsLeft })}
                     </div>
                   </td>
                   <td className="admin-table__cell">
@@ -223,21 +224,21 @@ export default async function AdminEventsPage() {
                   </td>
                   <td className="admin-table__cell">
                     <div className="admin-bookings__actions">
-                      <AdminEditModal triggerLabel="Редактировать" title={`Событие: ${event.title}`}>
+                      <AdminEditModal triggerLabel={t("admin.common.edit")} title={t("admin.events.editTitle", { title: event.title })}>
                         <form action={updateAction} className="admin-form">
                           <input type="hidden" name="eventId" value={event.id} />
                           <input type="hidden" name="category" value={event.category} />
                           <div className="admin-form__panel-grid">
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-title-${event.id}`}>Название</label>
+                              <label className="admin-form__label" htmlFor={`event-title-${event.id}`}>{t("admin.common.fields.name")}</label>
                               <input id={`event-title-${event.id}`} name="title" className="admin-form__field" defaultValue={event.title} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-description-${event.id}`}>Описание</label>
+                              <label className="admin-form__label" htmlFor={`event-description-${event.id}`}>{t("admin.common.fields.description")}</label>
                               <textarea id={`event-description-${event.id}`} name="description" className="admin-form__field admin-form__textarea" defaultValue={event.description ?? ""} />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-level-${event.id}`}>Уровень</label>
+                              <label className="admin-form__label" htmlFor={`event-level-${event.id}`}>{t("admin.events.fields.level")}</label>
                               <input id={`event-level-${event.id}`} name="level" className="admin-form__field" defaultValue={event.level ?? ""} />
                             </div>
                             <EventCourtPicker
@@ -250,67 +251,67 @@ export default async function AdminEventsPage() {
                               idPrefix={`event-edit-${event.id}`}
                             />
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-location-${event.id}`}>Локация</label>
+                              <label className="admin-form__label" htmlFor={`event-location-${event.id}`}>{t("admin.events.fields.location")}</label>
                               <select id={`event-location-${event.id}`} name="locationId" className="admin-form__field" defaultValue={event.locationId ?? ""}>
-                                <option value="">Не привязывать</option>
+                                <option value="">{t("admin.events.locationNone")}</option>
                                 {options.locations.map((location) => (
                                   <option key={location.id} value={location.id}>{location.name}</option>
                                 ))}
                               </select>
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-date-${event.id}`}>Дата</label>
+                              <label className="admin-form__label" htmlFor={`event-date-${event.id}`}>{t("admin.common.fields.date")}</label>
                               <input id={`event-date-${event.id}`} name="date" type="date" className="admin-form__field" defaultValue={toVenueIsoDate(event.startsAt)} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-time-${event.id}`}>Время начала</label>
+                              <label className="admin-form__label" htmlFor={`event-time-${event.id}`}>{t("admin.events.fields.startTime")}</label>
                               <input id={`event-time-${event.id}`} name="startTime" type="time" step="900" className="admin-form__field" defaultValue={formatTimeInVenueTimezone(event.startsAt)} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-duration-${event.id}`}>Длительность, минут</label>
+                              <label className="admin-form__label" htmlFor={`event-duration-${event.id}`}>{t("admin.events.fields.durationMinutes")}</label>
                               <input id={`event-duration-${event.id}`} name="durationMin" type="number" min="30" max="480" step="15" className="admin-form__field" defaultValue={eventDurationMin(event.startsAt, event.endsAt)} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-price-${event.id}`}>Цена, KZT</label>
+                              <label className="admin-form__label" htmlFor={`event-price-${event.id}`}>{t("admin.events.fields.price")}</label>
                               <input id={`event-price-${event.id}`} name="priceKzt" type="number" min="0" step="1" className="admin-form__field" defaultValue={event.priceKzt} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-capacity-${event.id}`}>Максимум участников</label>
+                              <label className="admin-form__label" htmlFor={`event-capacity-${event.id}`}>{t("admin.events.fields.capacity")}</label>
                               <input id={`event-capacity-${event.id}`} name="capacity" type="number" min={event.confirmedCount} max="200" step="1" className="admin-form__field" defaultValue={event.capacity} required />
                             </div>
                             <div className="admin-form__group">
-                              <label className="admin-form__label" htmlFor={`event-status-${event.id}`}>Статус</label>
+                              <label className="admin-form__label" htmlFor={`event-status-${event.id}`}>{t("admin.common.fields.status")}</label>
                               <select id={`event-status-${event.id}`} name="status" className="admin-form__field" defaultValue={event.status}>
-                                <option value="draft">Черновик</option>
-                                <option value="published">Опубликовано</option>
-                                <option value="cancelled">Отменено</option>
+                                <option value="draft">{t("admin.events.status.draft")}</option>
+                                <option value="published">{t("admin.events.status.published")}</option>
+                                <option value="cancelled">{t("admin.events.status.cancelled")}</option>
                               </select>
                             </div>
                           </div>
                           <div className="admin-form__actions">
-                            <button type="submit" className="admin-form__submit">Сохранить событие</button>
+                            <button type="submit" className="admin-form__submit">{t("admin.events.saveSubmit")}</button>
                           </div>
                         </form>
                       </AdminEditModal>
-                      <AdminEditModal triggerLabel={`Участники (${event.participantRows.length})`} title={`Участники: ${event.title}`}>
+                      <AdminEditModal triggerLabel={t("admin.events.participantsTrigger", { count: event.participantRows.length })} title={t("admin.events.participantsTitle", { title: event.title })}>
                         <div className="admin-event-participants">
                           <div className="admin-form__actions">
                             <Link href={`/admin/events/${event.id}/participants.csv`} className="admin-form__submit">
-                              Экспорт CSV
+                              {t("admin.events.exportCsv")}
                             </Link>
                           </div>
                           {event.participantRows.length === 0 ? (
-                            <p className="admin-dashboard__empty">Записей пока нет.</p>
+                            <p className="admin-dashboard__empty">{t("admin.events.noParticipants")}</p>
                           ) : (
                             <div className="admin-table">
                               <table className="admin-table__table">
                                 <thead>
                                   <tr className="admin-table__row">
-                                    <th className="admin-table__cell admin-table__cell--head">Клиент</th>
-                                    <th className="admin-table__cell admin-table__cell--head">Контакты</th>
-                                    <th className="admin-table__cell admin-table__cell--head">Оплата</th>
-                                    <th className="admin-table__cell admin-table__cell--head">Статус</th>
-                                    <th className="admin-table__cell admin-table__cell--head">Действия</th>
+                                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.customer")}</th>
+                                    <th className="admin-table__cell admin-table__cell--head">{t("admin.events.participants.contacts")}</th>
+                                    <th className="admin-table__cell admin-table__cell--head">{t("admin.events.participants.payment")}</th>
+                                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.status")}</th>
+                                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.actions")}</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -328,7 +329,7 @@ export default async function AdminEventsPage() {
                                       </td>
                                       <td className="admin-table__cell">{participant.pricePaidKzt.toLocaleString("ru-KZ")} ₸</td>
                                       <td className="admin-table__cell">
-                                        {participant.status === "confirmed" ? "Записан" : "Отменен"}
+                                        {participant.status === "confirmed" ? t("admin.events.participantStatus.confirmed") : t("admin.events.participantStatus.cancelled")}
                                         {participant.cancelledAt ? (
                                           <div className="admin-bookings__cell-sub">
                                             {formatDateInVenueTimezone(participant.cancelledAt)}, {formatTimeInVenueTimezone(participant.cancelledAt)}
@@ -340,7 +341,7 @@ export default async function AdminEventsPage() {
                                           <form action={cancelParticipantAction}>
                                             <input type="hidden" name="registrationId" value={participant.registrationId} />
                                             <button type="submit" className="admin-bookings__action-button admin-bookings__action-button--danger">
-                                              Отменить и вернуть
+                                              {t("admin.events.cancelParticipant")}
                                             </button>
                                           </form>
                                         ) : (
@@ -359,14 +360,14 @@ export default async function AdminEventsPage() {
                         <form action={statusAction}>
                           <input type="hidden" name="eventId" value={event.id} />
                           <input type="hidden" name="status" value="published" />
-                          <button type="submit" className="admin-bookings__action-button">Опубликовать</button>
+                          <button type="submit" className="admin-bookings__action-button">{t("admin.events.actions.publish")}</button>
                         </form>
                       ) : null}
                       {event.status !== "draft" ? (
                         <form action={statusAction}>
                           <input type="hidden" name="eventId" value={event.id} />
                           <input type="hidden" name="status" value="draft" />
-                          <button type="submit" className="admin-bookings__action-button">В черновик</button>
+                          <button type="submit" className="admin-bookings__action-button">{t("admin.events.actions.toDraft")}</button>
                         </form>
                       ) : null}
                       {event.status !== "cancelled" ? (
@@ -374,7 +375,7 @@ export default async function AdminEventsPage() {
                           <input type="hidden" name="eventId" value={event.id} />
                           <input type="hidden" name="status" value="cancelled" />
                           <button type="submit" className="admin-bookings__action-button admin-bookings__action-button--danger">
-                            Отменить событие и вернуть всем
+                            {t("admin.events.actions.cancelAndRefund")}
                           </button>
                         </form>
                       ) : null}

@@ -11,6 +11,7 @@ export interface BookingUrlState {
   serviceKind?: BookingServiceKind;
   date?: string;
   instructorId?: string;
+  promoCode?: string;
   selectedCells: BookingUrlSelectedCell[];
 }
 
@@ -69,6 +70,7 @@ export function parseBookingUrlState(input: SearchParamInput): BookingUrlState {
     serviceKind: serviceValue === "court" || serviceValue === "training" ? serviceValue : undefined,
     date: getSearchParamValue(input, "date"),
     instructorId: getSearchParamValue(input, "instructor"),
+    promoCode: getSearchParamValue(input, "promo"),
     selectedCells: getSearchParamValues(input, SELECTED_CELL_QUERY_PARAM)
       .map((value) => decodeSelectedCellQueryValue(value))
       .filter((value): value is BookingUrlSelectedCell => value !== null),

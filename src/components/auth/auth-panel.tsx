@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "@/src/lib/i18n";
 
 interface AuthPanelProps {
   title: string;
@@ -20,7 +21,7 @@ export function AuthPanel({
   title,
   titleId,
   children,
-  brandSubtitle = "Личный кабинет и бронирования",
+  brandSubtitle = t("auth.panel.brandSubtitle"),
   showBrand = true,
 }: AuthPanelProps) {
   return (

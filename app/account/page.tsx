@@ -9,6 +9,7 @@ import { getCustomerCancellationPolicySummary } from "@/src/lib/bookings/policy"
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 import { canAccessAdminPortal, getRoleLabel } from "@/src/lib/auth/roles";
 import { formatMoneyKzt } from "@/src/lib/format/money";
+import { t } from "@/src/lib/i18n";
 import { getAccountWalletPageData } from "@/src/lib/wallet/queries";
 
 export const metadata = buildPageMetadata({
@@ -21,14 +22,14 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-dynamic";
 
 function getWalletTypeLabel(type: string): string {
-  if (type === "topup") return "Пополнение";
-  if (type === "bonus") return "Бонус";
-  if (type === "admin_credit") return "Начисление админом";
-  if (type === "admin_debit") return "Списание админом";
-  if (type === "booking_charge") return "Оплата брони";
-  if (type === "booking_refund") return "Возврат за бронь";
-  if (type === "event_charge") return "Оплата события";
-  if (type === "event_refund") return "Возврат за событие";
+  if (type === "topup") return t("account.wallet.transaction.topup");
+  if (type === "bonus") return t("account.wallet.transaction.bonus");
+  if (type === "admin_credit") return t("account.wallet.transaction.adminCredit");
+  if (type === "admin_debit") return t("account.wallet.transaction.adminDebit");
+  if (type === "booking_charge") return t("account.wallet.transaction.bookingCharge");
+  if (type === "booking_refund") return t("account.wallet.transaction.bookingRefund");
+  if (type === "event_charge") return t("account.wallet.transaction.eventCharge");
+  if (type === "event_refund") return t("account.wallet.transaction.eventRefund");
   return type;
 }
 
@@ -50,30 +51,30 @@ export default async function AccountPage({
   const roleLabel = getRoleLabel(data.user.role);
   const successMessage =
     params.success === "profile_saved"
-      ? "Профиль обновлен."
+      ? t("account.profile.success.saved")
       : params.success === "email_unchanged"
-        ? "Email не изменился."
+        ? t("account.profile.success.emailUnchanged")
       : params.success === "wallet_topped_up"
-        ? "Баланс пополнен."
+        ? t("account.profile.success.walletToppedUp")
         : null;
   const errorMessage =
     params.error === "profile_invalid"
-      ? "Проверьте имя и телефон."
+      ? t("account.profile.error.invalid")
       : params.error === "email_invalid"
-        ? "Введите корректный email."
+        ? t("account.profile.error.emailInvalid")
         : params.error === "email_taken"
-          ? "Этот email уже используется другим аккаунтом."
+          ? t("account.profile.error.emailTaken")
       : params.error === "wallet_invalid"
-        ? "Укажите корректную сумму пополнения."
+        ? t("account.profile.error.walletInvalid")
         : null;
   const returnAfterTopUp = params.next ? decodeURIComponent(params.next) : "";
 
   return (
     <div className="account-page">
       <PageHero
-        eyebrow="Личный кабинет"
-        title="Мой профиль"
-        description={`Баланс и сводка по бронированиям. ${cancellationPolicySummary}`}
+        eyebrow={t("account.common.eyebrow")}
+        title={t("account.profile.hero.title")}
+        description={t("account.profile.hero.description", { cancellationPolicySummary })}
       />
 
       <AccountTabs active="profile" />
@@ -91,35 +92,38 @@ export default async function AccountPage({
 
       <section className="account-page__cards">
         <article className="account-card">
-          <h2 className="account-card__title">Баланс</h2>
+          <h2 className="account-card__title">{t("account.wallet.title")}</h2>
           <div className="account-stats">
             <div className="account-stats__item">
-              <span className="account-stats__label">Доступно сейчас</span>
+              <span className="account-stats__label">{t("account.wallet.availableNow")}</span>
               <span className="account-stats__value">{formatMoneyKzt(wallet.balanceKzt)}</span>
             </div>
             <div className="account-stats__item">
-              <span className="account-stats__label">Бонус при пополнении</span>
+              <span className="account-stats__label">{t("account.wallet.topUpBonus")}</span>
               <span className="account-stats__value">
                 {wallet.bonusSettings.active
-                  ? `${wallet.bonusSettings.bonusPercent}% от ${formatMoneyKzt(wallet.bonusSettings.thresholdKzt)}`
-                  : "Выключен"}
+                  ? t("account.wallet.bonusValue", {
+                      percent: wallet.bonusSettings.bonusPercent,
+                      threshold: formatMoneyKzt(wallet.bonusSettings.thresholdKzt),
+                    })
+                  : t("account.wallet.bonusDisabled")}
               </span>
             </div>
           </div>
           <p className="account-card__text">
-            Все новые бронирования списываются с баланса автоматически. Если средств не хватает, сначала пополните счет.
+            {t("account.wallet.description")}
           </p>
           {returnAfterTopUp ? (
-            <p className="account-card__hint">После пополнения вы вернетесь к незавершенному бронированию.</p>
+            <p className="account-card__hint">{t("account.wallet.returnAfterTopUpHint")}</p>
           ) : null}
 
           <form action={topUpWalletAction} className="account-profile-form">
             <input type="hidden" name="next" value={returnAfterTopUp} />
-            <p className="account-profile-form__title">Пополнить баланс</p>
+            <p className="account-profile-form__title">{t("account.wallet.topUpTitle")}</p>
             <div className="account-profile-form__grid">
               <div className="auth-form__group">
                 <label htmlFor="wallet-amount" className="auth-form__label">
-                  Сумма, KZT
+                  {t("account.wallet.amountLabel")}
                 </label>
                 <input
                   id="wallet-amount"
@@ -135,15 +139,15 @@ export default async function AccountPage({
             </div>
             <div className="account-profile-form__actions">
               <button type="submit" className="auth-form__submit">
-                Пополнить баланс
+                {t("account.wallet.topUpSubmit")}
               </button>
             </div>
           </form>
 
           <div className="account-card__subsection">
-            <p className="account-profile-form__title">Последние операции</p>
+            <p className="account-profile-form__title">{t("account.wallet.recentTransactions")}</p>
             {wallet.transactions.length === 0 ? (
-              <p className="account-card__text">Операций пока нет.</p>
+              <p className="account-card__text">{t("account.wallet.noTransactions")}</p>
             ) : (
               <dl className="account-profile__list">
                 {wallet.transactions.map((row) => (
@@ -155,7 +159,7 @@ export default async function AccountPage({
                     <dd className="account-profile__value">
                       {row.amountKzt > 0 ? "+" : ""}
                       {formatMoneyKzt(row.amountKzt)}
-                      {` · Баланс ${formatMoneyKzt(row.balanceAfterKzt)}`}
+                      {t("account.wallet.balanceAfter", { balance: formatMoneyKzt(row.balanceAfterKzt) })}
                     </dd>
                   </div>
                 ))}
@@ -165,43 +169,47 @@ export default async function AccountPage({
         </article>
 
         <article className="account-card">
-          <h2 className="account-card__title">Профиль</h2>
+          <h2 className="account-card__title">{t("account.profile.title")}</h2>
           <dl className="account-profile__list">
             <div className="account-profile__item">
-              <dt className="account-profile__label">Имя</dt>
+              <dt className="account-profile__label">{t("auth.common.name")}</dt>
               <dd className="account-profile__value">{data.user.name}</dd>
             </div>
             <div className="account-profile__item">
               <dt className="account-profile__label">Email</dt>
               <dd className="account-profile__value">
                 {data.user.email}
-                {data.user.pendingEmail ? ` · новый ожидает подтверждения: ${data.user.pendingEmail}` : ""}
-                {data.user.emailVerifiedAt && !data.user.pendingEmail ? " · подтвержден" : " · не подтвержден"}
+                {data.user.pendingEmail ? t("account.profile.pendingEmail", { email: data.user.pendingEmail }) : ""}
+                {data.user.emailVerifiedAt && !data.user.pendingEmail
+                  ? t("account.profile.verified")
+                  : t("account.profile.notVerified")}
               </dd>
             </div>
             <div className="account-profile__item">
-              <dt className="account-profile__label">Телефон</dt>
+              <dt className="account-profile__label">{t("auth.common.phone")}</dt>
               <dd className="account-profile__value">
                 {data.user.phone}
-                {data.user.pendingPhone ? ` · новый ожидает подтверждения: ${data.user.pendingPhone}` : ""}
-                {data.user.phoneVerifiedAt && !data.user.pendingPhone ? " · подтвержден" : " · не подтвержден"}
+                {data.user.pendingPhone ? t("account.profile.pendingPhone", { phone: data.user.pendingPhone }) : ""}
+                {data.user.phoneVerifiedAt && !data.user.pendingPhone
+                  ? t("account.profile.verified")
+                  : t("account.profile.notVerified")}
               </dd>
             </div>
             <div className="account-profile__item">
-              <dt className="account-profile__label">Тип аккаунта</dt>
+              <dt className="account-profile__label">{t("account.profile.accountType")}</dt>
               <dd className="account-profile__value">{roleLabel}</dd>
             </div>
           </dl>
 
           <form action={updateAccountProfileAction} className="account-profile-form">
-            <p className="account-profile-form__title">Редактировать профиль</p>
+            <p className="account-profile-form__title">{t("account.profile.editTitle")}</p>
             <p className="auth-panel__hint">
-              Если изменить телефон, новый номер нужно подтвердить через Telegram перед возвратом в профиль.
+              {t("account.profile.phoneChangeHint")}
             </p>
             <div className="account-profile-form__grid">
               <div className="auth-form__group">
                 <label htmlFor="account-name" className="auth-form__label">
-                  Имя
+                  {t("auth.common.name")}
                 </label>
                 <input
                   id="account-name"
@@ -213,7 +221,7 @@ export default async function AccountPage({
               </div>
               <div className="auth-form__group">
                 <label htmlFor="account-phone" className="auth-form__label">
-                  Телефон
+                  {t("auth.common.phone")}
                 </label>
                 <input
                   id="account-phone"
@@ -227,20 +235,20 @@ export default async function AccountPage({
             </div>
             <div className="account-profile-form__actions">
               <button type="submit" className="auth-form__submit">
-                Сохранить профиль
+                {t("account.profile.saveSubmit")}
               </button>
             </div>
           </form>
 
           <form action={updateAccountEmailAction} className="account-profile-form">
-            <p className="account-profile-form__title">Изменить email</p>
+            <p className="account-profile-form__title">{t("account.profile.changeEmailTitle")}</p>
             <p className="auth-panel__hint">
-              На новый email придет 6-значный код. До подтверждения вход и профиль будут ждать завершения проверки.
+              {t("account.profile.emailChangeHint")}
             </p>
             <div className="account-profile-form__grid">
               <div className="auth-form__group">
                 <label htmlFor="account-email" className="auth-form__label">
-                  Новый email
+                  {t("account.profile.newEmailLabel")}
                 </label>
                 <input
                   id="account-email"
@@ -254,33 +262,33 @@ export default async function AccountPage({
             </div>
             <div className="account-profile-form__actions">
               <button type="submit" className="auth-form__submit">
-                Отправить код подтверждения
+                {t("account.profile.sendEmailCodeSubmit")}
               </button>
             </div>
           </form>
         </article>
 
         <article className="account-card">
-          <h2 className="account-card__title">История бронирований</h2>
+          <h2 className="account-card__title">{t("account.history.title")}</h2>
           <div className="account-stats">
             <div className="account-stats__item">
-              <span className="account-stats__label">Активные впереди</span>
+              <span className="account-stats__label">{t("account.history.activeAhead")}</span>
               <span className="account-stats__value">{data.totals.upcoming}</span>
             </div>
             <div className="account-stats__item">
-              <span className="account-stats__label">Записей в истории</span>
+              <span className="account-stats__label">{t("account.history.records")}</span>
               <span className="account-stats__value">{data.totals.history}</span>
             </div>
             <div className="account-stats__item">
-              <span className="account-stats__label">Можно отменить сейчас</span>
+              <span className="account-stats__label">{t("account.history.cancellableNow")}</span>
               <span className="account-stats__value">{data.totals.cancellable}</span>
             </div>
           </div>
           <p className="account-card__text">
-            История ваших бронирований, статусы и правила отмены. {cancellationPolicySummary}
+            {t("account.history.description", { cancellationPolicySummary })}
           </p>
           <Link href="/account/bookings" className="account-card__link">
-            Открыть историю
+            {t("account.history.open")}
           </Link>
         </article>
       </section>
