@@ -15,14 +15,13 @@ export const WEEKDAY_LABELS = [
 ] as const;
 
 export const PRICING_PERIOD_LABELS: Record<PricingTier, string> = {
-  morning: "Утро",
-  day: "День",
-  evening_weekend: "Вечер / выходные",
+  off_peak: "Обычное время",
+  peak: "Пиковое время",
 };
 
 export const COURT_BASE_PRICING_PERIOD_LABELS = {
-  morning: "Будни 08:00-17:00",
-  evening_weekend: "Будни 17:00-23:00 / Выходные 08:00-23:00",
+  off_peak: "Будни 08:00-17:00",
+  peak: "Будни 17:00-23:00 / Выходные и праздники",
 } as const;
 
 const hhmmSchema = z.string().regex(/^\d{2}:\d{2}$/, "Формат времени должен быть HH:MM");
@@ -104,7 +103,7 @@ export async function ensureComponentPriceDefaults(locationId?: string) {
 
   const missingRows = sports.flatMap((sport) =>
     (["court", "instructor"] as const).flatMap((componentType) =>
-      (["morning", "day", "evening_weekend"] as const)
+      (["off_peak", "peak"] as const)
         .filter((period) => !existingKeys.has(`${sport.id}:${componentType}:${period}`))
         .map((period) => ({
           locationId: effectiveLocationId,
@@ -200,8 +199,8 @@ export interface CourtBasePriceAdminRow {
   sportName: string;
   label: string;
   values: {
-    morning: number;
-    evening_weekend: number;
+    off_peak: number;
+    peak: number;
   };
 }
 
@@ -240,9 +239,8 @@ export async function getComponentPriceMatrix(locationId?: string): Promise<Comp
         componentType: row.componentType as "court" | "instructor",
         label: `${row.sport.name}: ${row.componentType === "court" ? "корт" : "тренер"}`,
         values: {
-          morning: 0,
-          day: 0,
-          evening_weekend: 0,
+          off_peak: 0,
+          peak: 0,
         },
       };
 
@@ -263,8 +261,8 @@ export async function getCourtBasePriceMatrix(locationId?: string): Promise<Cour
       sportName: row.sportName,
       label: row.label,
       values: {
-        morning: row.values.morning,
-        evening_weekend: row.values.evening_weekend,
+        off_peak: row.values.off_peak,
+        peak: row.values.peak,
       },
     }));
 }
@@ -279,7 +277,7 @@ export async function saveComponentPriceMatrixFromForm(formData: FormData, locat
     select: { id: true, slug: true },
   });
   const components = ["court", "instructor"] as const;
-  const periods = ["morning", "day", "evening_weekend"] as const;
+  const periods = ["off_peak", "peak"] as const;
 
   const updates: Array<{
     sportId: string;
@@ -340,28 +338,27 @@ export async function saveCourtBasePriceMatrixFromForm(formData: FormData, locat
   });
   const updates: Array<{
     sportId: string;
-    period: "morning" | "day" | "evening_weekend";
+    period: "off_peak" | "peak";
     amount: number;
   }> = [];
 
   for (const sport of sports) {
-    const morningField = `${sport.slug}_court_morning`;
-    const eveningField = `${sport.slug}_court_evening_weekend`;
+    const offPeakField = `${sport.slug}_court_off_peak`;
+    const peakField = `${sport.slug}_court_peak`;
 
-    const morningParsed = z.coerce.number().int().nonnegative().safeParse(formData.get(morningField));
-    if (!morningParsed.success) {
-      throw new Error(`Некорректная цена в поле ${morningField}`);
+    const offPeakParsed = z.coerce.number().int().nonnegative().safeParse(formData.get(offPeakField));
+    if (!offPeakParsed.success) {
+      throw new Error(`Некорректная цена в поле ${offPeakField}`);
     }
 
-    const eveningParsed = z.coerce.number().int().nonnegative().safeParse(formData.get(eveningField));
-    if (!eveningParsed.success) {
-      throw new Error(`Некорректная цена в поле ${eveningField}`);
+    const peakParsed = z.coerce.number().int().nonnegative().safeParse(formData.get(peakField));
+    if (!peakParsed.success) {
+      throw new Error(`Некорректная цена в поле ${peakField}`);
     }
 
     updates.push(
-      { sportId: sport.id, period: "morning", amount: morningParsed.data },
-      { sportId: sport.id, period: "day", amount: morningParsed.data },
-      { sportId: sport.id, period: "evening_weekend", amount: eveningParsed.data },
+      { sportId: sport.id, period: "off_peak", amount: offPeakParsed.data },
+      { sportId: sport.id, period: "peak", amount: peakParsed.data },
     );
   }
 

@@ -38,9 +38,9 @@ INSERT INTO "Location" (
 )
 VALUES (
   'location_main',
-  'Padel & Squash KZ',
+  'Racket Community Kst',
   'main',
-  'г. Алматы, ул. Абая, 120',
+  'г. Костанай, ул. Абая, 120',
   '+7 (727) 355-77-00',
   'info@padelsquash.kz',
   'Asia/Almaty',

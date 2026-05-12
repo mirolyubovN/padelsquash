@@ -62,8 +62,7 @@ function parsePricingBreakdownLines(value: unknown): string[] {
       if (!componentType || !tier || Number.isNaN(amount)) return null;
       const componentLabel =
         componentType === "court" ? "Корт" : componentType === "instructor" ? "Тренер" : componentType;
-      const tierLabel =
-        tier === "morning" ? "утро" : tier === "day" ? "день" : tier === "evening_weekend" ? "вечер/выходные" : tier;
+      const tierLabel = tier === "peak" ? "пиковое" : tier === "off_peak" ? "обычное" : tier;
       return `${componentLabel}: ${formatMoneyKzt(amount)} (${tierLabel})`;
     })
     .filter((line): line is string => Boolean(line));

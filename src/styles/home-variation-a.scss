@@ -376,7 +376,7 @@
   padding: 1.125rem 1.5rem;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.625rem;
+  border-radius: 0.25rem;
   color: #fff;
   backdrop-filter: blur(6px);
   opacity: 0;
@@ -399,7 +399,7 @@
   width: 3rem;
   height: 3rem;
   background: rgba(var(--accent-rgb), 0.2);
-  border-radius: 0.5rem;
+  border-radius: 0.25rem;
   color: var(--accent);
   flex-shrink: 0;
 }
@@ -484,7 +484,7 @@
 }
 
 .ho__sport-card {
-  border-radius: 1rem;
+  border-radius: 0.25rem;
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -703,7 +703,7 @@
 
 .ho__tariff-table-wrap {
   overflow-x: auto;
-  border-radius: 1rem;
+  border-radius: 0.25rem;
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
@@ -838,7 +838,7 @@
 .ho__gallery-cell {
   position: relative;
   overflow: hidden;
-  border-radius: 0.75rem;
+  border-radius: 0.25rem;
   aspect-ratio: 4/3;
   background-color: var(--line);
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { navItems, siteConfig } from "@/src/lib/content/site-data";
+import { RCSeal } from "@/src/components/crest-mark";
 
 interface SiteHeaderClientProps {
   portalLink: {
@@ -53,7 +54,7 @@ export function SiteHeaderClient({ portalLink, logoutAction, accountLink }: Site
     <header className="site-header">
       <div className="site-shell site-header__inner">
         <Link href="/" className="site-header__brand">
-          <span className="site-header__brand-mark">PS</span>
+          <RCSeal size={34} color="#c93f17" />
           <span className="site-header__brand-text">{siteConfig.name}</span>
         </Link>
 
@@ -126,7 +127,10 @@ export function SiteHeaderClient({ portalLink, logoutAction, accountLink }: Site
             onClick={(event) => event.stopPropagation()}
           >
             <div className="site-header__mobile-head">
-              <div className="site-header__mobile-title">Навигация</div>
+              <div className="site-header__mobile-title">
+                <RCSeal size={28} color="#c93f17" />
+                {siteConfig.name}
+              </div>
               <button
                 type="button"
                 className="site-header__mobile-close"

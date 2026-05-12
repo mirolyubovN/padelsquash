@@ -200,7 +200,7 @@ export function AdminRescheduleModal({
               <div className="admin-form__group">
                 <label className="admin-form__label">{t("admin.reschedule.newDate")}</label>
                 <input
-                  type="date"
+                  type="date" lang="ru-RU"
                   className="admin-form__field"
                   min={todayVenueDate}
                   value={date}

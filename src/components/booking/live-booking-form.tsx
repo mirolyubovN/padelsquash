@@ -24,7 +24,7 @@ import { PriceBreakdown } from "@/src/components/booking/price-breakdown";
 import { TimeSlotTimetable } from "@/src/components/booking/time-slot-timetable";
 
 type ServiceKind = BookingServiceKind;
-type PricingTier = "morning" | "day" | "evening_weekend";
+type PricingTier = "off_peak" | "peak";
 
 interface ServiceOption {
   id: string;
@@ -1154,7 +1154,7 @@ export function LiveBookingForm({
 
         <input
           id="booking-date-live"
-          type="date"
+          type="date" lang="ru-RU"
           className="booking-flow__date-input"
           min={todayDate}
           value={date}

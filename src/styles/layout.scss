@@ -26,8 +26,3 @@
   @apply flex flex-col gap-8;
 }
 
-@media (max-width: 767px) {
-  .site-main {
-    @apply pb-20;
-  }
-}

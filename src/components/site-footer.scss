@@ -88,7 +88,7 @@
   align-items: center;
   gap: 0.5rem;
   border: 1px solid rgba(245, 242, 234, 0.14);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.4375rem 0.75rem 0.4375rem 0.4375rem;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -111,7 +111,7 @@
   height: 1.5rem;
   background-color: var(--accent);
   color: var(--accent-on);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   flex-shrink: 0;
 }
 

@@ -47,10 +47,7 @@ export async function SiteFooter() {
         <div className="site-footer__brand">
           <div className="site-footer__title">{siteConfig.name}</div>
           <p className="site-footer__text">
-            Центр падела и сквоша в {siteConfig.city}, {siteConfig.country}.
-          </p>
-          <p className="site-footer__text">
-            Часовой пояс центра: {siteConfig.timezone}. Цены отображаются в тенге.
+            Центр ракеточных видов спорта в г. {siteConfig.city}, {siteConfig.country}.
           </p>
           <div className="site-footer__socials">
             {siteConfig.socialLinks.map((link) => (

@@ -11,20 +11,20 @@
 }
 
 .auth-panel__box {
-  @apply w-full max-w-xl rounded-2xl border p-5 md:p-6;
+  @apply w-full max-w-xl rounded border p-5 md:p-6;
   border-color: var(--line);
   background-color: var(--surface);
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
 }
 
 .auth-panel__brand {
-  @apply mb-4 flex items-center gap-3 rounded-xl border p-3;
+  @apply mb-4 flex items-center gap-3 rounded border p-3;
   border-color: var(--line);
   background-color: var(--background);
 }
 
 .auth-panel__brand-mark {
-  @apply inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold;
+  @apply inline-flex h-10 w-10 items-center justify-center rounded text-sm font-bold;
   background-color: var(--accent);
   color: var(--text-on-primary);
 }
@@ -48,21 +48,21 @@
 }
 
 .auth-panel__error {
-  @apply mt-3 rounded-lg border px-4 py-3 text-sm;
+  @apply mt-3 rounded border px-4 py-3 text-sm;
   border-color: rgba(239, 68, 68, 0.2);
   background-color: rgba(239, 68, 68, 0.06);
   color: #b91c1c;
 }
 
 .auth-panel__notice {
-  @apply mt-3 rounded-lg border px-4 py-3 text-sm leading-6;
+  @apply mt-3 rounded border px-4 py-3 text-sm leading-6;
   border-color: rgba(var(--accent-rgb), 0.35);
   background-color: rgba(var(--accent-rgb), 0.16);
   color: var(--foreground);
 }
 
 .auth-panel__details {
-  @apply mt-4 rounded-xl border p-3;
+  @apply mt-4 rounded border p-3;
   border-color: var(--line);
   background-color: var(--background);
 }

@@ -40,7 +40,7 @@ describe("generateAvailableSlots", () => {
     expect(slots.map((slot) => slot.endTime)).toEqual(["09:00", "10:00", "11:00"]);
   });
 
-  it("removes overlapping slot for booked court", () => {
+  it("keeps overlapping slot visible but marks it unavailable for booked court", () => {
     const bookings: ExistingBookingRecord[] = [
       {
         id: "b1",
@@ -63,10 +63,13 @@ describe("generateAvailableSlots", () => {
       existingBookings: bookings,
     });
 
-    expect(slots.map((slot) => slot.startTime)).toEqual(["08:00", "10:00", "11:00"]);
+    expect(slots.map((slot) => slot.startTime)).toEqual(["08:00", "09:00", "10:00", "11:00"]);
+    expect(slots.find((slot) => slot.startTime === "09:00")?.availableCourtIds).toEqual([]);
+    expect(slots.find((slot) => slot.startTime === "08:00")?.availableCourtIds).toEqual(["court-1"]);
+    expect(slots.find((slot) => slot.startTime === "10:00")?.availableCourtIds).toEqual(["court-1"]);
   });
 
-  it("filters training slots by instructor schedules", () => {
+  it("keeps training slots visible even when instructor is unavailable", () => {
     const trainingService: ServiceRecord = {
       ...baseService,
       id: "padel-coaching",
@@ -97,7 +100,32 @@ describe("generateAvailableSlots", () => {
       existingBookings: [],
     });
 
-    expect(slots.map((slot) => slot.startTime)).toEqual(["10:00", "11:00"]);
-    expect(slots.every((slot) => slot.availableInstructorIds.includes("coach-1"))).toBe(true);
+    expect(slots.map((slot) => slot.startTime)).toEqual(["08:00", "09:00", "10:00", "11:00"]);
+    expect(slots.find((slot) => slot.startTime === "08:00")?.availableInstructorIds).toEqual([]);
+    expect(slots.find((slot) => slot.startTime === "09:00")?.availableInstructorIds).toEqual([]);
+    expect(slots.find((slot) => slot.startTime === "10:00")?.availableInstructorIds).toEqual(["coach-1"]);
+    expect(slots.find((slot) => slot.startTime === "11:00")?.availableInstructorIds).toEqual(["coach-1"]);
+    expect(slots.find((slot) => slot.startTime === "08:00")?.availableCourtIds).toEqual([]);
+  });
+
+  it("keeps past cutoff slots visible but unavailable", () => {
+    const slots = generateAvailableSlots({
+      date: "2026-03-02",
+      durationMin: 60,
+      service: baseService,
+      openingHours: [{ dayOfWeek: 1, openTime: "08:00", closeTime: "12:00", active: true }],
+      courtIds: ["court-1"],
+      instructorIds: [],
+      instructorSchedules: [],
+      exceptions: [],
+      existingBookings: [],
+      cutoffMin: 10 * 60 + 5,
+    });
+
+    expect(slots.map((slot) => slot.startTime)).toEqual(["08:00", "09:00", "10:00", "11:00"]);
+    expect(slots.find((slot) => slot.startTime === "08:00")?.availableCourtIds).toEqual([]);
+    expect(slots.find((slot) => slot.startTime === "09:00")?.availableCourtIds).toEqual([]);
+    expect(slots.find((slot) => slot.startTime === "10:00")?.availableCourtIds).toEqual([]);
+    expect(slots.find((slot) => slot.startTime === "11:00")?.availableCourtIds).toEqual(["court-1"]);
   });
 });

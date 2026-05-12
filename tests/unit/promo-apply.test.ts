@@ -31,12 +31,12 @@ function makePromo(overrides: Partial<PromoCode> = {}): PromoCode {
 function makePricing(total: number): PricingResult {
   return {
     currency: "KZT",
-    tier: "day",
+    tier: "off_peak",
     courtPrice: total,
     instructorPrice: 0,
     hourlyRate: total,
     total,
-    breakdown: [{ componentType: "court", tier: "day", amount: total }],
+    breakdown: [{ componentType: "court", tier: "off_peak", amount: total }],
   };
 }
 

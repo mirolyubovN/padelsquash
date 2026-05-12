@@ -82,19 +82,8 @@ export function evaluatePricing(input: PricingInput): PricingResult {
 export function resolvePricingTier(date: string, time: string): PricingTier {
   const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-  if (isWeekend) {
-    return "evening_weekend";
-  }
-
-  const minutes = hhmmToMinutes(time);
-  if (minutes < hhmmToMinutes("12:00")) {
-    return "morning";
-  }
-  if (minutes < hhmmToMinutes("17:00")) {
-    return "day";
-  }
-  return "evening_weekend";
+  if (isWeekend) return "peak";
+  return hhmmToMinutes(time) >= hhmmToMinutes("17:00") ? "peak" : "off_peak";
 }
 
 function getComponentPrice(args: {
@@ -104,20 +93,17 @@ function getComponentPrice(args: {
   tier: PricingTier;
   currency: string;
 }): number {
-  const normalizedTier =
-    args.componentType === "court" && args.tier === "day" ? ("morning" as PricingTier) : args.tier;
-
   const record = args.componentPrices.find(
     (item) =>
       item.sport === args.sport &&
       item.componentType === args.componentType &&
-      item.tier === normalizedTier &&
+      item.tier === args.tier &&
       item.currency === args.currency,
   );
 
   if (!record) {
     throw new Error(
-      `Не найдена цена: sport=${args.sport}, component=${args.componentType}, tier=${normalizedTier}`,
+      `Не найдена цена: sport=${args.sport}, component=${args.componentType}, tier=${args.tier}`,
     );
   }
 

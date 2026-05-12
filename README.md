@@ -1,4 +1,4 @@
-# Padel & Squash KZ
+# Racket Community Kst
 
 Kazakhstan-focused padel/squash club platform. Full-stack web app with public booking, customer wallet balances, account self-service, a role-separated admin panel, and a trainer portal.
 
@@ -148,7 +148,7 @@ SMTP_PORT="1025"
 SMTP_SECURE="false"
 SMTP_USER="local"
 SMTP_PASS="local"
-SMTP_FROM="Padel & Squash KZ <no-reply@localhost>"
+SMTP_FROM="Racket Community Kst <no-reply@localhost>"
 ```
 
 Common local inbox URLs:

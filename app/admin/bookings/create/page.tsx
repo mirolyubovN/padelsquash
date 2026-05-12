@@ -16,7 +16,7 @@ export const metadata = buildPageMetadata({
 
 export const dynamic = "force-dynamic";
 
-type PricingTier = "morning" | "day" | "evening_weekend";
+type PricingTier = "off_peak" | "peak";
 type CourtPriceMatrix = Record<string, Record<PricingTier, number>>;
 type LocationCourtPriceMatrix = Record<string, CourtPriceMatrix>;
 
@@ -51,12 +51,9 @@ function createDemoCourtPriceMatrix(): CourtPriceMatrix {
       continue;
     }
     if (!matrix[item.sport]) {
-      matrix[item.sport] = { morning: 0, day: 0, evening_weekend: 0 };
+      matrix[item.sport] = { off_peak: 0, peak: 0 };
     }
-    if (item.tier !== "day") {
-      matrix[item.sport][item.tier] = item.amount;
-    }
-    matrix[item.sport].day = matrix[item.sport].morning;
+    matrix[item.sport][item.tier as PricingTier] = item.amount;
   }
 
   return matrix;
@@ -95,12 +92,9 @@ async function getCourtPricesByLocation(locations: Array<{ id: string; slug: str
       }
       const target = matrixByLocation[locationSlug];
       if (!target[row.sport.slug]) {
-        target[row.sport.slug] = { morning: 0, day: 0, evening_weekend: 0 };
+        target[row.sport.slug] = { off_peak: 0, peak: 0 };
       }
-      if (row.period !== "day") {
-        target[row.sport.slug][row.period] = Number(row.amount);
-      }
-      target[row.sport.slug].day = target[row.sport.slug].morning;
+      target[row.sport.slug][row.period as PricingTier] = Number(row.amount);
     }
   } catch {
     // fallback below

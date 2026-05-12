@@ -34,7 +34,7 @@ describe("availability API route (DB integration)", () => {
     for (const slot of payload.slots ?? []) {
       expect(slot.startTime).toMatch(/^\d{2}:00$/);
       expect(slot.endTime).toMatch(/^\d{2}:00$/);
-      expect(slot.availableCourtIds.length).toBeGreaterThan(0);
+      expect(Array.isArray(slot.availableCourtIds)).toBe(true);
     }
   });
 

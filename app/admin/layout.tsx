@@ -5,35 +5,35 @@ import { signOut } from "@/auth";
 import { buildPageMetadata } from "@/src/lib/seo/metadata";
 
 export const metadata: Metadata = {
-  ...buildPageMetadata({
-    title: "Админ-панель | Padel & Squash KZ",
-    description: "Раздел администрирования клуба: управление бронированиями, ресурсами, ценами и расписанием.",
-    path: "/admin",
-    noIndex: true,
-  }),
-  robots: {
-    index: false,
-    follow: false,
-  },
+	...buildPageMetadata({
+		title: "Админ-панель | Racket Community Kst",
+		description: "Раздел администрирования клуба: управление бронированиями, ресурсами, ценами и расписанием.",
+		path: "/admin",
+		noIndex: true,
+	}),
+	robots: {
+		index: false,
+		follow: false,
+	},
 };
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({
-  children,
+	children,
 }: {
-  children: React.ReactNode;
+	children: React.ReactNode;
 }) {
-  const session = await requireAdmin();
+	const session = await requireAdmin();
 
-  async function logoutAction() {
-    "use server";
-    await signOut({ redirectTo: "/login" });
-  }
+	async function logoutAction() {
+		"use server";
+		await signOut({ redirectTo: "/login" });
+	}
 
-  return (
-    <AdminShellFrame email={session.user.email ?? "admin"} role={session.user.role} logoutAction={logoutAction}>
-      {children}
-    </AdminShellFrame>
-  );
+	return (
+		<AdminShellFrame email={session.user.email ?? "admin"} role={session.user.role} logoutAction={logoutAction}>
+			{children}
+		</AdminShellFrame>
+	);
 }

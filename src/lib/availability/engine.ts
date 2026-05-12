@@ -51,16 +51,10 @@ export function generateAvailableSlots(input: AvailabilityInput): AvailableSlot[
     startMin += 60
   ) {
     const endMin = startMin + input.durationMin;
+    const blockedByCutoff = input.cutoffMin !== undefined && startMin < input.cutoffMin;
+    const blockedByVenueException = isBlockedByVenueException(startMin, endMin, exceptionList);
 
-    if (input.cutoffMin !== undefined && startMin < input.cutoffMin) {
-      continue;
-    }
-
-    if (isBlockedByVenueException(startMin, endMin, exceptionList)) {
-      continue;
-    }
-
-    const availableCourtIds = input.service.requiresCourt
+    let availableCourtIds = input.service.requiresCourt
       ? input.courtIds.filter((courtId) =>
           isResourceAvailable({
             date: input.date,
@@ -82,7 +76,7 @@ export function generateAvailableSlots(input: AvailabilityInput): AvailableSlot[
         ? input.instructorIds.filter((id) => id === input.requestedInstructorId)
         : input.instructorIds;
 
-    const availableInstructorIds = input.service.requiresInstructor
+    let availableInstructorIds = input.service.requiresInstructor
       ? candidateInstructorIds.filter((instructorId) =>
           isResourceAvailable({
             date: input.date,
@@ -99,8 +93,13 @@ export function generateAvailableSlots(input: AvailabilityInput): AvailableSlot[
         )
       : [];
 
+    if (blockedByCutoff || blockedByVenueException) {
+      availableCourtIds = [];
+      availableInstructorIds = [];
+    }
+
     if (input.service.requiresInstructor && availableInstructorIds.length === 0) {
-      continue;
+      availableCourtIds = [];
     }
 
     results.push({

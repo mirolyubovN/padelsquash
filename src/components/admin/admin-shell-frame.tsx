@@ -35,7 +35,7 @@ export function AdminShellFrame({ email, role, logoutAction, children }: AdminSh
           className={`admin-shell__sidebar${mobileOpen ? " admin-shell__sidebar--open" : ""}`}
         >
           <div className="admin-shell__sidebar-brand">
-            <span className="admin-shell__brand-mark">PS</span>
+            <span className="admin-shell__brand-mark">RC</span>
             <span className="admin-shell__brand-name">Admin</span>
           </div>
 

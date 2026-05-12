@@ -42,7 +42,17 @@
       "Bash(git grep *)",
       "Bash(git diff *)",
       "Bash(node *)",
-      "Bash(powershell -Command \"Start-Sleep -Seconds 5; Get-Content 'C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Websites-padelsquash\\\\30e7f962-be3d-4bf6-a204-cd8f6f758fd4\\\\tasks\\\\btw5tvnrg.output' -ErrorAction SilentlyContinue\")"
+      "Bash(powershell -Command \"Start-Sleep -Seconds 5; Get-Content 'C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Websites-padelsquash\\\\30e7f962-be3d-4bf6-a204-cd8f6f758fd4\\\\tasks\\\\btw5tvnrg.output' -ErrorAction SilentlyContinue\")",
+      "Bash(Get-ChildItem -Path \"D:\\\\Websites\\\\padelsquash\" -Recurse -Name)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Remove-Item \"D:\\\\Websites\\\\padelsquash\\\\src\\\\components\\\\palette-switcher.tsx\" -Force)",
+      "Bash(Remove-Item \"D:\\\\Websites\\\\padelsquash\\\\src\\\\styles\\\\palette-switcher.scss\" -Force)",
+      "Bash(Write-Host \"Deleted palette-switcher files\")",
+      "Bash(sed -i 's/border-radius: 9999px/border-radius: 0.25rem/g; s/border-radius: 0\\\\.875rem/border-radius: 0.25rem/g; s/border-radius: 0\\\\.625rem/border-radius: 0.25rem/g; s/border-radius: 1\\\\.25rem/border-radius: 0.25rem/g; s/border-radius: 1\\\\.5rem/border-radius: 0.25rem/g' \"D:/Websites/padelsquash/src/styles/admin.scss\")",
+      "Bash(sed -i 's/rounded-xl/rounded/g; s/rounded-full/rounded/g; s/rounded-2xl/rounded/g; s/rounded-lg/rounded/g' \"D:/Websites/padelsquash/src/styles/admin.scss\")",
+      "WebFetch(domain:api.anthropic.com)",
+      "PowerShell(Select-String -Path \"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Temp\\\\design-identity.html\" -Pattern \"CrestMark|function Crest|marks\\\\.jsx\" | Select-Object -First 20 | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line\\)\" })",
+      "PowerShell(Select-String -Path \"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Temp\\\\design-identity.html\" -Pattern \"TennisIcon|PadelIcon|SquashIcon|SportPlaque|function Sport|icons\\\\.jsx\" | Select-Object -First 20 | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line.Substring\\(0, [Math]::Min\\(120, $_.Line.Length\\)\\)\\)\" })"
     ]
   }
 }

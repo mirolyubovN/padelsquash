@@ -1,7 +1,7 @@
 import { prisma } from "@/src/lib/prisma";
 import { getComponentPriceMatrix } from "@/src/lib/settings/service";
 
-type PricingTier = "morning" | "evening_weekend";
+type PricingTier = "off_peak" | "peak";
 
 export interface HomePriceBucket {
   code: "weekday_day" | "weekday_evening" | "weekend";
@@ -58,20 +58,20 @@ export async function getHomepageData(): Promise<{
   const courtRows = matrix.filter((row) => row.componentType === "court");
 
   const buckets = [
-    { code: "weekday_day" as const, label: "Будни", timeRange: "08:00-17:00", tier: "morning" as PricingTier },
+    { code: "weekday_day" as const, label: "Будни", timeRange: "08:00-17:00", tier: "off_peak" as PricingTier },
     {
       code: "weekday_evening" as const,
       label: "Будни",
       timeRange: "17:00-23:00",
-      tier: "evening_weekend" as PricingTier,
+      tier: "peak" as PricingTier,
     },
-    { code: "weekend" as const, label: "Выходные", timeRange: "08:00-23:00", tier: "evening_weekend" as PricingTier },
+    { code: "weekend" as const, label: "Выходные", timeRange: "08:00-23:00", tier: "peak" as PricingTier },
   ];
 
   const sports: HomeSportSection[] = courtRows.map((courtRow) => {
     const courtByTier: Record<PricingTier, number> = {
-      morning: courtRow?.values.morning ?? 0,
-      evening_weekend: courtRow?.values.evening_weekend ?? 0,
+      off_peak: courtRow?.values.off_peak ?? 0,
+      peak: courtRow?.values.peak ?? 0,
     };
 
     return {

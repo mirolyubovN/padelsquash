@@ -8,24 +8,18 @@ import type {
 } from "@/src/lib/domain/types";
 
 export const demoComponentPrices: ComponentPriceRecord[] = [
-  { id: "cp-1", sport: "padel", componentType: "court", tier: "morning", currency: "KZT", amount: 12000 },
-  { id: "cp-2", sport: "padel", componentType: "court", tier: "day", currency: "KZT", amount: 14000 },
-  { id: "cp-3", sport: "padel", componentType: "court", tier: "evening_weekend", currency: "KZT", amount: 17000 },
-  { id: "cp-4", sport: "padel", componentType: "instructor", tier: "morning", currency: "KZT", amount: 9000 },
-  { id: "cp-5", sport: "padel", componentType: "instructor", tier: "day", currency: "KZT", amount: 10000 },
-  { id: "cp-6", sport: "padel", componentType: "instructor", tier: "evening_weekend", currency: "KZT", amount: 11000 },
-  { id: "cp-7", sport: "squash", componentType: "court", tier: "morning", currency: "KZT", amount: 10000 },
-  { id: "cp-8", sport: "squash", componentType: "court", tier: "day", currency: "KZT", amount: 12000 },
-  { id: "cp-9", sport: "squash", componentType: "court", tier: "evening_weekend", currency: "KZT", amount: 15000 },
-  { id: "cp-10", sport: "squash", componentType: "instructor", tier: "morning", currency: "KZT", amount: 7000 },
-  { id: "cp-11", sport: "squash", componentType: "instructor", tier: "day", currency: "KZT", amount: 8000 },
-  { id: "cp-12", sport: "squash", componentType: "instructor", tier: "evening_weekend", currency: "KZT", amount: 9000 },
-  { id: "cp-13", sport: "tennis", componentType: "court", tier: "morning", currency: "KZT", amount: 14000 },
-  { id: "cp-14", sport: "tennis", componentType: "court", tier: "day", currency: "KZT", amount: 16000 },
-  { id: "cp-15", sport: "tennis", componentType: "court", tier: "evening_weekend", currency: "KZT", amount: 19000 },
-  { id: "cp-16", sport: "tennis", componentType: "instructor", tier: "morning", currency: "KZT", amount: 10000 },
-  { id: "cp-17", sport: "tennis", componentType: "instructor", tier: "day", currency: "KZT", amount: 11000 },
-  { id: "cp-18", sport: "tennis", componentType: "instructor", tier: "evening_weekend", currency: "KZT", amount: 12000 },
+  { id: "cp-1", sport: "padel", componentType: "court", tier: "off_peak", currency: "KZT", amount: 12000 },
+  { id: "cp-2", sport: "padel", componentType: "court", tier: "peak", currency: "KZT", amount: 17000 },
+  { id: "cp-3", sport: "padel", componentType: "instructor", tier: "off_peak", currency: "KZT", amount: 9000 },
+  { id: "cp-4", sport: "padel", componentType: "instructor", tier: "peak", currency: "KZT", amount: 11000 },
+  { id: "cp-5", sport: "squash", componentType: "court", tier: "off_peak", currency: "KZT", amount: 10000 },
+  { id: "cp-6", sport: "squash", componentType: "court", tier: "peak", currency: "KZT", amount: 15000 },
+  { id: "cp-7", sport: "squash", componentType: "instructor", tier: "off_peak", currency: "KZT", amount: 7000 },
+  { id: "cp-8", sport: "squash", componentType: "instructor", tier: "peak", currency: "KZT", amount: 9000 },
+  { id: "cp-9", sport: "tennis", componentType: "court", tier: "off_peak", currency: "KZT", amount: 14000 },
+  { id: "cp-10", sport: "tennis", componentType: "court", tier: "peak", currency: "KZT", amount: 19000 },
+  { id: "cp-11", sport: "tennis", componentType: "instructor", tier: "off_peak", currency: "KZT", amount: 10000 },
+  { id: "cp-12", sport: "tennis", componentType: "instructor", tier: "peak", currency: "KZT", amount: 12000 },
 ];
 
 export const demoServices: ServiceRecord[] = [

@@ -48,7 +48,7 @@ Migration: `20260601000500_telegram_channel_config`.
 - Step 2: input for the common chat id. Two ways to populate it:
   - **Manual**: super admin pastes the chat id (we display a one-liner explaining how to get it via `@RawDataBot` or by sending `/getchatid` to the bot inside the group).
   - **Auto-discovery**: the bot listens for `/registerchat <secret>` messages in any chat where it is a member. Super admin generates a one-time `secret` (TTL 10 min) on the settings page and types `/registerchat <secret>` into the target group. The bot resolves `update.message.chat.id`, persists it as `commonChatId`, and replies "Chat connected as common operations channel".
-- After saving: bot posts a confirmation message to the chat ("✅ Подключено как общий канал уведомлений Padel & Squash KZ").
+- After saving: bot posts a confirmation message to the chat ("✅ Подключено как общий канал уведомлений Racket Community Kst").
 - "Отправить тестовое сообщение" button.
 - "Отключить" clears `commonChatId` and posts a goodbye message.
 

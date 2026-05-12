@@ -243,7 +243,7 @@ export default async function AdminCalendarPage({
         </Link>
         <form method="get" action="/admin/calendar" className="admin-calendar__date-form">
           {locationSlug ? <input type="hidden" name="location" value={locationSlug} /> : null}
-          <input type="date" name="date" defaultValue={date} className="admin-form__field admin-calendar__date-input" />
+          <input type="date" lang="ru-RU" name="date" defaultValue={date} className="admin-form__field admin-calendar__date-input" />
           <button type="submit" className="admin-bookings__action-button">{t("admin.calendar.nav.go")}</button>
         </form>
         <Link href={buildWeekViewLink()} className="admin-calendar__view-toggle">{t("admin.calendar.view.week")}</Link>

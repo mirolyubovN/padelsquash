@@ -6,7 +6,7 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  background-color: rgba(250, 250, 247, 0.92);
+  background-color: rgba(250, 246, 238, 0.92);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(12px);
 }
@@ -15,39 +15,23 @@
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  padding: 0.875rem 0;
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
 }
 
 .site-header__brand {
   margin-right: auto;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.625rem;
-  color: var(--ink);
-}
-
-.site-header__brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  background-color: var(--accent);
-  color: var(--accent-on);
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  border-radius: 0.5rem;
-  flex-shrink: 0;
+  gap: 0.5rem;
 }
 
 .site-header__brand-text {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 600;
-  letter-spacing: -0.005em;
-  color: var(--ink);
+  letter-spacing: -0.01em;
+  color: var(--accent);
 }
 
 .site-header__nav {
@@ -86,7 +70,7 @@
   bottom: 0.25rem;
   left: 0.875rem;
   right: 0.875rem;
-  height: 1.5px;
+  height: 1px;
   background-color: var(--accent);
   transform: scaleX(0);
   transform-origin: left;
@@ -107,7 +91,7 @@
   color: var(--accent-on);
   font-size: 0.875rem;
   font-weight: 600;
-  border-radius: 999px;
+  border-radius: 0.25rem;
   transition: background 180ms ease;
 }
 
@@ -125,7 +109,7 @@
   align-items: center;
   padding: 0.5rem 0.875rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   font-size: 0.875rem;
   font-weight: 500;
   background: transparent;
@@ -145,7 +129,7 @@
   align-items: center;
   gap: 0.5rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.5rem 0.875rem;
   background: transparent;
   cursor: pointer;
@@ -197,6 +181,9 @@
 }
 
 .site-header__mobile-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-family: var(--font-display);
   font-size: 1.125rem;
   font-weight: 600;
@@ -210,7 +197,7 @@
   justify-content: center;
   padding: 0.4375rem 0.75rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   background: transparent;
   cursor: pointer;
   font-size: 0.8125rem;
@@ -257,7 +244,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
   font-weight: 500;
@@ -273,7 +260,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.875rem 1rem;
-  border-radius: 999px;
+  border-radius: 0.25rem;
   background-color: var(--accent);
   color: var(--accent-on);
   font-size: 0.9375rem;

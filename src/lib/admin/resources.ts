@@ -299,7 +299,7 @@ export async function getAdminSports(): Promise<AdminSportRow[]> {
           locationId: defaultLocation.id,
           componentType: "court",
           currency: "KZT",
-          period: { in: ["morning", "evening_weekend"] },
+          period: { in: ["off_peak", "peak"] },
         },
         select: {
           period: true,
@@ -310,8 +310,8 @@ export async function getAdminSports(): Promise<AdminSportRow[]> {
   });
 
   return rows.map((row) => {
-    const morningPrice = row.componentPrices.find((price) => price.period === "morning")?.amount ?? 0;
-    const eveningPrice = row.componentPrices.find((price) => price.period === "evening_weekend")?.amount ?? 0;
+    const morningPrice = row.componentPrices.find((price) => price.period === "off_peak")?.amount ?? 0;
+    const eveningPrice = row.componentPrices.find((price) => price.period === "peak")?.amount ?? 0;
     const defaultRentalService = row.services[0];
 
     return {
@@ -398,7 +398,7 @@ export async function createSportFromForm(formData: FormData) {
             locationId: defaultLocation.id,
             sportId: sport.id,
             componentType: "court",
-            period: "morning",
+            period: "off_peak",
             currency: "KZT",
             amount: parsed.data.courtPriceMorningKzt,
           },
@@ -406,15 +406,7 @@ export async function createSportFromForm(formData: FormData) {
             locationId: defaultLocation.id,
             sportId: sport.id,
             componentType: "court",
-            period: "day",
-            currency: "KZT",
-            amount: parsed.data.courtPriceMorningKzt,
-          },
-          {
-            locationId: defaultLocation.id,
-            sportId: sport.id,
-            componentType: "court",
-            period: "evening_weekend",
+            period: "peak",
             currency: "KZT",
             amount: parsed.data.courtPriceEveningWeekendKzt,
           },
@@ -422,7 +414,7 @@ export async function createSportFromForm(formData: FormData) {
             locationId: defaultLocation.id,
             sportId: sport.id,
             componentType: "instructor",
-            period: "morning",
+            period: "off_peak",
             currency: "KZT",
             amount: 0,
           },
@@ -430,15 +422,7 @@ export async function createSportFromForm(formData: FormData) {
             locationId: defaultLocation.id,
             sportId: sport.id,
             componentType: "instructor",
-            period: "day",
-            currency: "KZT",
-            amount: 0,
-          },
-          {
-            locationId: defaultLocation.id,
-            sportId: sport.id,
-            componentType: "instructor",
-            period: "evening_weekend",
+            period: "peak",
             currency: "KZT",
             amount: 0,
           },
@@ -528,9 +512,8 @@ export async function updateSportFromForm(formData: FormData) {
       }
 
       for (const [period, amount] of [
-        ["morning", parsed.data.courtPriceMorningKzt],
-        ["day", parsed.data.courtPriceMorningKzt],
-        ["evening_weekend", parsed.data.courtPriceEveningWeekendKzt],
+        ["off_peak", parsed.data.courtPriceMorningKzt],
+        ["peak", parsed.data.courtPriceEveningWeekendKzt],
       ] as const) {
         await tx.componentPrice.upsert({
           where: {

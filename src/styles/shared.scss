@@ -41,7 +41,7 @@
   flex-direction: column;
   border: 1px solid var(--line);
   background-color: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   padding: 1.5rem;
   transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
 }
@@ -55,7 +55,7 @@
 .card-grid__badge {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.3125rem 0.75rem;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -101,7 +101,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1.25rem;
-  border-radius: 999px;
+  border-radius: 0.25rem;
   font-size: 0.9375rem;
   font-weight: 600;
   background-color: var(--accent);
@@ -126,7 +126,7 @@
   display: grid;
   gap: 0.5rem;
   border: 1px solid var(--line);
-  border-radius: 0.875rem;
+  border-radius: 0.25rem;
   background: var(--bg);
   padding: 0.875rem 1rem;
   font-size: 0.875rem;
@@ -137,7 +137,7 @@
 .event-card__registered {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.625rem 1rem;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -174,7 +174,7 @@
 .event-card__date-field {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   background: var(--bg);
   color: var(--ink);
   padding: 0.75rem 1rem;
@@ -187,7 +187,7 @@
   display: grid;
   gap: 0.625rem;
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: 0.25rem;
   padding: 0.875rem 1rem;
   background: var(--bg);
 }
@@ -232,7 +232,7 @@
   z-index: 1;
   width: min(100%, 34rem);
   border: 1px solid var(--line);
-  border-radius: 1.5rem;
+  border-radius: 0.25rem;
   background: var(--surface);
   padding: 1.25rem;
   box-shadow: 0 28px 80px rgba(20, 19, 15, 0.24);
@@ -265,7 +265,7 @@
 
 .event-card-modal__close {
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   background: var(--bg);
   color: var(--ink);
   padding: 0.625rem 0.875rem;
@@ -285,7 +285,7 @@
 .tag-list__item {
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.3125rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 500;
@@ -298,7 +298,7 @@
 .pricing-table {
   border: 1px solid var(--line);
   background-color: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   padding: 1.75rem;
 }
 
@@ -349,6 +349,7 @@
   font-family: var(--font-display);
   font-weight: 600;
   color: var(--ink);
+  font-size: 1rem;
 }
 
 .pricing-table__table tbody tr td:first-child,
@@ -363,7 +364,7 @@
 .rule-list {
   border: 1px solid var(--line);
   background-color: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   padding: 1.75rem;
 }
 
@@ -413,7 +414,7 @@
 .rule-list__note {
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: 0.75rem;
+  border-radius: 0.25rem;
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
   line-height: 1.55;
@@ -445,7 +446,7 @@
   flex-direction: column;
   border: 1px solid var(--line);
   background-color: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   padding: 1.75rem;
   transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
 }
@@ -477,7 +478,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.75rem 1.25rem;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -519,7 +520,7 @@
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.375rem 0.875rem;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -561,7 +562,7 @@
 .contact-form {
   border: 1px solid var(--line);
   background-color: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   padding: 1.75rem;
 }
 
@@ -584,7 +585,7 @@
 .contact-form__message {
   margin-top: 1.25rem;
   border: 1px solid var(--line);
-  border-radius: 0.875rem;
+  border-radius: 0.25rem;
   padding: 0.875rem 1rem;
   font-size: 0.9375rem;
   line-height: 1.5;
@@ -618,7 +619,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.75rem 1.25rem;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -648,7 +649,7 @@
 .pricing-example__card {
   border: 1px solid var(--line);
   background-color: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   padding: 1.75rem;
 }
 
@@ -680,7 +681,7 @@
   justify-content: space-between;
   gap: 0.875rem;
   border: 1px solid var(--line);
-  border-radius: 0.75rem;
+  border-radius: 0.25rem;
   padding: 0.75rem 1rem;
   font-size: 0.9375rem;
   background-color: var(--bg);
@@ -716,7 +717,7 @@
   justify-content: space-between;
   margin-bottom: 1rem;
   min-height: 9rem;
-  border-radius: 1rem;
+  border-radius: 0.25rem;
   padding: 1rem 1.125rem;
   background: var(--bg-alt);
   border: 1px solid var(--line);
@@ -756,7 +757,7 @@
   overflow: hidden;
   border: 1px solid var(--line);
   background-color: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   display: flex;
   flex-direction: column;
   transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
@@ -820,7 +821,7 @@
   bottom: 0.875rem;
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.375rem 0.75rem;
   background: var(--surface);
   color: var(--ink);
@@ -866,7 +867,7 @@
   display: inline-flex;
   align-self: flex-start;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.3125rem 0.75rem;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -909,7 +910,7 @@
   max-height: calc(100vh - 2rem);
   overflow: auto;
   border: 1px solid var(--line);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   background: var(--surface);
   padding: 1.25rem;
   box-shadow: 0 24px 80px rgba(20, 19, 15, 0.4);
@@ -949,7 +950,7 @@
 .coach-gallery-modal__close,
 .coach-gallery-modal__nav {
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   background: var(--surface);
   color: var(--ink);
   font-size: 0.75rem;
@@ -970,7 +971,7 @@
 .coach-gallery-modal__image-wrap {
   position: relative;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: 0.25rem;
   background: var(--bg-alt);
 }
 
@@ -1006,7 +1007,7 @@
   height: 4rem;
   overflow: hidden;
   border: 2px solid transparent;
-  border-radius: 0.625rem;
+  border-radius: 0.25rem;
   padding: 0;
   background: var(--bg-alt);
 }
@@ -1033,7 +1034,7 @@
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: 0.25rem;
   padding: 0.625rem 1.125rem;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -1067,7 +1068,7 @@
   overflow: hidden;
   border: 1px solid var(--line);
   background-color: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 0.25rem;
   display: flex;
   flex-direction: column;
 }

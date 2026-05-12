@@ -12,7 +12,7 @@ export type BookingResourceType = "court" | "instructor";
 export type ScheduleResourceType = "venue" | "court" | "instructor";
 
 export type ScheduleExceptionType = "closed" | "maintenance";
-export type PricingTier = "morning" | "day" | "evening_weekend";
+export type PricingTier = "off_peak" | "peak";
 export type PriceComponentType = "court" | "instructor";
 
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;

@@ -1,63 +1,34 @@
 @import "tailwindcss";
 
-:root,
-[data-theme="green"] {
-  /* Surfaces */
-  --bg: #fafaf7;
-  --bg-alt: #f1eee5;
-  --bg-deep: #14130f;
+:root {
+  /* Surfaces — paper / bone palette from identity */
+  --bg: #faf6ee;
+  --bg-alt: #f3ecdc;
+  --bg-deep: #1a1411;
   --surface: #ffffff;
 
   /* Text */
-  --ink: #11140f;
-  --ink-soft: #3a3f37;
-  --muted: #6b716a;
-  --on-deep: #f5f2ea;
+  --ink: #1a1411;
+  --ink-soft: #4a3f37;
+  --muted: #7a6e64;
+  --on-deep: #f3ecdc;
 
   /* Lines */
-  --line: #e7e4dc;
-  --line-strong: #cdc9be;
+  --line: #d8cdb6;
+  --line-strong: #c2b49a;
 
-  /* Brand */
-  --primary: #1f4d3a;
-  --primary-hover: #163829;
-  --primary-soft: #e6efe9;
-  --primary-on: #f7f5ee;
-
-  /* CTA accent */
-  --accent: #e8593a;
-  --accent-hover: #d24729;
-  --accent-soft: #fde8e1;
-  --accent-on: #ffffff;
-
-  /* Fonts */
-  --font-display: var(--font-lora), Georgia, serif;
-  --font-body: var(--font-manrope), system-ui, sans-serif;
-}
-
-[data-theme="orange"] {
-  --bg: #fafaf7;
-  --bg-alt: #f7ede6;
-  --bg-deep: #1a120e;
-  --surface: #ffffff;
-
-  --ink: #14110f;
-  --ink-soft: #3f3a37;
-  --muted: #71686a;
-  --on-deep: #faf2eb;
-
-  --line: #ebe4dd;
-  --line-strong: #d6c9bd;
-
+  /* Brand — clay primary from identity */
   --primary: #c93f17;
   --primary-hover: #a53310;
   --primary-soft: #fde8df;
-  --primary-on: #fff7f3;
+  --primary-on: #faf6ee;
+  --brick: #6f1d0a;
 
-  --accent: #f04e23;
-  --accent-hover: #d8421a;
-  --accent-soft: #fdded2;
-  --accent-on: #ffffff;
+  /* CTA accent */
+  --accent: #c93f17;
+  --accent-hover: #a53310;
+  --accent-soft: #fde8df;
+  --accent-on: #faf6ee;
 }
 
 /* Legacy aliases — keep existing components working until refactored */
@@ -66,10 +37,10 @@
   --foreground: var(--ink);
   --surface-strong: var(--bg-deep);
   --accent-active: var(--accent-hover);
-  --accent-rgb: 17, 24, 39;
+  --accent-rgb: 201, 63, 23;
   --text-on-primary: var(--accent-on);
   --accent-secondary: var(--accent);
-  --accent-secondary-rgb: 232, 89, 58;
+  --accent-secondary-rgb: 201, 63, 23;
   --accent-tertiary: var(--bg-alt);
   --foreground-rgb: 17, 20, 15;
   --dark: var(--bg-deep);
@@ -83,8 +54,8 @@
   --color-background: var(--bg);
   --color-foreground: var(--ink);
   --font-sans: var(--font-manrope);
-  --font-serif: var(--font-lora);
-  --font-mono: var(--font-plex-mono);
+  --font-serif: var(--font-cormorant);
+  --font-mono: var(--font-jetbrains);
 }
 
 html {
@@ -92,6 +63,11 @@ html {
 }
 
 body {
+  /* Font variables defined here so Next.js font class vars resolve correctly */
+  --font-display: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
+  --font-body: var(--font-manrope), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace;
+
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
@@ -100,12 +76,33 @@ body {
   line-height: 1.6;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin: 0;
+}
+
+h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); }
+h2 { font-size: clamp(2rem, 4vw, 3rem); }
+h3 { font-size: clamp(1.5rem, 3vw, 2.25rem); }
+h4 { font-size: 1.375rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
+
 .skip-link {
   position: absolute;
   left: 1rem;
   top: -3rem;
   z-index: 100;
-  border-radius: 0.5rem;
+  border-radius: 0.25rem;
   padding: 0.625rem 0.875rem;
   font-size: 0.875rem;
   font-weight: 600;

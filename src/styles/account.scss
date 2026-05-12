@@ -34,7 +34,7 @@
 }
 
 .account-shell__toolbar {
-  @apply flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between;
+  @apply flex flex-col gap-3 rounded border p-4 sm:flex-row sm:items-center sm:justify-between;
   border-color: var(--line);
   background-color: var(--surface);
 }
@@ -66,7 +66,7 @@
 }
 
 .account-card {
-  @apply rounded-2xl border p-5;
+  @apply rounded border p-5;
   border-color: var(--line);
   background-color: var(--surface);
 }
@@ -104,7 +104,7 @@
 }
 
 .account-profile__item {
-  @apply grid gap-1 rounded-lg border p-3;
+  @apply grid gap-1 rounded border p-3;
   border-color: var(--line);
   background-color: var(--background);
 }
@@ -119,7 +119,7 @@
 }
 
 .account-profile-form {
-  @apply mt-4 rounded-xl border p-4;
+  @apply mt-4 rounded border p-4;
   border-color: var(--line);
   background-color: var(--background);
 }
@@ -141,7 +141,7 @@
 }
 
 .account-stats__item {
-  @apply flex items-center justify-between rounded-lg border px-3 py-2.5;
+  @apply flex items-center justify-between rounded border px-3 py-2.5;
   border-color: var(--line);
   background-color: var(--background);
 }
@@ -160,7 +160,7 @@
 }
 
 .account-history__message {
-  @apply my-3 rounded-xl border px-4 py-3 text-sm;
+  @apply my-3 rounded border px-4 py-3 text-sm;
 }
 
 .account-history__message--error {
@@ -181,7 +181,7 @@
 }
 
 .account-history__empty {
-  @apply rounded-2xl border p-5 text-sm;
+  @apply rounded border p-5 text-sm;
   border-color: var(--line);
   background-color: var(--surface);
   color: var(--muted);
@@ -211,7 +211,7 @@
 }
 
 .account-history__card {
-  @apply rounded-2xl border p-4;
+  @apply rounded border p-4;
   border-color: var(--line);
   background-color: var(--surface);
 }
@@ -239,7 +239,7 @@
 }
 
 .account-history__card-item {
-  @apply rounded-lg border px-3 py-2 flex flex-col items-start gap-1;
+  @apply rounded border px-3 py-2 flex flex-col items-start gap-1;
   border-color: var(--line);
   background-color: var(--background);
 }
@@ -319,7 +319,7 @@
 }
 
 .account-dialog {
-  @apply w-full max-w-md rounded-2xl border p-4;
+  @apply w-full max-w-md rounded border p-4;
   border-color: var(--line);
   background-color: var(--surface);
   box-shadow: 0 20px 70px rgba(15, 23, 42, 0.16);

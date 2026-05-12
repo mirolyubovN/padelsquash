@@ -3,7 +3,7 @@
 /* ── Booking preview ─────────────────────────────────────────────── */
 
 .booking-preview {
-  @apply grid gap-5 rounded-3xl border p-6 md:grid-cols-[0.95fr_1.05fr] md:p-8;
+  @apply grid gap-5 rounded border p-6 md:grid-cols-[0.95fr_1.05fr] md:p-8;
   border-color: var(--line);
   background-color: var(--surface);
 }
@@ -23,7 +23,7 @@
 }
 
 .booking-preview__panel {
-  @apply rounded-2xl border p-4;
+  @apply rounded border p-4;
   border-color: var(--line);
   background-color: var(--background);
 }
@@ -33,13 +33,13 @@
 }
 
 .booking-preview__step {
-  @apply grid grid-cols-[2rem_1fr] gap-3 rounded-xl border p-3;
+  @apply grid grid-cols-[2rem_1fr] gap-3 rounded border p-3;
   border-color: var(--line);
   background-color: var(--surface);
 }
 
 .booking-preview__step-badge {
-  @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold;
+  @apply inline-flex h-8 w-8 items-center justify-center rounded text-sm font-semibold;
   background-color: var(--accent-soft);
   color: var(--foreground);
 }
@@ -58,7 +58,7 @@
 }
 
 .booking-preview__example {
-  @apply mt-4 rounded-xl border p-3;
+  @apply mt-4 rounded border p-3;
   border-color: var(--line);
   background-color: var(--surface);
 }
@@ -72,7 +72,7 @@
 }
 
 .booking-preview__slot {
-  @apply list-none rounded-full px-3 py-1.5 text-xs font-semibold;
+  @apply list-none rounded px-3 py-1.5 text-xs font-semibold;
 }
 
 .booking-preview__slot--available {
@@ -98,7 +98,7 @@
 /* ── Booking flow ─────────────────────────────────────────────────── */
 
 .booking-flow {
-  @apply rounded-2xl border p-5 md:p-6;
+  @apply rounded border p-5 md:p-6;
   border-color: var(--line);
   background-color: var(--surface);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.05);
@@ -128,7 +128,7 @@
 }
 
 .booking-flow__section-hint--info {
-  @apply rounded-lg border px-3 py-2 text-sm;
+  @apply rounded border px-3 py-2 text-sm;
   border-color: rgba(var(--accent-rgb), 0.35);
   background-color: var(--accent-soft);
   color: var(--foreground);
@@ -184,7 +184,7 @@
 }
 
 .booking-flow__trainer-card {
-  @apply flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all;
+  @apply flex items-center gap-3 rounded border px-3 py-3 text-left transition-all;
   border-color: var(--line);
   background-color: var(--background);
 }
@@ -329,7 +329,7 @@
 
 .booking-flow__slot-skeleton {
   height: 3.5rem;
-  border-radius: 0.375rem;
+  border-radius: 0.25rem;
   background: linear-gradient(
     90deg,
     rgba(0, 0, 0, 0.04) 0%,
@@ -342,7 +342,7 @@
 
 /* Errors */
 .booking-flow__error {
-  @apply flex flex-col gap-2 rounded-lg border px-4 py-3 text-sm;
+  @apply flex flex-col gap-2 rounded border px-4 py-3 text-sm;
   border-color: rgba(239, 68, 68, 0.2);
   background-color: rgba(239, 68, 68, 0.05);
 }
@@ -389,7 +389,7 @@
 
 /* Auth gate */
 .booking-flow__auth-gate {
-  @apply flex flex-col gap-4 rounded-lg border p-5;
+  @apply flex flex-col gap-4 rounded border p-5;
   border-color: var(--line);
   background-color: var(--background);
 }
@@ -494,7 +494,7 @@
 
 /* Success state */
 .booking-flow__success {
-  @apply flex flex-col gap-3 rounded-lg border p-4;
+  @apply flex flex-col gap-3 rounded border p-4;
   border-color: #16a34a;
   background-color: rgba(22, 163, 74, 0.06);
 }
@@ -533,7 +533,7 @@
 
 /* Info / notice block */
 .booking-flow__notice {
-  @apply rounded-lg border-l-4 px-4 py-3 text-sm leading-6;
+  @apply rounded border-l-4 px-4 py-3 text-sm leading-6;
   border-color: var(--accent);
   background-color: var(--accent-soft);
 }
@@ -681,7 +681,7 @@
   width: 0.75rem;
   height: 0.75rem;
   margin-right: 0.5rem;
-  border-radius: 9999px;
+  border-radius: 0.25rem;
   border: 2px solid rgba(255, 255, 255, 0.55);
   border-top-color: rgba(255, 255, 255, 1);
   display: inline-block;

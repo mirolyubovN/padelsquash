@@ -8,7 +8,7 @@ import { PriceBreakdown } from "@/src/components/booking/price-breakdown";
 import { TimeSlotTimetable } from "@/src/components/booking/time-slot-timetable";
 import { t } from "@/src/lib/i18n";
 
-type PricingTier = "morning" | "day" | "evening_weekend";
+type PricingTier = "off_peak" | "peak";
 type CourtPriceMatrix = Record<string, Record<PricingTier, number>>;
 type PaymentMode = "auto" | "wallet" | "cash";
 
@@ -645,7 +645,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
 
       <div className="booking-flow__section">
         <p className="booking-flow__section-label">{t("admin.createBooking.stepDateTime")}</p>
-        <input id="cb-date" type="date" className="booking-flow__date-input" min={getTodayDate()} value={date} onChange={(e) => { setDate(e.target.value); resetSelection(); }} required />
+        <input id="cb-date" type="date" lang="ru-RU" className="booking-flow__date-input" min={getTodayDate()} value={date} onChange={(e) => { setDate(e.target.value); resetSelection(); }} required />
         {selectedCells.length > 0 ? <p className="booking-flow__slots-hint">{t("admin.createBooking.selectedPositions", { count: selectedCells.length })}</p> : null}
         {slotsLoading ? (
           <div className="booking-flow__slots-skeleton">{[1, 2, 3, 4, 5, 6].map((n) => <div key={n} className="booking-flow__slot-skeleton" />)}</div>
