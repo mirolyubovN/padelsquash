@@ -1,0 +1,65 @@
+.rule-list {
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  border-radius: 0.25rem;
+  padding: 1.75rem;
+}
+
+.rule-list__title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+
+.rule-list__items {
+  margin: 1.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+}
+
+.rule-list__item {
+  position: relative;
+  padding-left: 1.625rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.rule-list__item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6875rem;
+  width: 0.875rem;
+  height: 1px;
+  background: var(--accent);
+}
+
+.rule-list__notes {
+  margin-top: 1.25rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rule-list__note {
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  background: var(--bg);
+}
+
+.rule-list__note strong {
+  color: var(--ink);
+  font-weight: 600;
+}

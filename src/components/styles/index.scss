@@ -1,0 +1,27 @@
+// Layout
+@use "../layout/layout";
+
+// Core components
+@use "../site-header/site-header";
+@use "../site-footer/site-footer";
+@use "../page-hero/page-hero";
+@use "../faq-accordion/faq-accordion";
+
+// Feature components
+@use "../home-page/home-page";
+@use "../booking/booking";
+@use "../account/account";
+@use "../auth/auth";
+@use "../admin/admin";
+
+// Shared UI primitives
+@use "../shared/page-layout/page-layout";
+@use "../shared/card-grid/card-grid";
+@use "../shared/rule-list/rule-list";
+
+// Page-specific blocks
+@use "../contact/contact-page/contact-page";
+@use "../pricing/pricing-page/pricing-page";
+@use "../events/public-event-card/public-event-card";
+@use "../coaches/coach-gallery-list/coach-gallery-list";
+@use "../sport-info/sport-info-page/sport-info-page";

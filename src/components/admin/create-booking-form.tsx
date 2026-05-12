@@ -581,7 +581,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
         <ul className="admin-create-booking__created-list">
           {successSummary.createdSessions.slice(0, 10).map((item) => (
             <li key={item.bookingId} className="admin-create-booking__created-item">
-              {item.startTime} · {courtNames.get(item.courtId) ?? item.courtId} · {formatMoneyKzt(item.amountKzt)} ·{" "}
+              {date} {item.startTime} · {courtNames.get(item.courtId) ?? item.courtId} · {formatMoneyKzt(item.amountKzt)} ·{" "}
               {item.paymentStatus === "paid" ? t("admin.createBooking.sessionPaid") : t("admin.createBooking.sessionUnpaid")}
             </li>
           ))}

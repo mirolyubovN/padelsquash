@@ -622,7 +622,7 @@ export async function createBookingInDb(
           payment: {
             create: {
               provider: effectiveSettlementMode === "wallet_paid" ? "wallet" : "manual",
-              status: effectiveSettlementMode === "manual_unpaid" ? "unpaid" : "paid",
+              status: effectiveSettlementMode === "wallet_paid" ? "paid" : "unpaid",
               amount: effectiveTotal,
               currency: pricing.currency,
               providerPaymentId: null,
@@ -1002,7 +1002,7 @@ export async function createBookingSeriesInDb(
       const totalAmount = preparedSlots.reduce((sum, slot) => sum + slot.effectiveTotal, 0);
       const currentBalanceKzt = Number(customerUser.walletBalance);
       if (currentBalanceKzt < totalAmount) {
-        throw new Error("Недостаточно средств на балансе для всей серии");
+        throw new Error("Недостаточно средств на балансе для броинрования");
       }
 
       const bookings: CreateBookingSeriesInDbResult["bookings"] = [];

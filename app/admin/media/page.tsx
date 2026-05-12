@@ -38,7 +38,6 @@ function getCategoryLabel(category: string): string {
 function revalidateMediaDependencies() {
 	revalidatePath("/admin/media");
 	revalidatePath("/");
-	revalidatePath("/preview/citysquash-style");
 }
 
 export default async function AdminMediaPage() {

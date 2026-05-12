@@ -9,7 +9,8 @@ import { cancelBookingWithRefundInTx } from "@/src/lib/bookings/operations";
 import { cancelCustomerEventRegistration } from "@/src/lib/events/service";
 import { notifyBookingCancelled } from "@/src/lib/notifications/bookings";
 import { prisma } from "@/src/lib/prisma";
-import { isoToVenueTimezoneParts } from "@/src/lib/time/venue-timezone";
+import { formatTimeInVenueTimezone, isoToVenueTimezoneParts, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
+import { debitUserWallet } from "@/src/lib/wallet/service";
 
 const FREE_CANCELLATION_HOURS = getSafeCustomerFreeCancellationHours();
 const MORNING_WINDOW_LABEL = getMorningCancellationWindowLabel();
@@ -413,6 +414,187 @@ export async function cancelCustomerAccountEventRegistration(args: { userId: str
   return cancelCustomerEventRegistration({
     customerId: args.userId,
     eventId: args.eventId,
+  });
+}
+
+export interface AccountHoldSlot {
+  id: string;
+  courtName: string;
+  date: string;
+  timeRange: string;
+  amountKzt: string;
+}
+
+export interface AccountHoldGroup {
+  groupKey: string;
+  serviceName: string;
+  slots: AccountHoldSlot[];
+  totalAmountKzt: string;
+  expiresAtIso: string;
+  holdIds: string[];
+  bookReturnUrl: string;
+}
+
+export async function getAccountActiveHolds(userId: string): Promise<AccountHoldGroup[]> {
+  const now = new Date();
+  const holds = await prisma.bookingHold.findMany({
+    where: {
+      customerId: userId,
+      status: "active",
+      expiresAt: { gt: now },
+    },
+    orderBy: { expiresAt: "asc" },
+    include: {
+      service: {
+        include: {
+          sport: { select: { slug: true } },
+        },
+      },
+      location: { select: { slug: true } },
+    },
+  });
+
+  const courtIds = holds.map((h) => h.courtId).filter(Boolean) as string[];
+  const courtsById = new Map<string, string>();
+  if (courtIds.length > 0) {
+    const courts = await prisma.court.findMany({
+      where: { id: { in: courtIds } },
+      select: { id: true, name: true },
+    });
+    for (const c of courts) courtsById.set(c.id, c.name);
+  }
+
+  // Group holds created in the same booking session (same 1-minute bucket + service + location + instructor)
+  type HoldRecord = (typeof holds)[number];
+  const groupMap = new Map<string, { holds: HoldRecord[]; expiresAt: Date }>();
+  for (const hold of holds) {
+    const minuteBucket = Math.floor(hold.expiresAt.getTime() / 60000);
+    const key = `${minuteBucket}:${hold.serviceId}:${hold.locationId}:${hold.instructorId ?? ""}`;
+    if (!groupMap.has(key)) {
+      groupMap.set(key, { holds: [], expiresAt: hold.expiresAt });
+    }
+    const entry = groupMap.get(key)!;
+    entry.holds.push(hold);
+    if (hold.expiresAt < entry.expiresAt) entry.expiresAt = hold.expiresAt;
+  }
+
+  return Array.from(groupMap.entries()).map(([groupKey, { holds: groupHolds, expiresAt }]) => {
+    const first = groupHolds[0]!;
+    const service = first.service;
+    const location = first.location;
+    const serviceKind = service.requiresInstructor ? "training" : "court";
+
+    const params = new URLSearchParams({
+      location: location.slug,
+      sport: service.sport.slug,
+      service: serviceKind,
+      date: toVenueIsoDate(first.startAt),
+    });
+    if (first.instructorId) params.set("instructor", first.instructorId);
+
+    const slots: AccountHoldSlot[] = groupHolds.map((hold) => {
+      const startTime = formatTimeInVenueTimezone(hold.startAt);
+      const endTime = formatTimeInVenueTimezone(hold.endAt);
+      const courtName = hold.courtId ? (courtsById.get(hold.courtId) ?? "—") : "—";
+      if (hold.courtId) {
+        params.append("cell", `${startTime}|${endTime}::${hold.courtId}::${hold.id}`);
+      }
+      return {
+        id: hold.id,
+        courtName,
+        date: isoToVenueTimezoneParts(hold.startAt).date,
+        timeRange: `${startTime} - ${endTime}`,
+        amountKzt: formatAmountKzt(Number(hold.amountRequired)),
+      };
+    });
+
+    const totalAmount = groupHolds.reduce((sum, h) => sum + Number(h.amountRequired), 0);
+
+    return {
+      groupKey,
+      serviceName: service.name,
+      slots,
+      totalAmountKzt: formatAmountKzt(totalAmount),
+      expiresAtIso: expiresAt.toISOString(),
+      holdIds: groupHolds.map((h) => h.id),
+      bookReturnUrl: `/book?${params.toString()}`,
+    };
+  });
+}
+
+export async function payBookingFromWallet(args: { userId: string; bookingId: string }): Promise<void> {
+  const booking = await prisma.booking.findFirst({
+    where: { id: args.bookingId, customerId: args.userId },
+    select: {
+      id: true,
+      status: true,
+      priceTotal: true,
+      currency: true,
+      startAt: true,
+      service: { select: { code: true } },
+      payment: { select: { id: true, status: true } },
+    },
+  });
+
+  if (!booking) throw new Error("Бронирование не найдено");
+  if (booking.status === "cancelled" || booking.status === "completed" || booking.status === "no_show") {
+    throw new Error("Оплата недоступна для этого бронирования");
+  }
+  if (booking.payment?.status === "paid") throw new Error("Бронирование уже оплачено");
+
+  const amountKzt = Number(booking.priceTotal);
+
+  await prisma.$transaction(async (tx) => {
+    await debitUserWallet({
+      tx,
+      userId: args.userId,
+      amountKzt,
+      type: "booking_charge",
+      bookingId: booking.id,
+      note: "Оплата бронирования с баланса",
+      metadataJson: {
+        serviceCode: booking.service.code,
+        startAt: booking.startAt.toISOString(),
+        source: "customer_wallet_payment",
+      },
+    });
+
+    if (booking.payment) {
+      await tx.payment.update({
+        where: { id: booking.payment.id },
+        data: { provider: "wallet", status: "paid" },
+      });
+    } else {
+      await tx.payment.create({
+        data: {
+          bookingId: booking.id,
+          provider: "wallet",
+          status: "paid",
+          amount: booking.priceTotal,
+          currency: booking.currency,
+          providerPaymentId: null,
+        },
+      });
+    }
+
+    if (booking.status === "pending_payment") {
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: { status: "confirmed" },
+      });
+    }
+  });
+}
+
+export async function cancelCustomerHolds(args: { userId: string; holdIds: string[] }): Promise<void> {
+  if (args.holdIds.length === 0) return;
+  await prisma.bookingHold.updateMany({
+    where: {
+      id: { in: args.holdIds },
+      customerId: args.userId,
+      status: "active",
+    },
+    data: { status: "cancelled" },
   });
 }
 

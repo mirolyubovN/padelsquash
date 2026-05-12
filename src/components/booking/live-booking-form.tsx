@@ -279,8 +279,8 @@ export function LiveBookingForm({
         : "training";
   const initialDate =
     initialSelection.date &&
-    /^\d{4}-\d{2}-\d{2}$/.test(initialSelection.date) &&
-    initialSelection.date >= todayDate
+      /^\d{4}-\d{2}-\d{2}$/.test(initialSelection.date) &&
+      initialSelection.date >= todayDate
       ? initialSelection.date
       : defaultSelectedDate;
   const initialInstructorId =
@@ -312,6 +312,13 @@ export function LiveBookingForm({
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoResult, setPromoResult] = useState<{ code: string; discountKzt: number; totalAfterDiscount: number } | null>(null);
+  // Hold IDs for the current booking session — persists across cell deselection so
+  // the availability API continues to exclude this user's own holds.
+  const [sessionHoldIds, setSessionHoldIds] = useState<string[]>(() =>
+    initialSelection.selectedCells
+      .map((c) => c.holdId)
+      .filter((id): id is string => Boolean(id)),
+  );
 
   const skipInitialUrlSyncRef = useRef(true);
   const skipNextContextResetRef = useRef(false);
@@ -335,18 +342,15 @@ export function LiveBookingForm({
     : null;
   const selectedTrainerPrice = selectedTrainer?.sportPrices[sport] ?? 0;
   const selectedHoldIds = useMemo(() => {
-    const cellsWithPossibleHolds = [
-      ...selectedCells,
-      ...(pendingUrlSelectedCellsRef.current ?? []),
-    ];
-    return Array.from(
-      new Set(
-        cellsWithPossibleHolds
-          .map((cell) => cell.holdId)
-          .filter((holdId): holdId is string => Boolean(holdId)),
-      ),
-    );
-  }, [selectedCells]);
+    const ids = new Set<string>(sessionHoldIds);
+    for (const cell of selectedCells) {
+      if (cell.holdId) ids.add(cell.holdId);
+    }
+    for (const cell of pendingUrlSelectedCellsRef.current ?? []) {
+      if (cell.holdId) ids.add(cell.holdId);
+    }
+    return Array.from(ids);
+  }, [selectedCells, sessionHoldIds]);
   // String key so effect deps use value comparison (arrays always differ by reference)
   const selectedHoldIdsKey = selectedHoldIds.join(",");
   const hasLocationStep = locations.length > 1;
@@ -527,6 +531,7 @@ export function LiveBookingForm({
 
     setSelectedCells([]);
     setSelectedInstructorId("");
+    setSessionHoldIds([]);
     setSubmitError(null);
     setSubmitWarning(null);
     setSubmitSuccessSummary(null);
@@ -537,6 +542,7 @@ export function LiveBookingForm({
   // Clear cells when instructor changes
   useEffect(() => {
     setSelectedCells([]);
+    setSessionHoldIds([]);
     setSubmitError(null);
     setSubmitWarning(null);
     setSubmitSuccessSummary(null);
@@ -546,6 +552,7 @@ export function LiveBookingForm({
 
   useEffect(() => {
     setSelectedCells([]);
+    setSessionHoldIds([]);
     setSubmitError(null);
     setSubmitWarning(null);
     setSubmitSuccessSummary(null);
@@ -644,6 +651,12 @@ export function LiveBookingForm({
       return slot ? slot.availableCourtIds.includes(cell.resourceId) : false;
     });
 
+    const pendingHoldIds = pendingSelectedCells
+      .map((c) => c.holdId)
+      .filter((id): id is string => Boolean(id));
+    if (pendingHoldIds.length > 0) {
+      setSessionHoldIds((prev) => Array.from(new Set([...prev, ...pendingHoldIds])));
+    }
     setSelectedCells(restoredSelectedCells);
     pendingUrlSelectedCellsRef.current = null;
   }, [availability, availabilityError, availabilityLoading, availableTimeSlots]);
@@ -798,6 +811,9 @@ export function LiveBookingForm({
         holdId: holdsBySlotKey.get(`${cell.timeKey.split("|")[0]}:${cell.resourceId}`) ?? cell.holdId,
       })),
     );
+    setSessionHoldIds((prev) =>
+      Array.from(new Set([...prev, ...payload.data.holds.map((h) => h.holdId)])),
+    );
     // Start hold expiration countdown using the earliest expiresAt
     const earliestExpiresAt = payload.data.holds
       .map((h) => new Date(h.expiresAtIso).getTime())
@@ -875,6 +891,9 @@ export function LiveBookingForm({
           ...cell,
           holdId: holdsBySlotKey.get(`${cell.timeKey.split("|")[0]}:${cell.resourceId}`) ?? cell.holdId,
         })),
+      );
+      setSessionHoldIds((prev) =>
+        Array.from(new Set([...prev, ...payload.data.holds.map((h) => h.holdId)])),
       );
       const earliestExpiresAt = payload.data.holds
         .map((hold) => new Date(hold.expiresAtIso).getTime())
@@ -1197,9 +1216,9 @@ export function LiveBookingForm({
             <p className="booking-flow__slots-hint">
               {selectedCells.length > 0
                 ? t("booking.live.selectedSessions", {
-                    count: selectedCells.length,
-                    sessionWord: getSessionWord(selectedCells.length),
-                  })
+                  count: selectedCells.length,
+                  sessionWord: getSessionWord(selectedCells.length),
+                })
                 : t("booking.live.selectCourtAndTime")}
             </p>
 
@@ -1234,10 +1253,10 @@ export function LiveBookingForm({
                 return isSelected
                   ? "✓"
                   : isAvailable && cellPrice !== null
-                  ? formatMoneyKzt(cellPrice)
-                  : isAvailable
-                  ? t("booking.live.cellAvailable")
-                  : t("booking.live.cellUnavailable");
+                    ? formatMoneyKzt(cellPrice)
+                    : isAvailable
+                      ? t("booking.live.cellAvailable")
+                      : t("booking.live.cellUnavailable");
               }}
             />
           </>
@@ -1373,24 +1392,19 @@ export function LiveBookingForm({
                         </div>
                       ) : null}
 
-                      {/* {initialCustomer?.name ? (
-                        <p className="booking-flow__status-note booking-flow__status-item">
-                          Бронирование для: <strong>{initialCustomer.name}</strong>
-                          {initialCustomer.phone ? ` · ${initialCustomer.phone}` : ""}
-                        </p>
-                      ) : null} */}
-
-                      {showHoldTimer ? (
-                        <p className={`booking-flow__hold-timer booking-flow__status-item${holdSecondsLeft < 120 ? " booking-flow__hold-timer--expiring" : ""}`}>
-                          {t("booking.live.holdTimer", {
-                            minutes: Math.floor(holdSecondsLeft / 60),
-                            seconds: holdSecondsLeft % 60,
-                          })}
-                        </p>
-                      ) : null}
 
                       {submitWarning ? (
-                        <p className="booking-flow__warning booking-flow__status-item" role="status">{submitWarning}</p>
+                        <p className="booking-flow__warning booking-flow__status-item" role="status">
+                          {submitWarning}
+                          {showHoldTimer ? (
+                            <span className={`booking-flow__hold-timer booking-flow__status-item${holdSecondsLeft < 120 ? " booking-flow__hold-timer--expiring" : ""}`}>&nbsp;
+                              {t("booking.live.holdTimer", {
+                                minutes: Math.floor(holdSecondsLeft / 60),
+                                seconds: holdSecondsLeft % 60,
+                              })}
+                            </span>
+                          ) : null}
+                        </p>
                       ) : null}
 
                       {submitError ? (

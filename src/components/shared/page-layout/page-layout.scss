@@ -1,0 +1,13 @@
+.listing-page,
+.pricing-page,
+.contact-page,
+.booking-page,
+.events-page,
+.account-page,
+.sport-info-page {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5rem;
+  padding-bottom: 4rem;
+  color: var(--ink);
+}

@@ -61,8 +61,8 @@ export default async function Home() {
 				<section className="home__hero" aria-labelledby="home-hero-title">
 					<div className="home__hero-bg" aria-hidden="true">
 						<img
-							src="https://picsum.photos/seed/club-courts-warm/1920/1080"
-							alt=""
+							src="/hero.png"
+							alt="Клуб ракеточных видов спорта в Костанае"
 							loading="eager"
 						/>
 					</div>

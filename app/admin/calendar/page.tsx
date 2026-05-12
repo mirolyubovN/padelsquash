@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminPageShell } from "@/src/components/admin/admin-page-shell";
+import { CalendarDateInput } from "@/src/components/admin/calendar-date-input";
 import { assertAdmin } from "@/src/lib/auth/guards";
 import {
   getCalendarDayData,
@@ -241,11 +242,7 @@ export default async function AdminCalendarPage({
         <Link href={buildNavLink(nextDate)} className="admin-calendar__nav-btn">
           {t("admin.calendar.nav.forward")}
         </Link>
-        <form method="get" action="/admin/calendar" className="admin-calendar__date-form">
-          {locationSlug ? <input type="hidden" name="location" value={locationSlug} /> : null}
-          <input type="date" lang="ru-RU" name="date" defaultValue={date} className="admin-form__field admin-calendar__date-input" />
-          <button type="submit" className="admin-bookings__action-button">{t("admin.calendar.nav.go")}</button>
-        </form>
+        <CalendarDateInput date={date} locationSlug={locationSlug} />
         <Link href={buildWeekViewLink()} className="admin-calendar__view-toggle">{t("admin.calendar.view.week")}</Link>
       </div>
 

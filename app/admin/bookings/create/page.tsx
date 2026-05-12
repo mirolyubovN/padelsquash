@@ -128,7 +128,7 @@ async function ensureAdminBookingCustomer(args: {
   const placeholderEmail = `${normalizedPhone}@noemail.padelsquash.kz`;
 
   const existing = await prisma.user.findFirst({
-    where: { phone: args.phone },
+    where: { OR: [{ phone: args.phone }, { phone: normalizedPhone }] },
     select: { id: true, role: true, name: true, phone: true, email: true },
   });
 

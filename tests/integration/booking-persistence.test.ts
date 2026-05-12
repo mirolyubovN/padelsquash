@@ -1077,7 +1077,7 @@ describe("booking persistence (DB integration)", () => {
           { startTime: "10:00", courtId: courtB.id },
         ],
       }),
-    ).rejects.toThrow("Недостаточно средств на балансе для всей серии");
+    ).rejects.toThrow("Недостаточно средств на балансе для бронирования");
 
     const bookings = await prisma.booking.count({
       where: {

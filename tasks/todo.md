@@ -58,3 +58,37 @@
 - `npx tsc --noEmit --incremental false --pretty false` passed. Plain `npx tsc --noEmit` hit local `EPERM` writing `tsconfig.tsbuildinfo`, so verification used `--incremental false`.
 - `npm run lint` passed with existing warnings only (`<img>` warnings in public/preview pages and one unused `customerEmail` warning in `src/components/admin/create-booking-form.tsx`).
 - Remaining Russian literals in target files are metadata, internal error strings/string matching, or comments.
+
+---
+
+# Session Todo (2026-05-12 - style colocation and shared.scss decomposition)
+
+## Plan
+
+- [x] Inventory current SCSS imports/usages and map shared blocks to owning components/templates.
+- [x] Convert top-level shared UI components to folder-per-component structure (`component/component.tsx` + `component.scss`) and fix imports.
+- [x] Split `src/styles/shared.scss` into colocated component SCSS files near owning templates/components.
+- [x] Remove redundant preview/variation styles and any orphaned preview pages that only exist to support those removed styles.
+- [x] Update global style entrypoint imports to new component-local SCSS paths.
+- [x] Run verification (`npm run lint`) and document outcomes.
+
+## Review
+
+- Moved component TSX/SCSS into component folders for `site-header`, `site-footer`, `page-hero`, `faq-accordion`, `public-event-card`, and `coach-gallery-list` with folder-local `index.ts` exports.
+- Moved former `src/styles` feature files into component-local locations (`src/components/{layout,home-page,booking,account,auth,admin}`) and moved the global SCSS entrypoint to `src/components/styles/index.scss`.
+- Split `src/styles/shared.scss` into focused colocated files:
+- `src/components/shared/page-layout/page-layout.scss`
+- `src/components/shared/card-grid/card-grid.scss`
+- `src/components/shared/rule-list/rule-list.scss`
+- `src/components/contact/contact-page/contact-page.scss`
+- `src/components/pricing/pricing-page/pricing-page.scss`
+- `src/components/events/public-event-card/public-event-card.scss`
+- `src/components/coaches/coach-gallery-list/coach-gallery-list.scss`
+- `src/components/sport-info/sport-info-page/sport-info-page.scss`
+- Removed redundant preview/variation artifacts:
+- deleted `src/styles/home-variation-a.scss`, `src/styles/home-variation-b.scss`, `src/styles/citysquash-preview.scss`
+- deleted `app/page-variation-a.tsx`, `app/page-variation-b.tsx`
+- deleted `app/preview/a/page.tsx`, `app/preview/b/page.tsx`, `app/preview/palette-1/page.tsx`, `app/preview/palette-2/page.tsx`, `app/preview/palette-3/page.tsx`, `app/preview/citysquash-style/page.tsx`
+- Updated `app/layout.tsx` to import `../src/components/styles/index.scss`.
+- Updated admin media preview revalidation to remove the now-deleted `/preview/citysquash-style` path.
+- Verification: `npm run lint` passed with existing warnings only (`<img>` optimization warnings and one pre-existing unused variable warning).

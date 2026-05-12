@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json(
           {
-            error: "Недостаточно средств на балансе для всей серии",
+            error: "Недостаточно средств на балансе для бронирования",
             code: "INSUFFICIENT_WALLET_BALANCE_SERIES",
             currentBalanceKzt: Number(accountCustomer.walletBalance),
             amountRequiredKzt: holdResult.totalAmountRequiredKzt,
