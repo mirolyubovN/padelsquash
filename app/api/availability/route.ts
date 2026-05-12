@@ -55,22 +55,26 @@ export async function GET(request: Request) {
     );
   }
 
+  const todayDate = getTodayVenueDate();
+  const isDatePast = parsed.data.date < todayDate;
+
   const serializeSlots = (slots: Array<{
     startTime: string;
     endTime: string;
     availableCourtIds: string[];
     availableInstructorIds: string[];
+    isPast: boolean;
   }>) =>
-    parsed.data.instructorId
-      ? slots.map((slot) => ({
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          availableCourtIds: slot.availableCourtIds,
-        }))
-      : slots;
+    slots.map((slot) => ({
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      availableCourtIds: slot.availableCourtIds,
+      isPast: isDatePast || slot.isPast,
+      ...(parsed.data.instructorId ? {} : { availableInstructorIds: slot.availableInstructorIds }),
+    }));
 
   const cutoffMin =
-    parsed.data.date === getTodayVenueDate() ? getNowVenueMin() + 5 : undefined;
+    parsed.data.date === todayDate ? getNowVenueMin() + 5 : undefined;
 
   let dbErrorMessage: string | null = null;
   try {

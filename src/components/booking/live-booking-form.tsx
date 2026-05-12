@@ -1256,7 +1256,9 @@ export function LiveBookingForm({
                     ? formatMoneyKzt(cellPrice)
                     : isAvailable
                       ? t("booking.live.cellAvailable")
-                      : t("booking.live.cellUnavailable");
+                      : slot.isPast
+                        ? t("booking.live.cellPast")
+                        : t("booking.live.cellUnavailable");
               }}
             />
           </>

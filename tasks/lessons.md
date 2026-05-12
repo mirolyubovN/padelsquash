@@ -82,3 +82,19 @@
 ## Lesson 2026-05-05 - optional admin client email
 
 - When making admin-created customer email optional, do not make `User.email` nullable casually because auth, wallet, activation links, and search use it as a unique key. Generate an internal placeholder email and hide it in operator-facing UI where possible.
+
+## Lesson 2026-05-12 - mobile drawer below sticky header
+
+- When moving a mobile drawer below a sticky header, give the fixed overlay an explicit viewport-based height and remove duplicate drawer header chrome; otherwise the drawer can collapse to zero height and look like transparent content floating under a double header.
+
+## Lesson 2026-05-12 - pricing period model
+
+- The pricing model has only `off_peak` and `peak` periods. Do not reintroduce legacy `morning`, `day`, or `evening_weekend` values in seed data, UI options, or tests.
+
+## Lesson 2026-05-12 - attendance statuses
+
+- Do not expose a separate `no_show` booking workflow unless the business has a concrete no-show policy. Past confirmed bookings should close as `completed`, and legacy `no_show` rows should be treated as completed in visible UI.
+
+## Lesson 2026-05-12 - trainer revenue share
+
+- Revenue share is trainer-specific, not global. Store the percentage on the trainer and use the same percentage for training and events; event payouts must be based on trainer hourly rate times event duration, not total event registration revenue.

@@ -137,15 +137,12 @@ const SEED_SERVICES = [
 ];
 
 const SEED_COURT_COMPONENT_PRICES = [
-	{ sport: "padel" as const, period: "morning" as const, amount: "12000.00" },
-	{ sport: "padel" as const, period: "day" as const, amount: "12000.00" },
-	{ sport: "padel" as const, period: "evening_weekend" as const, amount: "17000.00" },
-	{ sport: "squash" as const, period: "morning" as const, amount: "7000.00" },
-	{ sport: "squash" as const, period: "day" as const, amount: "7000.00" },
-	{ sport: "squash" as const, period: "evening_weekend" as const, amount: "10000.00" },
-	{ sport: "tennis" as const, period: "morning" as const, amount: "14000.00" },
-	{ sport: "tennis" as const, period: "day" as const, amount: "14000.00" },
-	{ sport: "tennis" as const, period: "evening_weekend" as const, amount: "19000.00" },
+	{ sport: "padel" as const, period: "off_peak" as const, amount: "12000.00" },
+	{ sport: "padel" as const, period: "peak" as const, amount: "17000.00" },
+	{ sport: "squash" as const, period: "off_peak" as const, amount: "7000.00" },
+	{ sport: "squash" as const, period: "peak" as const, amount: "10000.00" },
+	{ sport: "tennis" as const, period: "off_peak" as const, amount: "14000.00" },
+	{ sport: "tennis" as const, period: "peak" as const, amount: "19000.00" },
 ];
 
 const SEED_OPENING_HOURS = [

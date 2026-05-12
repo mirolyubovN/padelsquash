@@ -59,7 +59,7 @@ export async function rescheduleBooking(args: RescheduleBookingArgs): Promise<Re
   });
 
   if (!booking) throw new Error("Бронирование не найдено");
-  if (booking.status === "cancelled" || booking.status === "completed" || booking.status === "no_show") {
+  if (booking.status === "cancelled" || booking.status === "completed") {
     throw new Error("Невозможно перенести бронирование в данном статусе");
   }
 

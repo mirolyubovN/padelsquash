@@ -688,7 +688,7 @@ export function CreateBookingForm(props: CreateBookingFormProps) {
                 const tier = resolvePricingTier(date, slot.startTime);
                 const courtPrice = activeCourtPrices[sportSlug]?.[tier] ?? 0;
                 const amount = courtPrice + (needsInstructor ? selectedTrainerPrice : 0);
-                return isSelected ? "✓" : isAvailable ? formatMoneyKzt(amount) : t("admin.createBooking.busy");
+                return isSelected ? "✓" : isAvailable ? formatMoneyKzt(amount) : slot.isPast ? t("admin.createBooking.past") : t("admin.createBooking.busy");
               }}
             />
           </>

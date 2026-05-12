@@ -224,14 +224,6 @@ export function AdminBookingsTable({
             <button
               type="button"
               className="admin-bookings__action-button"
-              onClick={() => openBulkDialog("no_show", t("admin.bookings.actions.noShow"))}
-              disabled={isPending}
-            >
-              {t("admin.bookings.actions.noShow")}
-            </button>
-            <button
-              type="button"
-              className="admin-bookings__action-button admin-bookings__action-button--danger"
               onClick={() => openBulkDialog("cancelled", t("admin.bookings.actions.cancel"))}
               disabled={isPending}
             >

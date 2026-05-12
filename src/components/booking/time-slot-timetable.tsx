@@ -5,6 +5,7 @@ export type TimetableSlot = {
   startTime: string;
   endTime: string;
   availableCourtIds: string[];
+  isPast?: boolean;
 };
 
 export type TimetableColumn = {

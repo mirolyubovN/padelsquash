@@ -22,8 +22,14 @@ const BOOKING_STATUS_LABELS = {
   confirmed: t("admin.bookingStatuses.confirmed"),
   cancelled: t("admin.bookingStatuses.cancelled"),
   completed: t("admin.bookingStatuses.completed"),
-  no_show: t("admin.bookingStatuses.noShow"),
 } as const;
+
+function getBookingStatusLabel(status: string): string {
+  if (status === "pending_payment" || status === "confirmed" || status === "cancelled") {
+    return BOOKING_STATUS_LABELS[status];
+  }
+  return BOOKING_STATUS_LABELS.completed;
+}
 
 function getEarningsDateRange(period: string): { dateFrom: string; dateTo: string; label: string } {
   const now = new Date();
@@ -101,6 +107,10 @@ export default async function AdminInstructorProfilePage({
             <input className="admin-form__field" value={instructor.bio ?? "—"} readOnly />
           </div>
           <div className="admin-form__group">
+            <label className="admin-form__label">Доля тренера</label>
+            <input className="admin-form__field" value={`${instructor.revenueSharePercent}%`} readOnly />
+          </div>
+          <div className="admin-form__group">
             <label className="admin-form__label">{t("admin.instructorProfile.fields.status")}</label>
             <input className="admin-form__field" value={instructor.active ? t("admin.common.active") : t("admin.common.inactive")} readOnly />
           </div>
@@ -153,17 +163,19 @@ export default async function AdminInstructorProfilePage({
                     <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.time")}</th>
                     <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.service")}</th>
                     <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.customer")}</th>
-                    <th className="admin-table__cell admin-table__cell--head">{t("admin.common.table.amount")}</th>
+                    <th className="admin-table__cell admin-table__cell--head">Тренеру</th>
+                    <th className="admin-table__cell admin-table__cell--head">Клубу</th>
                   </tr>
                 </thead>
                 <tbody>
                   {earnings.rows.map((row) => (
-                    <tr key={row.bookingId} className="admin-table__row">
+                    <tr key={`${row.source}-${row.id}`} className="admin-table__row">
                       <td className="admin-table__cell">{row.date}</td>
                       <td className="admin-table__cell">{row.time}</td>
                       <td className="admin-table__cell">{row.serviceName}</td>
                       <td className="admin-table__cell">{row.customerName}</td>
                       <td className="admin-table__cell">{row.amountKzt}</td>
+                      <td className="admin-table__cell">{row.clubAmountKzt}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -208,7 +220,7 @@ export default async function AdminInstructorProfilePage({
                       <div className="admin-bookings__cell-sub">{row.customerEmail}</div>
                     </td>
                     <td className="admin-table__cell">{row.courtLabel ?? "—"}</td>
-                    <td className="admin-table__cell">{BOOKING_STATUS_LABELS[row.status]}</td>
+                    <td className="admin-table__cell">{getBookingStatusLabel(row.status)}</td>
                   </tr>
                 ))
               )}

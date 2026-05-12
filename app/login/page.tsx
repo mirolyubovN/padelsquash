@@ -129,7 +129,7 @@ export default async function LoginPage({
 					<>
 						{errorCode === "account_disabled" ? (
 							<p className="auth-panel__notice" role="alert">
-								Аккаунт отключен. Обратитесь к супер-администратору клуба.
+								Аккаунт отключен. Обратитесь к администратору клуба.
 							</p>
 						) : null}
 						<p className="auth-panel__hint">

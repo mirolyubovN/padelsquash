@@ -1,4 +1,5 @@
 import { prisma } from "@/src/lib/prisma";
+import { completePastConfirmedBookings } from "@/src/lib/bookings/auto-complete";
 import { venueDateRangeUtc, venueDateTimeToUtc, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
 
 export interface CalendarCourt {
@@ -17,7 +18,7 @@ export interface CalendarBooking {
   customerPhone: string;
   serviceName: string;
   instructorName?: string;
-  status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
+  status: "pending_payment" | "confirmed" | "cancelled" | "completed";
   priceTotal: number;
 }
 
@@ -53,6 +54,8 @@ function utcToVenueHour(utcDate: Date): number {
 }
 
 export async function getCalendarDayData(date: string, locationSlug?: string): Promise<CalendarDayData> {
+  await completePastConfirmedBookings();
+
   // Resolve location
   let locationId: string;
   try {
@@ -218,6 +221,8 @@ export interface CalendarWeekData {
 }
 
 export async function getCalendarWeekData(mondayDate: string, locationSlug?: string): Promise<CalendarWeekData> {
+  await completePastConfirmedBookings();
+
   // Resolve location
   let locationId: string;
   try {

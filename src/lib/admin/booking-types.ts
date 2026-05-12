@@ -1,6 +1,6 @@
 // Client-safe: no server-only imports. Imported by both server code and client components.
 
-export type AdminBookingStatus = "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
+export type AdminBookingStatus = "pending_payment" | "confirmed" | "cancelled" | "completed";
 export type AdminPaymentStatus = "none" | "unpaid" | "paid" | "failed" | "refunded";
 export type AdminBookingSort = "date_asc" | "date_desc";
 
@@ -9,7 +9,6 @@ export const ADMIN_BOOKING_STATUS_LABELS: Record<AdminBookingStatus, string> = {
   confirmed: "Подтверждено",
   cancelled: "Отменено",
   completed: "Завершено",
-  no_show: "Неявка",
 };
 
 export const ADMIN_PAYMENT_STATUS_LABELS: Record<AdminPaymentStatus, string> = {

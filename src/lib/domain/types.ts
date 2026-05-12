@@ -4,8 +4,7 @@ export type BookingStatus =
   | "pending_payment"
   | "confirmed"
   | "cancelled"
-  | "completed"
-  | "no_show";
+  | "completed";
 
 export type BookingResourceType = "court" | "instructor";
 

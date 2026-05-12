@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createBookingMvp } from "@/src/lib/bookings/service";
 import {
   createBookingInDb,
   InsufficientWalletBalanceError,
 } from "@/src/lib/bookings/persistence";
 import { demoServices } from "@/src/lib/availability/demo";
-import { demoComponentPrices } from "@/src/lib/pricing/demo";
 import { prisma } from "@/src/lib/prisma";
 import { PromoIneligibleError } from "@/src/lib/promo/apply";
 import { createBookingSchema } from "@/src/lib/validation/booking";
@@ -16,7 +14,6 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const session = await auth();
-  const allowDemoFallback = process.env.ALLOW_DEMO_FALLBACK === "true";
   const payload = await request.json().catch(() => null);
   const parsed = createBookingSchema.safeParse(payload);
 
@@ -61,14 +58,16 @@ export async function POST(request: Request) {
   const locationSelection = await resolveLocationBySlug(parsed.data.location);
   const selectedLocation = locationSelection.selected;
 
-  const accountCustomer = session.user.id
-    ? await prisma.user
-        .findUnique({
-          where: { id: session.user.id },
-          select: { id: true, name: true, email: true, phone: true },
-        })
-        .catch(() => null)
-    : null;
+  const accountCustomer = await prisma.user
+    .findUnique({
+      where: { id: session.user.id },
+      select: { id: true, name: true, email: true, phone: true },
+    })
+    .catch(() => null);
+
+  if (!accountCustomer) {
+    return NextResponse.json({ error: "Пользователь аккаунта не найден" }, { status: 404 });
+  }
 
   try {
     const result = await createBookingInDb({
@@ -81,14 +80,12 @@ export async function POST(request: Request) {
       instructorId: parsed.data.instructorId,
       holdId: parsed.data.holdId,
       promoCode: parsed.data.promoCode,
-      customerUserId: accountCustomer?.id,
-      customer: accountCustomer
-        ? {
-            name: accountCustomer.name,
-            email: accountCustomer.email,
-            phone: accountCustomer.phone,
-          }
-        : parsed.data.customer,
+      customerUserId: accountCustomer.id,
+      customer: {
+        name: accountCustomer.name,
+        email: accountCustomer.email,
+        phone: accountCustomer.phone,
+      },
     });
 
     return NextResponse.json(
@@ -120,31 +117,6 @@ export async function POST(request: Request) {
     }
 
     const message = error instanceof Error ? error.message : "Ошибка создания бронирования";
-
-    const service = demoServices.find((item) => item.id === parsed.data.serviceId);
-    if (allowDemoFallback && service) {
-      const result = await createBookingMvp({
-        customerId: parsed.data.customerId ?? "demo-customer",
-        service,
-        date: parsed.data.date,
-        startTime: parsed.data.startTime,
-        durationMin: parsed.data.durationMin,
-        courtId: parsed.data.courtId,
-        instructorId: parsed.data.instructorId,
-        componentPrices: demoComponentPrices,
-        customer: parsed.data.customer,
-      });
-
-      return NextResponse.json(
-        {
-          message: "Бронь создана в demo-режиме.",
-          data: result,
-          source: "demo-fallback",
-          note: message,
-        },
-        { status: 201 },
-      );
-    }
 
     const status = message.includes("занят")
       ? 409

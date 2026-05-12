@@ -55,7 +55,7 @@
 }
 
 .auth-panel__notice {
-  @apply mt-3 rounded border px-4 py-3 text-sm leading-6;
+  @apply my-3 rounded border px-4 py-3 text-sm leading-6;
   border-color: rgba(var(--accent-rgb), 0.35);
   background-color: rgba(var(--accent-rgb), 0.16);
   color: var(--foreground);

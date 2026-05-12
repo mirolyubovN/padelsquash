@@ -40,7 +40,6 @@ export interface AdminCustomerProfile {
   upcomingBookings: number;
   cancelledBookings: number;
   completedBookings: number;
-  noShowBookings: number;
   bookings: AdminCustomerBookingRow[];
   walletTransactions: AdminCustomerWalletRow[];
 }
@@ -53,6 +52,11 @@ function resolvePaymentStatus(raw: string | null, bookingStatus: AdminBookingSta
     return "unpaid";
   }
   return "none";
+}
+
+function normalizeAdminBookingStatus(status: string): AdminBookingStatus {
+  if (status === "pending_payment" || status === "confirmed" || status === "cancelled") return status;
+  return "completed";
 }
 
 export async function getAdminCustomerProfile(customerId: string): Promise<AdminCustomerProfile | null> {
@@ -125,7 +129,7 @@ export async function getAdminCustomerProfile(customerId: string): Promise<Admin
   const bookings = user.bookings.map((booking) => {
     const start = isoToVenueTimezoneParts(booking.startAt);
     const end = isoToVenueTimezoneParts(booking.endAt);
-    const status = booking.status as AdminBookingStatus;
+    const status = normalizeAdminBookingStatus(booking.status);
     const paymentStatus = resolvePaymentStatus(booking.payment?.status ?? null, status);
 
     const courtLabels = booking.resources
@@ -157,7 +161,6 @@ export async function getAdminCustomerProfile(customerId: string): Promise<Admin
   ).length;
   const cancelledBookings = bookings.filter((booking) => booking.status === "cancelled").length;
   const completedBookings = bookings.filter((booking) => booking.status === "completed").length;
-  const noShowBookings = bookings.filter((booking) => booking.status === "no_show").length;
 
   const needsPasswordSetup =
     user.passwordHash.startsWith("admin-created-") || user.passwordHash.startsWith("admin-reset-");
@@ -175,7 +178,6 @@ export async function getAdminCustomerProfile(customerId: string): Promise<Admin
     upcomingBookings,
     cancelledBookings,
     completedBookings,
-    noShowBookings,
     bookings,
     walletTransactions: user.walletTransactions.map((row) => ({
       id: row.id,

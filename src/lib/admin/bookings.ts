@@ -10,6 +10,7 @@ import {
 } from "@/src/lib/bookings/operations";
 import { isoToVenueTimezoneParts, venueDateRangeUtc, venueDateTimeToUtc, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
 import { logAuditEvent } from "@/src/lib/audit/log";
+import { completePastConfirmedBookings } from "@/src/lib/bookings/auto-complete";
 import {
   ADMIN_BOOKING_STATUS_LABELS,
   ADMIN_PAYMENT_STATUS_LABELS,
@@ -43,6 +44,11 @@ function toPaymentStatus(row: { payment: null | { status: string }; status: Admi
 
 function toPaymentProvider(row: { payment: null | { provider: string } }): string {
   return row.payment?.provider ?? "—";
+}
+
+function normalizeAdminBookingStatus(status: string): AdminBookingStatus {
+  if (status === "pending_payment" || status === "confirmed" || status === "cancelled") return status;
+  return "completed";
 }
 
 function parsePricingBreakdownLines(value: unknown): string[] {
@@ -133,6 +139,8 @@ function formatBookingHistorySummary(action: string, detail: unknown): string | 
 }
 
 export async function getAdminBookings(filters: AdminBookingFilters): Promise<AdminBookingListResult> {
+  await completePastConfirmedBookings();
+
   const page = Math.max(1, Number.isFinite(filters.page) ? filters.page : 1);
   const pageSize = Math.min(100, Math.max(10, Number.isFinite(filters.pageSize) ? filters.pageSize : 20));
   const sortDirection: "asc" | "desc" = filters.sort === "date_desc" ? "desc" : "asc";
@@ -301,7 +309,7 @@ export async function getAdminBookings(filters: AdminBookingFilters): Promise<Ad
   const mappedRows: AdminBookingRow[] = rows.map((row) => {
     const whenStart = isoToVenueTimezoneParts(row.startAt);
     const whenEnd = isoToVenueTimezoneParts(row.endAt);
-    const status = row.status as AdminBookingStatus;
+    const status = normalizeAdminBookingStatus(row.status);
     const paymentStatus = toPaymentStatus({ payment: row.payment, status });
     const amountRaw = Number(row.priceTotal);
 

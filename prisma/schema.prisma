@@ -19,7 +19,6 @@ enum BookingStatus {
   confirmed
   cancelled
   completed
-  no_show
 }
 
 enum BookingResourceType {
@@ -276,13 +275,14 @@ model Court {
 }
 
 model Instructor {
-  id        String   @id @default(cuid())
-  name      String
-  bio       String?
-  photoUrl  String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  name                String
+  bio                 String?
+  photoUrl            String?
+  revenueSharePercent Int      @default(90)
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   instructorSports    InstructorSport[]
   instructorLocations InstructorLocation[]
@@ -687,24 +687,24 @@ model AuditLog {
 }
 
 model PromoCode {
-  id                   String            @id @default(cuid())
-  code                 String            @unique
-  description          String?
-  discountType         PromoDiscountType
-  discountValue        Decimal           @db.Decimal(10, 2)
-  maxDiscountKzt       Decimal?          @db.Decimal(10, 2)
-  minOrderKzt          Decimal?          @db.Decimal(10, 2)
-  validFrom            DateTime?
-  validUntil           DateTime?
-  totalRedemptionLimit Int?
-  perCustomerLimit     Int?              @default(1)
-  appliesToServiceCodes String[]         @default([])
-  appliesToSportIds    String[]          @default([])
-  firstBookingOnly     Boolean           @default(false)
-  status               PromoCodeStatus   @default(active)
-  createdByUserId      String?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  id                    String            @id @default(cuid())
+  code                  String            @unique
+  description           String?
+  discountType          PromoDiscountType
+  discountValue         Decimal           @db.Decimal(10, 2)
+  maxDiscountKzt        Decimal?          @db.Decimal(10, 2)
+  minOrderKzt           Decimal?          @db.Decimal(10, 2)
+  validFrom             DateTime?
+  validUntil            DateTime?
+  totalRedemptionLimit  Int?
+  perCustomerLimit      Int?              @default(1)
+  appliesToServiceCodes String[]          @default([])
+  appliesToSportIds     String[]          @default([])
+  firstBookingOnly      Boolean           @default(false)
+  status                PromoCodeStatus   @default(active)
+  createdByUserId       String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   redemptions PromoCodeRedemption[]
   bookings    Booking[]

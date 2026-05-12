@@ -104,6 +104,7 @@ export interface AdminInstructorRow {
   id: string;
   name: string;
   sports: Array<{ sportId: string; slug: string; name: string; pricePerHour: number }>;
+  revenueSharePercent: number;
   bio?: string;
   photoUrl?: string;
   galleryPhotoUrls: string[];
@@ -170,9 +171,14 @@ export interface AdminInstructorSessionRow {
   serviceName: string;
   customerName: string;
   customerEmail: string;
-  status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
+  status: "pending_payment" | "confirmed" | "cancelled" | "completed";
   priceTotal: number;
   courtLabel?: string;
+}
+
+function normalizeVisibleBookingStatus(status: string): AdminInstructorSessionRow["status"] {
+  if (status === "pending_payment" || status === "confirmed" || status === "cancelled") return status;
+  return "completed";
 }
 
 export interface ExceptionTargetOption {
@@ -218,6 +224,7 @@ async function ensureInstructorExists(instructorId: string) {
       name: true,
       bio: true,
       photoUrl: true,
+      revenueSharePercent: true,
       active: true,
       instructorPhotos: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -779,6 +786,7 @@ export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
       name: true,
       bio: true,
       photoUrl: true,
+      revenueSharePercent: true,
       active: true,
       instructorPhotos: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -811,6 +819,7 @@ export async function getAdminInstructors(): Promise<AdminInstructorRow[]> {
       name: resolveSportLabel(item.sport.slug, item.sport.name),
       pricePerHour: Number(item.pricePerHour),
     })),
+    revenueSharePercent: row.revenueSharePercent,
     bio: row.bio ?? undefined,
     photoUrl: row.photoUrl ?? undefined,
     galleryPhotoUrls: row.instructorPhotos.map((photo) => photo.url),
@@ -823,12 +832,14 @@ export async function createInstructorFromForm(formData: FormData) {
     .object({
       name: nonEmptyString("пїЅВ пїЅВ пїЅвЂ™пїЅВпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅВ пїЅРЏ"),
       sportIds: z.array(sportIdSchema).min(1, "пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅВ¦пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅ пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ°"),
+      revenueSharePercent: z.coerce.number().int().min(0).max(100).default(90),
       bio: optionalTrimmedString,
       photoUrl: optionalTrimmedString,
     })
     .safeParse({
       name: formData.get("name"),
       sportIds: formData.getAll("sportIds"),
+      revenueSharePercent: formData.get("revenueSharePercent") ?? 90,
       bio: formData.get("bio") ?? undefined,
       photoUrl: formData.get("photoUrl") ?? undefined,
     });
@@ -852,6 +863,7 @@ export async function createInstructorFromForm(formData: FormData) {
         name: parsed.data.name,
         bio: parsed.data.bio ?? null,
         photoUrl: parsed.data.photoUrl ?? null,
+        revenueSharePercent: parsed.data.revenueSharePercent,
         active: true,
       },
       select: { id: true },
@@ -910,6 +922,7 @@ export async function updateInstructorFromForm(formData: FormData) {
       instructorId: nonEmptyString("instructorId"),
       name: nonEmptyString("пїЅВ пїЅВ пїЅвЂ™пїЅВпїЅВ пїЅВ пїЅРЋпїЅВпїЅВ пїЅР‹пїЅВ пїЅРЏ"),
       sportIds: z.array(sportIdSchema).min(1, "пїЅВ пїЅВ пїЅпїЅвЂљпїЅвЂћСћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅпїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅВ пїЅвЂ™пїЅВµпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВµ пїЅВ пїЅР‹пїЅпїЅвЂљпїЅВ¦пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅР‹пїЅВ пїЅРЏ пїЅВ пїЅВ пїЅвЂ™пїЅВ±пїЅВ пїЅР‹пїЅпїЅвЂљпїЅвЂћпїЅ пїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅВ пїЅСћпїЅР‚ВпїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅВ пїЅР‚В¦ пїЅВ пїЅВ пїЅВ пїЅР‚В пїЅВ пїЅВ пїЅРЋпїЅР‚ВпїЅВ пїЅВ пїЅСћпїЅР‚В пїЅВ пїЅР‹пїЅВ пїЅвЂњпїЅВ пїЅВ пїЅРЋпїЅР‚вЂќпїЅВ пїЅВ пїЅРЋпїЅР‚СћпїЅВ пїЅР‹пїЅВ пїЅР‚С™пїЅВ пїЅР‹пїЅпїЅвЂљпїЅв„ўпїЅВ пїЅВ пїЅвЂ™пїЅВ°"),
+      revenueSharePercent: z.coerce.number().int().min(0).max(100).default(90),
       bio: optionalTrimmedString,
       photoUrl: optionalTrimmedString,
     })
@@ -917,6 +930,7 @@ export async function updateInstructorFromForm(formData: FormData) {
       instructorId: formData.get("instructorId"),
       name: formData.get("name"),
       sportIds: formData.getAll("sportIds"),
+      revenueSharePercent: formData.get("revenueSharePercent") ?? 90,
       bio: formData.get("bio") ?? undefined,
       photoUrl: formData.get("photoUrl") ?? undefined,
     });
@@ -941,6 +955,7 @@ export async function updateInstructorFromForm(formData: FormData) {
         name: parsed.data.name,
         bio: parsed.data.bio ?? null,
         photoUrl: parsed.data.photoUrl ?? null,
+        revenueSharePercent: parsed.data.revenueSharePercent,
       },
     });
 
@@ -1278,6 +1293,7 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       id: instructor.id,
       name: instructor.name,
       active: instructor.active,
+      revenueSharePercent: instructor.revenueSharePercent,
       bio: instructor.bio ?? undefined,
       photoUrl: instructor.photoUrl ?? undefined,
       sports: instructor.instructorSports.map((item) => ({
@@ -1322,7 +1338,7 @@ export async function getInstructorSchedulePageData(instructorId: string) {
       serviceName: row.service.name,
       customerName: row.customer.name,
       customerEmail: row.customer.email,
-      status: row.status,
+      status: normalizeVisibleBookingStatus(row.status),
       priceTotal: Number(row.priceTotal),
       courtLabel: row.resources[0]?.resourceId
         ? (courtNamesById.get(row.resources[0].resourceId) ?? row.resources[0].resourceId)

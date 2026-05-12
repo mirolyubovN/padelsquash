@@ -29,7 +29,6 @@ const STATUS_LABELS: Record<CalendarBooking["status"], string> = {
   confirmed: t("admin.calendar.status.confirmed"),
   cancelled: t("admin.calendar.status.cancelled"),
   completed: t("admin.calendar.status.completed"),
-  no_show: t("admin.calendar.status.noShow"),
 };
 
 function getTodayVenueDate(): string {

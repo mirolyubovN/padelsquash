@@ -35,8 +35,7 @@ export function AdminShellFrame({ email, role, logoutAction, children }: AdminSh
           className={`admin-shell__sidebar${mobileOpen ? " admin-shell__sidebar--open" : ""}`}
         >
           <div className="admin-shell__sidebar-brand">
-            <span className="admin-shell__brand-mark">RC</span>
-            <span className="admin-shell__brand-name">Admin</span>
+            <span className="admin-shell__brand-name">Навигация</span>
           </div>
 
           <nav className="admin-shell__nav" aria-label="Разделы админ-панели">
@@ -85,7 +84,6 @@ export function AdminShellFrame({ email, role, logoutAction, children }: AdminSh
                 <span className="admin-shell__menu-icon-bar" />
                 <span className="admin-shell__menu-icon-bar" />
               </span>
-              Меню
             </button>
             <div className="admin-shell__toolbar-identity">
               <span className="admin-shell__badge">{getRoleLabel(role)}</span>

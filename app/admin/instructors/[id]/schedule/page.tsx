@@ -29,8 +29,14 @@ const BOOKING_STATUS_LABELS = {
 	confirmed: t("admin.bookingStatuses.confirmed"),
 	cancelled: t("admin.bookingStatuses.cancelled"),
 	completed: t("admin.bookingStatuses.completed"),
-	no_show: t("admin.bookingStatuses.noShow"),
 } as const;
+
+function getBookingStatusLabel(status: string): string {
+	if (status === "pending_payment" || status === "confirmed" || status === "cancelled") {
+		return BOOKING_STATUS_LABELS[status];
+	}
+	return BOOKING_STATUS_LABELS.completed;
+}
 
 function getTodayWeekStart(): string {
 	const now = new Date();
@@ -313,7 +319,7 @@ export default async function AdminInstructorSchedulePage({
 										<div className="admin-bookings__cell-sub">{session.customerEmail}</div>
 									</td>
 									<td className="admin-table__cell">{session.courtLabel ?? "—"}</td>
-									<td className="admin-table__cell">{BOOKING_STATUS_LABELS[session.status]}</td>
+									<td className="admin-table__cell">{getBookingStatusLabel(session.status)}</td>
 									{canSeeRevenue ? (
 										<td className="admin-table__cell">{session.priceTotal.toLocaleString("ru-KZ")} ₸</td>
 									) : null}

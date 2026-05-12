@@ -34,6 +34,8 @@ export function AdminBookingActionsModal({
   bookingAction,
   rescheduleAction,
 }: AdminBookingActionsModalProps) {
+  const defaultPaymentState = defaultPaymentStateForRow(row);
+
   return (
     <AdminEditModal
       triggerLabel={t("admin.bookings.actions.manage")}
@@ -96,12 +98,6 @@ export function AdminBookingActionsModal({
                       {t("admin.bookings.actions.completed")}
                     </button>
                   </form>
-                  <form action={bookingAction} className="admin-bookings__manage-action-form">
-                    <input type="hidden" name="bookingId" value={row.id} />
-                    <button type="submit" name="action" value="no_show" className="admin-bookings__action-button">
-                      {t("admin.bookings.actions.noShow")}
-                    </button>
-                  </form>
                   <div className="admin-bookings__manage-action-form">
                     <AdminRescheduleModal
                       bookingId={row.id}
@@ -127,7 +123,11 @@ export function AdminBookingActionsModal({
                   triggerLabel={t("admin.bookings.actions.cancel")}
                   triggerClassName="admin-bookings__action-button admin-bookings__action-button--danger"
                   title={t("admin.bookings.cancelConfirmTitle")}
-                  description={t("admin.bookings.cancelConfirmDescription")}
+                  description={
+                    row.paymentProvider === "manual" && row.paymentStatus === "paid"
+                      ? t("admin.bookings.cancelConfirmDescriptionCashPaid")
+                      : t("admin.bookings.cancelConfirmDescription")
+                  }
                   confirmLabel={t("admin.bookings.cancelConfirmButton")}
                 />
               </div>
@@ -172,12 +172,14 @@ export function AdminBookingActionsModal({
                 id={`booking-payment-${row.id}`}
                 name="nextPaymentState"
                 aria-label={t("admin.bookings.fields.paymentStatus")}
-                defaultValue={defaultPaymentStateForRow(row)}
+                defaultValue={defaultPaymentState}
                 className="admin-form__field admin-bookings__edit-field"
               >
                 <option value="unpaid_manual">{t("admin.bookings.paymentOptions.unpaidManual")}</option>
                 <option value="paid_manual">{t("admin.bookings.paymentOptions.paidManual")}</option>
-                <option value="paid_wallet">{t("admin.bookings.paymentOptions.paidWallet")}</option>
+                {defaultPaymentState === "paid_wallet" ? (
+                  <option value="paid_wallet">{t("admin.bookings.paymentOptions.paidWallet")}</option>
+                ) : null}
                 <option value="refunded_manual">{t("admin.bookings.paymentOptions.refundedManual")}</option>
               </select>
               <button type="submit" name="action" value="set_payment" className="admin-bookings__action-button">

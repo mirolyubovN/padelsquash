@@ -79,10 +79,6 @@ export async function cancelBookingWithRefundInTx(args: {
     throw new Error("Завершенное бронирование нельзя отменить");
   }
 
-  if (booking.status === "no_show") {
-    throw new Error("Бронирование с неявкой нельзя отменить");
-  }
-
   if (booking.payment?.status === "paid") {
     await args.tx.payment.update({
       where: { id: booking.payment.id },
@@ -245,19 +241,7 @@ export async function setAdminBookingPaymentStateInTx(args: {
   const walletPaidActive = walletNetDelta < 0;
 
   if (args.state === "paid_wallet" && !walletPaidActive) {
-    await debitUserWallet({
-      tx: args.tx,
-      userId: booking.customerId,
-      amountKzt: Number(booking.priceTotal),
-      type: "booking_charge",
-      bookingId: booking.id,
-      note: "Коррекция оплаты бронирования с баланса",
-      metadataJson: {
-        serviceCode: booking.service.code,
-        startAt: booking.startAt.toISOString(),
-        source: "admin_payment_status_correction",
-      },
-    });
+    throw new Error("Статус оплаты с баланса можно выставить только после реального списания баланса");
   }
 
   if (args.state !== "paid_wallet" && walletPaidActive) {

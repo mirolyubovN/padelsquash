@@ -1,4 +1,6 @@
 import { prisma } from "@/src/lib/prisma";
+import { completePastConfirmedBookings } from "@/src/lib/bookings/auto-complete";
+import { getRevenueSummary } from "@/src/lib/trainer/earnings";
 import { toVenueIsoDate, venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 
 function addDays(dateIso: string, days: number): string {
@@ -27,6 +29,8 @@ export interface AdminDashboardData {
   activeCourtsCount: number;
   activeInstructorsCount: number;
   weekRevenueKzt: number;
+  weekTrainerPayoutKzt: number;
+  weekClubRevenueKzt: number;
   recentBookings: Array<{
     id: string;
     customerName: string;
@@ -38,14 +42,14 @@ export interface AdminDashboardData {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
+  await completePastConfirmedBookings();
+
   const todayIso = toVenueIsoDate(new Date());
   const tomorrowIso = addDays(todayIso, 1);
   const weekStartIso = startOfWeekMonday(todayIso);
-  const nextWeekStartIso = addDays(weekStartIso, 7);
+  const weekEndIso = addDays(weekStartIso, 6);
   const todayStartUtc = venueDateTimeToUtc(todayIso, "00:00");
   const tomorrowStartUtc = venueDateTimeToUtc(tomorrowIso, "00:00");
-  const weekStartUtc = venueDateTimeToUtc(weekStartIso, "00:00");
-  const nextWeekStartUtc = venueDateTimeToUtc(nextWeekStartIso, "00:00");
   const tomorrowDayOfWeek = new Date(`${tomorrowIso}T00:00:00`).getDay();
 
   const [
@@ -53,7 +57,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     pendingPaymentsCount,
     activeCourtsCount,
     activeInstructorsCount,
-    weekRevenueAgg,
+    weekRevenue,
     recentRows,
     activeInstructors,
     tomorrowSchedules,
@@ -68,13 +72,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     }),
     prisma.court.count({ where: { active: true } }),
     prisma.instructor.count({ where: { active: true } }),
-    prisma.booking.aggregate({
-      where: {
-        startAt: { gte: weekStartUtc, lt: nextWeekStartUtc },
-        status: { in: ["confirmed", "completed"] },
-      },
-      _sum: { priceTotal: true },
-    }),
+    getRevenueSummary(weekStartIso, weekEndIso),
     prisma.booking.findMany({
       take: 5,
       orderBy: { startAt: "desc" },
@@ -137,7 +135,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     pendingPaymentsCount,
     activeCourtsCount,
     activeInstructorsCount,
-    weekRevenueKzt: Number(weekRevenueAgg._sum.priceTotal ?? 0),
+    weekRevenueKzt: weekRevenue.grossTotalRaw,
+    weekTrainerPayoutKzt: weekRevenue.trainerTotalRaw,
+    weekClubRevenueKzt: weekRevenue.clubTotalRaw,
     recentBookings: recentRows.map((row) => ({
       id: row.id,
       customerName: row.customer.name,
@@ -158,9 +158,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
             ? "Подтверждено"
             : row.status === "cancelled"
               ? "Отменено"
-              : row.status === "completed"
-                ? "Завершено"
-                : "Неявка",
+              : "Завершено",
     })),
     alerts,
   };

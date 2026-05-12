@@ -194,6 +194,21 @@ export default async function AdminInstructorsPage({
 								</div>
 							</div>
 							<div className="admin-form__group">
+								<label className="admin-form__label" htmlFor="instructor-revenue-share">
+									Доля тренера, %
+								</label>
+								<input
+									id="instructor-revenue-share"
+									name="revenueSharePercent"
+									type="number"
+									min="0"
+									max="100"
+									step="1"
+									className="admin-form__field"
+									defaultValue={90}
+								/>
+							</div>
+							<div className="admin-form__group">
 								<label className="admin-form__label" htmlFor="instructor-bio">
 									{t("admin.instructors.fields.bioForCoachesPage")}
 								</label>
@@ -239,6 +254,7 @@ export default async function AdminInstructorsPage({
 						<tr className="admin-table__row">
 							<th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.name")}</th>
 							<th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.sports")}</th>
+							<th className="admin-table__cell admin-table__cell--head">Доля</th>
 							<th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.description")}</th>
 							<th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.active")}</th>
 							<th className="admin-table__cell admin-table__cell--head">{t("admin.instructors.table.schedule")}</th>
@@ -248,7 +264,7 @@ export default async function AdminInstructorsPage({
 					<tbody>
 						{instructors.length === 0 ? (
 							<tr className="admin-table__row">
-								<td className="admin-table__cell" colSpan={6}>
+								<td className="admin-table__cell" colSpan={7}>
 									{t("admin.instructors.empty")}
 								</td>
 							</tr>
@@ -264,6 +280,7 @@ export default async function AdminInstructorsPage({
 											? instructor.sports.map((sport) => sport.name).join(", ")
 											: "—"}
 									</td>
+									<td className="admin-table__cell">{instructor.revenueSharePercent}%</td>
 									<td className="admin-table__cell">
 										<div className="admin-bookings__cell-sub">{instructor.bio?.trim() || "—"}</div>
 									</td>
@@ -309,6 +326,19 @@ export default async function AdminInstructorsPage({
 																	);
 																})}
 															</div>
+														</div>
+														<div className="admin-form__group">
+															<label className="admin-form__label" htmlFor={`revenue-share-${instructor.id}`}>Доля тренера, %</label>
+															<input
+																id={`revenue-share-${instructor.id}`}
+																name="revenueSharePercent"
+																type="number"
+																min="0"
+																max="100"
+																step="1"
+																className="admin-form__field"
+																defaultValue={instructor.revenueSharePercent}
+															/>
 														</div>
 														<div className="admin-form__group">
 															<label className="admin-form__label" htmlFor={`bio-${instructor.id}`}>{t("admin.instructors.fields.bio")}</label>

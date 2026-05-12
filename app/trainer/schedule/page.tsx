@@ -34,8 +34,14 @@ const BOOKING_STATUS_LABELS = {
 	confirmed: "Подтверждено",
 	cancelled: "Отменено",
 	completed: "Завершено",
-	no_show: "Неявка",
 } as const;
+
+function getBookingStatusLabel(status: string): string {
+	if (status === "pending_payment" || status === "confirmed" || status === "cancelled") {
+		return BOOKING_STATUS_LABELS[status];
+	}
+	return BOOKING_STATUS_LABELS.completed;
+}
 
 function getTodayWeekStart(): string {
 	const now = new Date();
@@ -276,7 +282,7 @@ export default async function TrainerSchedulePage({
 					<div className="trainer-earnings__card">
 						<div className="trainer-earnings__card-label">{periodLabel}</div>
 						<div className="trainer-earnings__card-total">{earnings.totalKzt}</div>
-						<div className="trainer-earnings__card-count">{earnings.sessionCount} завершённых сессий</div>
+						<div className="trainer-earnings__card-count">{earnings.sessionCount} завершённых сессий и событий</div>
 					</div>
 				</div>
 
@@ -289,12 +295,12 @@ export default async function TrainerSchedulePage({
 									<th className="admin-table__cell admin-table__cell--head">Время</th>
 									<th className="admin-table__cell admin-table__cell--head">Услуга</th>
 									<th className="admin-table__cell admin-table__cell--head">Клиент</th>
-									<th className="admin-table__cell admin-table__cell--head">Сумма</th>
+									<th className="admin-table__cell admin-table__cell--head">Тренеру</th>
 								</tr>
 							</thead>
 							<tbody>
 								{earnings.rows.map((row) => (
-									<tr key={row.bookingId} className="admin-table__row">
+									<tr key={`${row.source}-${row.id}`} className="admin-table__row">
 										<td className="admin-table__cell">{row.date}</td>
 										<td className="admin-table__cell">{row.time}</td>
 										<td className="admin-table__cell">{row.serviceName}</td>
@@ -473,7 +479,7 @@ export default async function TrainerSchedulePage({
 											<div className="admin-bookings__cell-sub">{sessionRow.customerEmail}</div>
 										</td>
 										<td className="admin-table__cell">{sessionRow.courtLabel ?? "—"}</td>
-										<td className="admin-table__cell">{BOOKING_STATUS_LABELS[sessionRow.status]}</td>
+										<td className="admin-table__cell">{getBookingStatusLabel(sessionRow.status)}</td>
 										<td className="admin-table__cell">
 											{canCancel ? (
 												<TrainerCancelBookingForm

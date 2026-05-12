@@ -39,13 +39,30 @@ export default async function AdminIndexPage() {
 				</article>
 				{canSeeRevenue ? (
 					<article className="admin-dashboard__stat-card">
-						<p className="admin-dashboard__stat-label">{t("admin.dashboard.stats.weekRevenue")}</p>
+						<p className="admin-dashboard__stat-label">Выручка недели</p>
 						<p className="admin-dashboard__stat-value">
 							{dashboard.weekRevenueKzt.toLocaleString("ru-KZ")} ₸
 						</p>
 					</article>
 				) : null}
 			</section>
+
+			{canSeeRevenue ? (
+				<section className="admin-dashboard__stats">
+					<article className="admin-dashboard__stat-card">
+						<p className="admin-dashboard__stat-label">Клубу за неделю</p>
+						<p className="admin-dashboard__stat-value">
+							{dashboard.weekClubRevenueKzt.toLocaleString("ru-KZ")} ₸
+						</p>
+					</article>
+					<article className="admin-dashboard__stat-card">
+						<p className="admin-dashboard__stat-label">Тренерам за неделю</p>
+						<p className="admin-dashboard__stat-value">
+							{dashboard.weekTrainerPayoutKzt.toLocaleString("ru-KZ")} ₸
+						</p>
+					</article>
+				</section>
+			) : null}
 
 			<section className="admin-dashboard__row">
 				<div className="admin-dashboard__panel">

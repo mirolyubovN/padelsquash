@@ -340,7 +340,6 @@ export default async function AdminCustomerPage({
         <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.active", { count: customer.upcomingBookings })}</p>
         <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.completed", { count: customer.completedBookings })}</p>
         <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.cancelled", { count: customer.cancelledBookings })}</p>
-        <p className="admin-list-toolbar__meta">{t("admin.clientProfile.metrics.noShow", { count: customer.noShowBookings })}</p>
       </div>
 
       <section className="admin-section">

@@ -32,7 +32,6 @@ export const dynamic = "force-dynamic";
 type BookingActionName =
 	| "cancelled"
 	| "completed"
-	| "no_show"
 	| "pay_wallet"
 	| "pay_manual"
 	| "set_status"
@@ -44,8 +43,7 @@ function isAdminBookingStatus(value: string): value is AdminBookingStatus {
 		value === "pending_payment" ||
 		value === "confirmed" ||
 		value === "cancelled" ||
-		value === "completed" ||
-		value === "no_show"
+		value === "completed"
 	);
 }
 
@@ -73,11 +71,10 @@ function normalizeSearchParams(params: {
 	const pageRaw = Number(params.page ?? "1");
 	const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
 	const status =
-		params.status === "pending_payment" ||
+			params.status === "pending_payment" ||
 			params.status === "confirmed" ||
 			params.status === "cancelled" ||
-			params.status === "completed" ||
-			params.status === "no_show"
+			params.status === "completed"
 			? params.status
 			: undefined;
 	const sport = params.sport?.trim() || undefined;
@@ -170,7 +167,7 @@ export default async function AdminBookingsPage({
 			throw new Error("bookingId обязателен");
 		}
 
-		if (action === "cancelled" || action === "completed" || action === "no_show") {
+		if (action === "cancelled" || action === "completed") {
 			await setBookingStatus({ bookingId, status: action, actorUserId: session.user.id });
 		} else if (action === "set_status") {
 			if (!isAdminBookingStatus(nextStatus)) {

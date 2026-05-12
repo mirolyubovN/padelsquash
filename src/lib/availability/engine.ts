@@ -28,6 +28,7 @@ export interface AvailableSlot {
   endTime: string;
   availableCourtIds: string[];
   availableInstructorIds: string[];
+  isPast: boolean;
 }
 
 export function generateAvailableSlots(input: AvailabilityInput): AvailableSlot[] {
@@ -107,6 +108,7 @@ export function generateAvailableSlots(input: AvailabilityInput): AvailableSlot[
       endTime: minutesToHhmm(endMin),
       availableCourtIds,
       availableInstructorIds,
+      isPast: blockedByCutoff,
     });
   }
 

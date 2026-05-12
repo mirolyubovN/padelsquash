@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma, type PromoCode as PrismaPromoCode } from "@prisma/client";
 import {
   assertBookingSlotAvailable,
   assertBookingSlotConflictsClear,
@@ -31,12 +31,12 @@ interface CreateBookingPersistentInput {
   durationMin: number;
   courtId?: string;
   instructorId?: string;
-  customerUserId?: string;
+  customerUserId: string;
   holdId?: string;
   paymentMode?: BookingPaymentMode;
   allowCurrentHourLateBooking?: boolean;
   promoCode?: string;
-  customer: {
+  customer?: {
     name: string;
     email: string;
     phone: string;
@@ -58,9 +58,9 @@ interface CreateBookingHoldsPersistentInput {
   date: string;
   durationMin: number;
   instructorId?: string;
-  customerUserId?: string;
+  customerUserId: string;
   promoCode?: string;
-  customer: {
+  customer?: {
     name: string;
     email: string;
     phone: string;
@@ -74,9 +74,9 @@ interface CreateBookingSeriesPersistentInput {
   date: string;
   durationMin: number;
   instructorId?: string;
-  customerUserId?: string;
+  customerUserId: string;
   promoCode?: string;
-  customer: {
+  customer?: {
     name: string;
     email: string;
     phone: string;
@@ -167,6 +167,25 @@ export class InsufficientWalletBalanceError extends Error {
     this.amountRequiredKzt = args.amountRequiredKzt;
     this.shortfallKzt = args.shortfallKzt;
     this.expiresAtIso = args.expiresAt.toISOString();
+  }
+}
+
+export class SeriesInsufficientWalletBalanceError extends Error {
+  readonly code = "INSUFFICIENT_WALLET_BALANCE_SERIES" as const;
+  readonly currentBalanceKzt: number;
+  readonly amountRequiredKzt: number;
+  readonly shortfallKzt: number;
+
+  constructor(args: {
+    currentBalanceKzt: number;
+    amountRequiredKzt: number;
+    shortfallKzt: number;
+  }) {
+    super("Недостаточно средств на балансе для бронирования");
+    this.name = "SeriesInsufficientWalletBalanceError";
+    this.currentBalanceKzt = args.currentBalanceKzt;
+    this.amountRequiredKzt = args.amountRequiredKzt;
+    this.shortfallKzt = args.shortfallKzt;
   }
 }
 
@@ -262,6 +281,165 @@ async function resolveValidatedActiveHold(args: {
   return activeHold;
 }
 
+// ---------------------------------------------------------------------------
+// prepareBookingSlot — shared per-slot validation + pricing + promo
+// ---------------------------------------------------------------------------
+// Called inside a concurrency-guarded transaction by createBookingInDb,
+// createBookingSeriesInDb, and createBookingHoldsInDb.  Does NOT write
+// any rows — callers decide what to do with the result.
+// ---------------------------------------------------------------------------
+
+interface PrepareBookingSlotArgs {
+  tx: typeof prisma;
+  service: {
+    id: string;
+    code: string;
+    sportId: string;
+    requiresCourt: boolean;
+    requiresInstructor: boolean;
+    active: boolean;
+    sport: { slug: string; name: string };
+  };
+  locationId: string;
+  date: string;
+  startTime: string;
+  durationMin: number;
+  courtId?: string;
+  instructorId?: string;
+  holdId?: string;
+  customerId: string;
+  startAt: Date;
+  endAt: Date;
+  componentPrices: ComponentPriceRecord[];
+  serviceRecord: ServiceRecord;
+  instructorPriceOverrideAmount: number | undefined;
+  /** Pre-fetched promo record + counts — pass undefined when no promo. */
+  promoContext?: {
+    promo: PrismaPromoCode;
+    existingCustomerRedemptions: number;
+    existingTotalRedemptions: number;
+    isFirstBooking: boolean;
+  };
+}
+
+interface PrepareBookingSlotResult {
+  startAt: Date;
+  endAt: Date;
+  activeHold: Awaited<ReturnType<typeof resolveValidatedActiveHold>>;
+  pricing: ReturnType<typeof evaluatePricing>;
+  effectiveTotal: number;
+  /** Booking pricingBreakdownJson — plain array (existing booking shape). */
+  pricingBreakdownJson: Prisma.InputJsonValue;
+  /** Hold pricingBreakdownJson — always { items, promoCode? } object shape. */
+  holdBreakdownJson: Prisma.InputJsonValue;
+  promoResult: PromoApplyResult | undefined;
+}
+
+async function prepareBookingSlot(args: PrepareBookingSlotArgs): Promise<PrepareBookingSlotResult> {
+  const { tx, service, locationId, date, startTime, durationMin, courtId, instructorId, holdId, customerId, startAt, endAt } = args;
+
+  const activeHold = await resolveValidatedActiveHold({
+    holdId,
+    customerId,
+    serviceId: service.id,
+    locationId,
+    courtId,
+    instructorId,
+    startAt,
+    endAt,
+    tx,
+  });
+
+  await assertBookingSlotAvailable({
+    tx,
+    service,
+    locationId,
+    date,
+    startTime,
+    durationMin,
+    courtId,
+    instructorId,
+  });
+
+  // Acquire advisory locks for any club events that overlap this slot and
+  // share the court or instructor — consistent with how event mutations lock
+  // via `pg_advisory_xact_lock(hashtext(eventId))` in src/lib/events/service.ts.
+  // This prevents a concurrent event mutation from racing past the conflict check.
+  if (courtId || instructorId) {
+    const overlappingEvents = await tx.clubEvent.findMany({
+      where: {
+        status: { not: "cancelled" },
+        startsAt: { lt: endAt },
+        endsAt: { gt: startAt },
+        OR: [
+          ...(courtId ? [{ courts: { some: { courtId } } }] : []),
+          ...(instructorId ? [{ instructorId }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+    const txRaw = tx as unknown as { $queryRaw: typeof prisma.$queryRaw };
+    for (const event of overlappingEvents) {
+      await txRaw.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${event.id}))`;
+    }
+  }
+
+  await assertBookingSlotConflictsClear({
+    tx,
+    service,
+    locationId,
+    date,
+    startTime,
+    durationMin,
+    courtId,
+    instructorId,
+    excludeHoldId: activeHold?.id,
+    startAt,
+    endAt,
+  });
+
+  const pricing = evaluatePricing({
+    service: args.serviceRecord,
+    bookingDate: date,
+    bookingStartTime: startTime,
+    durationMin,
+    componentPrices: args.componentPrices,
+    instructorPriceOverrideAmount: args.instructorPriceOverrideAmount,
+    currency: "KZT",
+  });
+
+  let promoResult: PromoApplyResult | undefined;
+  if (args.promoContext) {
+    const { promo, existingCustomerRedemptions, existingTotalRedemptions, isFirstBooking } = args.promoContext;
+    promoResult = applyPromoToPricing(pricing, promo, {
+      customerId,
+      serviceCode: service.code,
+      sportId: service.sportId,
+      existingCustomerRedemptions,
+      existingTotalRedemptions,
+      isFirstBooking,
+      bookingDate: date,
+    });
+  }
+
+  const effectiveTotal = promoResult?.totalAfterDiscount ?? pricing.total;
+
+  // Booking pricingBreakdownJson keeps the existing array shape.
+  const pricingBreakdownJson: Prisma.InputJsonValue = promoResult
+    ? (JSON.parse(JSON.stringify([...pricing.breakdown, promoResult.promoLine])) as Prisma.InputJsonValue)
+    : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue);
+
+  // Hold pricingBreakdownJson is always { items, promoCode? }.
+  const holdBreakdownJson: Prisma.InputJsonValue = promoResult
+    ? ({ items: [...pricing.breakdown, promoResult.promoLine], promoCode: args.promoContext!.promo.code } as unknown as Prisma.InputJsonValue)
+    : ({ items: JSON.parse(JSON.stringify(pricing.breakdown)) } as unknown as Prisma.InputJsonValue);
+
+  return { startAt, endAt, activeHold, pricing, effectiveTotal, pricingBreakdownJson, holdBreakdownJson, promoResult };
+}
+
+// ---------------------------------------------------------------------------
+// Hold pricingBreakdownJson is always { items: BreakdownItem[], promoCode?: string }.
+// (Plain-array shape was normalized away — all writers now produce the object form.)
 function extractHoldPromoCode(pricingBreakdownJson: unknown): string | undefined {
   if (pricingBreakdownJson && typeof pricingBreakdownJson === "object" && !Array.isArray(pricingBreakdownJson)) {
     const json = pricingBreakdownJson as Record<string, unknown>;
@@ -392,103 +570,30 @@ export async function createBookingInDb(
       const tx = txUnknown as typeof prisma;
       await expireStaleBookingHolds(tx);
 
-      const customerUser = input.customerUserId
-        ? await tx.user.findUnique({
-            where: { id: input.customerUserId },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              walletBalance: true,
-            },
-          })
-        : (await tx.user.findUnique({
-            where: { email: input.customer.email },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              walletBalance: true,
-            },
-          })) ??
-          (await tx.user.create({
-            data: {
-              name: input.customer.name,
-              email: input.customer.email,
-              phone: input.customer.phone,
-              passwordHash: "guest-booking-placeholder",
-              role: "customer",
-            },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              walletBalance: true,
-            },
-          }));
+      const customerUser = await tx.user.findUnique({
+        where: { id: input.customerUserId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          walletBalance: true,
+        },
+      });
 
       if (!customerUser) {
         throw new Error("Пользователь аккаунта не найден");
       }
-
-      const activeHold = await resolveValidatedActiveHold({
-        holdId: input.holdId,
-        customerId: customerUser.id,
-        serviceId: service.id,
-        locationId: input.locationId,
-        courtId: input.courtId,
-        instructorId: input.instructorId,
-        startAt,
-        endAt,
-        tx,
-      });
-
-      await assertBookingSlotAvailable({
-        tx,
-        service,
-        locationId: input.locationId,
-        date: input.date,
-        startTime: input.startTime,
-        durationMin: input.durationMin,
-        courtId: input.courtId,
-        instructorId: input.instructorId,
-      });
-
-      await assertBookingSlotConflictsClear({
-        tx,
-        service,
-        locationId: input.locationId,
-        date: input.date,
-        startTime: input.startTime,
-        durationMin: input.durationMin,
-        courtId: input.courtId,
-        instructorId: input.instructorId,
-        excludeHoldId: activeHold?.id,
-        startAt,
-        endAt,
-      });
 
       const dbComponentPrices = await tx.componentPrice.findMany({
         where: {
           locationId: input.locationId,
           sportId: service.sportId,
           currency: "KZT",
-          componentType: {
-            in: ["court", "instructor"],
-          },
+          componentType: { in: ["court", "instructor"] },
         },
-        include: {
-          sport: {
-            select: {
-              slug: true,
-            },
-          },
-        },
+        include: { sport: { select: { slug: true } } },
       });
-
       const componentPrices: ComponentPriceRecord[] = dbComponentPrices.map((item) => ({
         id: item.id,
         sport: item.sport.slug,
@@ -497,7 +602,6 @@ export async function createBookingInDb(
         currency: item.currency,
         amount: Number(item.amount),
       }));
-
       const serviceRecord: ServiceRecord = {
         id: service.code,
         name: service.name,
@@ -506,32 +610,41 @@ export async function createBookingInDb(
         requiresInstructor: service.requiresInstructor,
         active: service.active,
       };
-
       const instructorPriceOverrideAmount =
         service.requiresInstructor && instructorForPricing
           ? Number(instructorForPricing.instructorSports[0]?.pricePerHour ?? 0)
           : undefined;
 
-      const pricing = evaluatePricing({
-        service: serviceRecord,
-        bookingDate: input.date,
-        bookingStartTime: input.startTime,
-        durationMin: input.durationMin,
-        componentPrices,
-        instructorPriceOverrideAmount,
-        currency: "KZT",
-      });
+      // Determine effective promo code: explicit input or inherited from hold.
+      // Resolve hold first (if any) to extract its promo code, then build promoContext.
+      const preHold = input.holdId
+        ? await resolveValidatedActiveHold({
+            holdId: input.holdId,
+            customerId: customerUser.id,
+            serviceId: service.id,
+            locationId: input.locationId,
+            courtId: input.courtId,
+            instructorId: input.instructorId,
+            startAt,
+            endAt,
+            tx,
+          })
+        : null;
 
-      const effectivePromoCode =
-        input.promoCode ?? extractHoldPromoCode(activeHold?.pricingBreakdownJson);
+      const effectivePromoCode = input.promoCode ?? extractHoldPromoCode(preHold?.pricingBreakdownJson);
 
-      let promoApplyResult: PromoApplyResult | undefined;
-      let promoRecord: Awaited<ReturnType<typeof tx.promoCode.findUnique>> | undefined;
+      let promoRecord: PrismaPromoCode | undefined;
+      let promoContextForSlot: PrepareBookingSlotArgs["promoContext"] | undefined;
 
       if (effectivePromoCode) {
         const promo = await tx.promoCode.findUnique({ where: { code: effectivePromoCode } });
         if (!promo) throw new PromoIneligibleError("not_found", PROMO_ERROR_MESSAGES.not_found);
         promoRecord = promo;
+
+        // Serialize concurrent promo redemptions — row lock before reading counts.
+        await (tx as unknown as { $queryRaw: typeof prisma.$queryRaw }).$queryRaw`
+          SELECT id FROM "PromoCode" WHERE id = ${promo.id} FOR UPDATE
+        `;
 
         const [customerRedemptionCount, totalRedemptionCount, existingBookingsCount] = await Promise.all([
           tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id, customerId: customerUser.id } }),
@@ -539,21 +652,36 @@ export async function createBookingInDb(
           tx.booking.count({ where: { customerId: customerUser.id, status: { not: "cancelled" } } }),
         ]);
 
-        promoApplyResult = applyPromoToPricing(pricing, promo, {
-          customerId: customerUser.id,
-          serviceCode: service.code,
-          sportId: service.sportId,
+        promoContextForSlot = {
+          promo,
           existingCustomerRedemptions: customerRedemptionCount,
           existingTotalRedemptions: totalRedemptionCount,
           isFirstBooking: existingBookingsCount === 0,
-          bookingDate: input.date,
-        });
+        };
       }
 
-      const effectiveTotal = promoApplyResult?.totalAfterDiscount ?? pricing.total;
-      const pricingBreakdownJson = promoApplyResult
-        ? (JSON.parse(JSON.stringify([...pricing.breakdown, promoApplyResult.promoLine])) as Prisma.InputJsonValue)
-        : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue);
+      // prepareBookingSlot will re-resolve the hold (idempotent); we pass holdId so it
+      // performs the excludeHoldId conflict exclusion correctly.
+      const prepared = await prepareBookingSlot({
+        tx,
+        service,
+        locationId: input.locationId,
+        date: input.date,
+        startTime: input.startTime,
+        durationMin: input.durationMin,
+        courtId: input.courtId,
+        instructorId: input.instructorId,
+        holdId: input.holdId,
+        customerId: customerUser.id,
+        startAt,
+        endAt,
+        componentPrices,
+        serviceRecord,
+        instructorPriceOverrideAmount,
+        promoContext: promoContextForSlot,
+      });
+
+      const { activeHold, pricing, effectiveTotal, pricingBreakdownJson, holdBreakdownJson, promoResult: promoApplyResult } = prepared;
 
       const currentBalanceKzt = Number(customerUser.walletBalance);
       const effectiveSettlementMode: BookingSettlementMode =
@@ -576,9 +704,7 @@ export async function createBookingInDb(
               startAt,
               endAt,
               amountRequiredKzt: effectiveTotal,
-              pricingBreakdownJson: promoApplyResult
-                ? ({ items: [...pricing.breakdown, promoApplyResult.promoLine], promoCode: effectivePromoCode } as unknown as Prisma.InputJsonValue)
-                : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue),
+              pricingBreakdownJson: holdBreakdownJson,
               courtId: input.courtId,
               instructorId: input.instructorId,
             },
@@ -786,43 +912,16 @@ export async function createBookingSeriesInDb(
       const tx = txUnknown as typeof prisma;
       await expireStaleBookingHolds(tx);
 
-      const customerUser = input.customerUserId
-        ? await tx.user.findUnique({
-            where: { id: input.customerUserId },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              walletBalance: true,
-            },
-          })
-        : (await tx.user.findUnique({
-            where: { email: input.customer.email },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              walletBalance: true,
-            },
-          })) ??
-          (await tx.user.create({
-            data: {
-              name: input.customer.name,
-              email: input.customer.email,
-              phone: input.customer.phone,
-              passwordHash: "guest-booking-placeholder",
-              role: "customer",
-            },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              walletBalance: true,
-            },
-          }));
+      const customerUser = await tx.user.findUnique({
+        where: { id: input.customerUserId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          walletBalance: true,
+        },
+      });
 
       if (!customerUser) {
         throw new Error("Пользователь аккаунта не найден");
@@ -883,7 +982,7 @@ export async function createBookingSeriesInDb(
           ? Number(instructorForPricing.instructorSports[0]?.pricePerHour ?? 0)
           : undefined;
 
-      let seriesPromo: Awaited<ReturnType<typeof tx.promoCode.findUnique>> | undefined;
+      let seriesPromo: PrismaPromoCode | undefined;
       let seriesExistingCustomerRedemptions = 0;
       let seriesExistingTotalRedemptions = 0;
       let seriesIsFirstBooking = false;
@@ -892,6 +991,11 @@ export async function createBookingSeriesInDb(
         const promo = await tx.promoCode.findUnique({ where: { code: input.promoCode } });
         if (!promo) throw new PromoIneligibleError("not_found", PROMO_ERROR_MESSAGES.not_found);
         seriesPromo = promo;
+
+        // Row-level lock to serialize concurrent series promo redemptions.
+        await (tx as unknown as { $queryRaw: typeof prisma.$queryRaw }).$queryRaw`
+          SELECT id FROM "PromoCode" WHERE id = ${promo.id} FOR UPDATE
+        `;
 
         const [customerCount, totalCount, existingBookingsCount] = await Promise.all([
           tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id, customerId: customerUser.id } }),
@@ -912,7 +1016,7 @@ export async function createBookingSeriesInDb(
         }
       }
 
-      const preparedSlots = [];
+      const preparedSlots: Array<{ slot: CreateBookingHoldSlotInput } & PrepareBookingSlotResult> = [];
       const now = new Date();
 
       for (const slot of input.slots) {
@@ -922,87 +1026,45 @@ export async function createBookingSeriesInDb(
           throw new Error("Нельзя создать бронирование на прошедшее время");
         }
 
-        const activeHold = await resolveValidatedActiveHold({
+        const slotPromoContext: PrepareBookingSlotArgs["promoContext"] = seriesPromo
+          ? {
+              promo: seriesPromo,
+              existingCustomerRedemptions: seriesExistingCustomerRedemptions,
+              existingTotalRedemptions: seriesExistingTotalRedemptions,
+              isFirstBooking: seriesIsFirstBooking,
+            }
+          : undefined;
+
+        const prepared = await prepareBookingSlot({
+          tx,
+          service,
+          locationId: input.locationId,
+          date: input.date,
+          startTime: slot.startTime,
+          durationMin: input.durationMin,
+          courtId: slot.courtId,
+          instructorId: input.instructorId,
           holdId: slot.holdId,
           customerId: customerUser.id,
-          serviceId: service.id,
-          locationId: input.locationId,
-          courtId: slot.courtId,
-          instructorId: input.instructorId,
           startAt,
           endAt,
-          tx,
-        });
-
-        await assertBookingSlotAvailable({
-          tx,
-          service,
-          locationId: input.locationId,
-          date: input.date,
-          startTime: slot.startTime,
-          durationMin: input.durationMin,
-          courtId: slot.courtId,
-          instructorId: input.instructorId,
-        });
-
-        await assertBookingSlotConflictsClear({
-          tx,
-          service,
-          locationId: input.locationId,
-          date: input.date,
-          startTime: slot.startTime,
-          durationMin: input.durationMin,
-          courtId: slot.courtId,
-          instructorId: input.instructorId,
-          excludeHoldId: activeHold?.id,
-          startAt,
-          endAt,
-        });
-
-        const pricing = evaluatePricing({
-          service: serviceRecord,
-          bookingDate: input.date,
-          bookingStartTime: slot.startTime,
-          durationMin: input.durationMin,
           componentPrices,
+          serviceRecord,
           instructorPriceOverrideAmount,
-          currency: "KZT",
+          promoContext: slotPromoContext,
         });
 
-        let slotPromoResult: PromoApplyResult | undefined;
-        if (seriesPromo) {
-          slotPromoResult = applyPromoToPricing(pricing, seriesPromo, {
-            customerId: customerUser.id,
-            serviceCode: service.code,
-            sportId: service.sportId,
-            existingCustomerRedemptions: seriesExistingCustomerRedemptions,
-            existingTotalRedemptions: seriesExistingTotalRedemptions,
-            isFirstBooking: seriesIsFirstBooking,
-            bookingDate: input.date,
-          });
-        }
-
-        const slotEffectiveTotal = slotPromoResult?.totalAfterDiscount ?? pricing.total;
-        const slotBreakdownJson = slotPromoResult
-          ? (JSON.parse(JSON.stringify([...pricing.breakdown, slotPromoResult.promoLine])) as Prisma.InputJsonValue)
-          : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue);
-
-        preparedSlots.push({
-          slot,
-          startAt,
-          endAt,
-          activeHold,
-          pricing,
-          effectiveTotal: slotEffectiveTotal,
-          pricingBreakdownJson: slotBreakdownJson,
-          promoResult: slotPromoResult,
-        });
+        preparedSlots.push({ slot, ...prepared });
       }
 
       const totalAmount = preparedSlots.reduce((sum, slot) => sum + slot.effectiveTotal, 0);
       const currentBalanceKzt = Number(customerUser.walletBalance);
       if (currentBalanceKzt < totalAmount) {
-        throw new Error("Недостаточно средств на балансе для броинрования");
+        throw new SeriesInsufficientWalletBalanceError({
+          currentBalanceKzt,
+          amountRequiredKzt: totalAmount,
+          shortfallKzt: totalAmount - currentBalanceKzt,
+        });
       }
 
       const bookings: CreateBookingSeriesInDbResult["bookings"] = [];
@@ -1242,40 +1304,15 @@ export async function createBookingHoldsInDb(
       const tx = txUnknown as typeof prisma;
       await expireStaleBookingHolds(tx);
 
-      const customerUser = input.customerUserId
-        ? await tx.user.findUnique({
-            where: { id: input.customerUserId },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          })
-        : (await tx.user.findUnique({
-            where: { email: input.customer.email },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          })) ??
-          (await tx.user.create({
-            data: {
-              name: input.customer.name,
-              email: input.customer.email,
-              phone: input.customer.phone,
-              passwordHash: "guest-booking-placeholder",
-              role: "customer",
-            },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          }));
+      const customerUser = await tx.user.findUnique({
+        where: { id: input.customerUserId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      });
 
       if (!customerUser) {
         throw new Error("Пользователь аккаунта не найден");
@@ -1322,7 +1359,7 @@ export async function createBookingHoldsInDb(
           ? Number(instructorForPricing.instructorSports[0]?.pricePerHour ?? 0)
           : undefined;
 
-      let holdsPromo: Awaited<ReturnType<typeof tx.promoCode.findUnique>> | undefined;
+      let holdsPromo: PrismaPromoCode | undefined;
       let holdsCustomerRedemptionCount = 0;
       let holdsTotalRedemptionCount = 0;
       let holdsIsFirstBooking = false;
@@ -1331,6 +1368,11 @@ export async function createBookingHoldsInDb(
         const promo = await tx.promoCode.findUnique({ where: { code: input.promoCode } });
         if (!promo) throw new PromoIneligibleError("not_found", PROMO_ERROR_MESSAGES.not_found);
         holdsPromo = promo;
+
+        // Row-level lock to serialize concurrent holds promo redemptions.
+        await (tx as unknown as { $queryRaw: typeof prisma.$queryRaw }).$queryRaw`
+          SELECT id FROM "PromoCode" WHERE id = ${promo.id} FOR UPDATE
+        `;
 
         const [customerCount, totalCount, existingBookingsCount] = await Promise.all([
           tx.promoCodeRedemption.count({ where: { promoCodeId: promo.id, customerId: customerUser.id } }),
@@ -1343,78 +1385,41 @@ export async function createBookingHoldsInDb(
         holdsIsFirstBooking = existingBookingsCount === 0;
       }
 
+      const holdsPromoContext: PrepareBookingSlotArgs["promoContext"] = holdsPromo
+        ? {
+            promo: holdsPromo,
+            existingCustomerRedemptions: holdsCustomerRedemptionCount,
+            existingTotalRedemptions: holdsTotalRedemptionCount,
+            isFirstBooking: holdsIsFirstBooking,
+          }
+        : undefined;
+
       const holds = [];
       for (const slot of input.slots) {
         const startAt = venueDateTimeToUtc(input.date, slot.startTime);
         const endAt = new Date(startAt.getTime() + 60 * 60 * 1000);
 
-        const activeHold = await resolveValidatedActiveHold({
+        const prepared = await prepareBookingSlot({
+          tx,
+          service,
+          locationId: input.locationId,
+          date: input.date,
+          startTime: slot.startTime,
+          durationMin: input.durationMin,
+          courtId: slot.courtId,
+          instructorId: input.instructorId,
           holdId: slot.holdId,
           customerId: customerUser.id,
-          serviceId: service.id,
-          locationId: input.locationId,
-          courtId: slot.courtId,
-          instructorId: input.instructorId,
           startAt,
           endAt,
-          tx,
-        });
-
-        await assertBookingSlotAvailable({
-          tx,
-          service,
-          locationId: input.locationId,
-          date: input.date,
-          startTime: slot.startTime,
-          durationMin: input.durationMin,
-          courtId: slot.courtId,
-          instructorId: input.instructorId,
-        });
-
-        await assertBookingSlotConflictsClear({
-          tx,
-          service,
-          locationId: input.locationId,
-          date: input.date,
-          startTime: slot.startTime,
-          durationMin: input.durationMin,
-          courtId: slot.courtId,
-          instructorId: input.instructorId,
-          excludeHoldId: activeHold?.id,
-          startAt,
-          endAt,
-        });
-
-        const pricing = evaluatePricing({
-          service: serviceRecord,
-          bookingDate: input.date,
-          bookingStartTime: slot.startTime,
-          durationMin: input.durationMin,
           componentPrices,
+          serviceRecord,
           instructorPriceOverrideAmount,
-          currency: "KZT",
+          promoContext: holdsPromoContext,
         });
-
-        let slotPromoResult: PromoApplyResult | undefined;
-        if (holdsPromo) {
-          slotPromoResult = applyPromoToPricing(pricing, holdsPromo, {
-            customerId: customerUser.id,
-            serviceCode: service.code,
-            sportId: service.sportId,
-            existingCustomerRedemptions: holdsCustomerRedemptionCount,
-            existingTotalRedemptions: holdsTotalRedemptionCount,
-            isFirstBooking: holdsIsFirstBooking,
-            bookingDate: input.date,
-          });
-        }
-
-        const slotEffectiveTotal = slotPromoResult?.totalAfterDiscount ?? pricing.total;
-        const holdBreakdownJson: Prisma.InputJsonValue = slotPromoResult
-          ? ({ items: [...pricing.breakdown, slotPromoResult.promoLine], promoCode: holdsPromo!.code } as unknown as Prisma.InputJsonValue)
-          : (JSON.parse(JSON.stringify(pricing.breakdown)) as Prisma.InputJsonValue);
 
         const hold =
-          activeHold ??
+          prepared.activeHold ??
           (await createBookingHold(
             {
               customerId: customerUser.id,
@@ -1422,8 +1427,8 @@ export async function createBookingHoldsInDb(
               locationId: input.locationId,
               startAt,
               endAt,
-              amountRequiredKzt: slotEffectiveTotal,
-              pricingBreakdownJson: holdBreakdownJson,
+              amountRequiredKzt: prepared.effectiveTotal,
+              pricingBreakdownJson: prepared.holdBreakdownJson,
               courtId: slot.courtId,
               instructorId: input.instructorId,
             },

@@ -11,6 +11,7 @@ import { notifyBookingCancelled } from "@/src/lib/notifications/bookings";
 import { prisma } from "@/src/lib/prisma";
 import { formatTimeInVenueTimezone, isoToVenueTimezoneParts, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
 import { debitUserWallet } from "@/src/lib/wallet/service";
+import { completePastConfirmedBookings } from "@/src/lib/bookings/auto-complete";
 
 const FREE_CANCELLATION_HOURS = getSafeCustomerFreeCancellationHours();
 const MORNING_WINDOW_LABEL = getMorningCancellationWindowLabel();
@@ -23,7 +24,7 @@ export interface AccountBookingRow {
   courtName: string;
   date: string;
   timeRange: string;
-  status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
+  status: "pending_payment" | "confirmed" | "cancelled" | "completed";
   statusLabel: string;
   paymentStatus: "unpaid" | "paid" | "failed" | "refunded" | "none";
   paymentStatusLabel: string;
@@ -59,8 +60,12 @@ const BOOKING_STATUS_LABELS: Record<AccountBookingRow["status"], string> = {
   confirmed: "Подтверждена",
   cancelled: "Отменена",
   completed: "Завершена",
-  no_show: "Неявка",
 };
+
+function normalizeAccountBookingStatus(status: string): AccountBookingRow["status"] {
+  if (status === "pending_payment" || status === "confirmed" || status === "cancelled") return status;
+  return "completed";
+}
 
 const PAYMENT_STATUS_LABELS: Record<AccountBookingRow["paymentStatus"], string> = {
   none: "—",
@@ -106,10 +111,6 @@ function getCancellationState(args: {
   if (args.status === "completed") {
     return { canCancel: false, cancelBlockedReason: "Завершенное бронирование нельзя отменить." };
   }
-  if (args.status === "no_show") {
-    return { canCancel: false, cancelBlockedReason: "Неявка" };
-  }
-
   if (!canCustomerCancelBooking(args.startAt, now, FREE_CANCELLATION_HOURS)) {
     const blockedReason =
       cancellationRule.policyKind === "morning_previous_day_midnight"
@@ -130,6 +131,8 @@ function getCancellationState(args: {
 }
 
 export async function getAccountDashboardData(userId: string): Promise<AccountDashboardData> {
+  await completePastConfirmedBookings();
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -181,8 +184,9 @@ export async function getAccountDashboardData(userId: string): Promise<AccountDa
     }),
   ]);
 
-  const bookingCancellable = historyRows.reduce((count, row: { startAt: Date; status: AccountBookingRow["status"] }) => {
-    return getCancellationState({ startAt: row.startAt, status: row.status, now }).canCancel ? count + 1 : count;
+  const bookingCancellable = historyRows.reduce((count, row) => {
+    const status = normalizeAccountBookingStatus(row.status);
+    return getCancellationState({ startAt: row.startAt, status, now }).canCancel ? count + 1 : count;
   }, 0);
   const upcomingEvents = eventRows.filter((row) => row.status === "confirmed" && row.event.startsAt >= now).length;
   const cancellableEvents = eventRows.filter((row) => row.status === "confirmed" && row.event.startsAt > now).length;
@@ -201,6 +205,8 @@ export async function getAccountDashboardData(userId: string): Promise<AccountDa
 }
 
 export async function getAccountBookings(userId: string, limit = 100): Promise<AccountBookingRow[]> {
+  await completePastConfirmedBookings();
+
   const now = new Date();
   const [rows, eventRegistrations] = await Promise.all([
     prisma.booking.findMany({
@@ -270,7 +276,7 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
       id: string;
       startAt: Date;
       endAt: Date;
-      status: AccountBookingRow["status"];
+      status: string;
       priceTotal: unknown;
       service: { name: string };
       payment: null | { status: "unpaid" | "paid" | "failed" | "refunded"; provider: string };
@@ -278,8 +284,9 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
     }) => {
       const startParts = isoToVenueTimezoneParts(row.startAt);
       const endParts = isoToVenueTimezoneParts(row.endAt);
-      const cancellationState = getCancellationState({ startAt: row.startAt, status: row.status, now });
-      const paymentStatus = resolveAccountPaymentStatus({ payment: row.payment, status: row.status });
+      const status = normalizeAccountBookingStatus(row.status);
+      const cancellationState = getCancellationState({ startAt: row.startAt, status, now });
+      const paymentStatus = resolveAccountPaymentStatus({ payment: row.payment, status });
       const courtName =
         row.resources
           .filter((resource) => resource.resourceType === "court")
@@ -293,8 +300,8 @@ export async function getAccountBookings(userId: string, limit = 100): Promise<A
         courtName,
         date: startParts.date,
         timeRange: `${startParts.time} - ${endParts.time}`,
-        status: row.status,
-        statusLabel: BOOKING_STATUS_LABELS[row.status],
+        status,
+        statusLabel: BOOKING_STATUS_LABELS[status],
         paymentStatus,
         paymentStatusLabel: PAYMENT_STATUS_LABELS[paymentStatus],
         amountKzt: formatAmountKzt(Number(row.priceTotal)),
@@ -390,7 +397,7 @@ export async function cancelCustomerBooking(args: { userId: string; bookingId: s
 
   const cancellationState = getCancellationState({
     startAt: booking.startAt,
-    status: booking.status as AccountBookingRow["status"],
+    status: normalizeAccountBookingStatus(booking.status),
     now: new Date(),
   });
 
@@ -537,7 +544,7 @@ export async function payBookingFromWallet(args: { userId: string; bookingId: st
   });
 
   if (!booking) throw new Error("Бронирование не найдено");
-  if (booking.status === "cancelled" || booking.status === "completed" || booking.status === "no_show") {
+  if (booking.status === "cancelled" || booking.status === "completed") {
     throw new Error("Оплата недоступна для этого бронирования");
   }
   if (booking.payment?.status === "paid") throw new Error("Бронирование уже оплачено");

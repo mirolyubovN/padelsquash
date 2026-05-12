@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import {
   createBookingHoldsInDb,
   createBookingSeriesInDb,
+  SeriesInsufficientWalletBalanceError,
 } from "@/src/lib/bookings/persistence";
 import { resolveLocationBySlug } from "@/src/lib/locations/service";
 import { prisma } from "@/src/lib/prisma";
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
     }
 
-    if (message.includes("Недостаточно средств")) {
+    if (error instanceof SeriesInsufficientWalletBalanceError) {
       try {
         const holdResult = await createBookingHoldsInDb({
           serviceCode: parsed.data.serviceId,

@@ -17,7 +17,7 @@ import {
   nextWeekdayIsoDate,
 } from "./helpers";
 import { getAdminBookings, markBookingPaid, setBookingPaymentState, setBookingStatus } from "@/src/lib/admin/bookings";
-import { formatTimeInVenueTimezone, toVenueIsoDate } from "@/src/lib/time/venue-timezone";
+import { formatTimeInVenueTimezone, toVenueIsoDate, venueDateTimeToUtc } from "@/src/lib/time/venue-timezone";
 import { cancelCustomerEventRegistration, registerCustomerForEvent } from "@/src/lib/events/service";
 
 describe("booking persistence (DB integration)", () => {
@@ -286,7 +286,7 @@ describe("booking persistence (DB integration)", () => {
 
     const bookingsAtHeldSlot = await prisma.booking.count({
       where: {
-        startAt: { gte: new Date(`${date}T00:00:00.000Z`) },
+        startAt: venueDateTimeToUtc(date, "12:00"),
         resources: { some: { resourceType: "court", resourceId: courtA.id } },
       },
     });
@@ -658,6 +658,56 @@ describe("booking persistence (DB integration)", () => {
     expect(corrected?.status).toBe("confirmed");
     expect(corrected?.payment?.provider).toBe("manual");
     expect(corrected?.payment?.status).toBe("paid");
+    expect(balanceAfter).toBe(balanceBefore);
+  });
+
+  it("does not let admin mark a booking as wallet-paid without a wallet charge", async () => {
+    await getSeededPadelRentalService();
+    const [courtA] = await getSeededPadelCourts(1);
+    const date = nextWeekdayIsoDate(91);
+    const user = await createCustomerWithWallet("it-admin-wallet-status-block", 1_000);
+    const balanceBefore = await getUserWalletBalance(user.id);
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId: courtA.locationId,
+      date,
+      startTime: "21:00",
+      durationMin: 60,
+      courtId: courtA.id,
+      paymentMode: "auto",
+      customerUserId: user.id,
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    await expect(
+      setBookingPaymentState({
+        bookingId: created.booking.id,
+        state: "paid_wallet",
+      }),
+    ).rejects.toThrow("реального списания баланса");
+
+    const unchanged = await prisma.booking.findUnique({
+      where: { id: created.booking.id },
+      select: {
+        status: true,
+        payment: {
+          select: {
+            provider: true,
+            status: true,
+          },
+        },
+      },
+    });
+    const balanceAfter = await getUserWalletBalance(user.id);
+
+    expect(unchanged?.status).toBe("pending_payment");
+    expect(unchanged?.payment?.provider).toBe("manual");
+    expect(unchanged?.payment?.status).toBe("unpaid");
     expect(balanceAfter).toBe(balanceBefore);
   });
 
@@ -1088,6 +1138,77 @@ describe("booking persistence (DB integration)", () => {
       },
     });
     expect(bookings).toBe(0);
+  });
+
+  it("rejects same-current-hour booking on the customer path (no allowCurrentHourLateBooking)", async () => {
+    // The customer API never sets allowCurrentHourLateBooking, so a booking
+    // for the slot that has already started (same venue hour as now) must fail.
+    const [courtA] = await getSeededPadelCourts(1);
+    const user = await createCustomerWithWallet("it-same-hour-customer");
+    const now = new Date();
+    const currentHour = Number(formatTimeInVenueTimezone(now).split(":")[0] ?? "0");
+    const date = toVenueIsoDate(now);
+    const startTime = `${String(currentHour).padStart(2, "0")}:00`;
+
+    await expect(
+      createBookingInDb({
+        serviceCode: "padel-rental",
+        locationId: courtA.locationId,
+        date,
+        startTime,
+        durationMin: 60,
+        courtId: courtA.id,
+        customerUserId: user.id,
+        // allowCurrentHourLateBooking intentionally omitted (customer path)
+        customer: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+        },
+      }),
+    ).rejects.toThrow("Нельзя создать бронирование на прошедшее время");
+  });
+
+  it("accepts same-current-hour booking on the admin path (allowCurrentHourLateBooking: true)", async () => {
+    // Admin may create a booking for the current hour even after it has started.
+    const [courtA] = await getSeededPadelCourts(1);
+    const user = await createCustomerWithWallet("it-same-hour-admin");
+    const now = new Date();
+    const currentHour = Number(formatTimeInVenueTimezone(now).split(":")[0] ?? "0");
+    const date = toVenueIsoDate(now);
+    const startTime = `${String(currentHour).padStart(2, "0")}:00`;
+    const locationId = courtA.locationId;
+
+    // Skip if the court's opening hours don't cover the current hour
+    // (the availability validator would reject it for a different reason).
+    const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
+    const openingHour = await prisma.openingHour.findUnique({
+      where: { locationId_dayOfWeek: { locationId, dayOfWeek } },
+      select: { active: true, openTime: true, closeTime: true },
+    });
+    if (!openingHour?.active) {
+      // Club is closed today — skip rather than fail.
+      return;
+    }
+
+    const created = await createBookingInDb({
+      serviceCode: "padel-rental",
+      locationId,
+      date,
+      startTime,
+      durationMin: 60,
+      courtId: courtA.id,
+      customerUserId: user.id,
+      allowCurrentHourLateBooking: true,
+      paymentMode: "auto",
+      customer: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+
+    expect(["confirmed", "pending_payment"]).toContain(created.booking.status);
   });
 
   it("serializes conflicting concurrent requests so only one booking succeeds", async () => {

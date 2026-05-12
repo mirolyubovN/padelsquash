@@ -103,12 +103,18 @@ export function SiteHeaderClient({ portalLink, logoutAction, accountLink }: Site
           aria-expanded={isMobileMenuOpen}
           onClick={() => setMobileMenuPath(isMobileMenuOpen ? null : pathname)}
         >
-          <span className="site-header__menu-icon" aria-hidden="true">
-            <span className="site-header__menu-icon-bar" />
-            <span className="site-header__menu-icon-bar" />
-            <span className="site-header__menu-icon-bar" />
-          </span>
-          <span>Меню</span>
+          {isMobileMenuOpen ? (
+            <span className="site-header__close-icon" aria-hidden="true">
+              <span className="site-header__close-icon-bar" />
+              <span className="site-header__close-icon-bar" />
+            </span>
+          ) : (
+            <span className="site-header__menu-icon" aria-hidden="true">
+              <span className="site-header__menu-icon-bar" />
+              <span className="site-header__menu-icon-bar" />
+              <span className="site-header__menu-icon-bar" />
+            </span>
+          )}
         </button>
       </div>
 
@@ -126,21 +132,6 @@ export function SiteHeaderClient({ portalLink, logoutAction, accountLink }: Site
             aria-label="Мобильная навигация"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="site-header__mobile-head">
-              <div className="site-header__mobile-title">
-                <RCSeal size={28} color="#c93f17" />
-                {siteConfig.name}
-              </div>
-              <button
-                type="button"
-                className="site-header__mobile-close"
-                onClick={() => setMobileMenuPath(null)}
-                aria-label="Закрыть меню"
-              >
-                Закрыть
-              </button>
-            </div>
-
             <nav aria-label="Мобильная навигация">
               <ul className="site-header__mobile-list">
                 {navItems.map((item) => (
